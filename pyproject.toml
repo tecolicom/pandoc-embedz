@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pandoc-embedz"
+version = "0.1.0"
+description = "Pandoc filter for embedding data-driven content using Jinja2 templates"
+readme = "README.md"
+requires-python = ">=3.7"
+license = {text = "MIT"}
+authors = [
+    {name = "pandoc-embedz contributors"}
+]
+keywords = ["pandoc", "filter", "jinja2", "data", "template", "markdown"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Text Processing :: Filters",
+    "Topic :: Software Development :: Documentation",
+]
+dependencies = [
+    "panflute>=2.0.0",
+    "jinja2>=3.0.0",
+    "pandas>=1.0.0",
+    "pyyaml>=5.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/yourusername/pandoc-embedz"
+Documentation = "https://github.com/yourusername/pandoc-embedz#readme"
+Repository = "https://github.com/yourusername/pandoc-embedz"
+Issues = "https://github.com/yourusername/pandoc-embedz/issues"
+
+[project.scripts]
+pandoc-embedz = "pandoc_embedz.filter:main"
+
+[tool.setuptools]
+packages = ["pandoc_embedz"]
+
+[tool.setuptools.package-data]
+pandoc_embedz = ["py.typed"]

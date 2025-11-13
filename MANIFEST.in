@@ -1,0 +1,4 @@
+include README.md
+include LICENSE
+include COMPARISON.md
+recursive-include examples *.md *.csv *.json *.yaml
