@@ -6,7 +6,7 @@
 というニーズは一般的です。手動でデータを転記すると、更新時のミスや作業負荷が問題になります。
 
 このドキュメントでは、Pandocでこの問題を解決する既存の方法と、
-filter/jinja.py の位置づけを比較分析します。
+pandoc-embedz の位置づけを比較分析します。
 
 ## 既存のソリューション
 
@@ -58,7 +58,7 @@ By {{ author }} ({{ year }})
 - ❌ 動作が遅い（開発者自身が言及）
 
 **用途の違い:** pandoc-jinja は**ドキュメント全体**のメタデータ展開が目的。
-filter/jinja.py は**コードブロック内**でのデータ駆動コンテンツ生成が目的。
+pandoc-embedz は**コードブロック内**でのデータ駆動コンテンツ生成が目的。
 両者は目的が異なるため、併用も可能。
 
 **結論:** メタデータの変数展開には便利だが、外部データからテーブル・リストを
@@ -137,7 +137,7 @@ jinja2 report.md.j2 data.yml | pandoc -o report.pdf
 **結論:** 動作するが、ワークフローが煩雑。Pandocの統合性が失われる。
 
 
-## filter/jinja.py の特徴
+## pandoc-embedz の特徴
 
 ### 設計思想
 
@@ -150,7 +150,7 @@ jinja2 report.md.j2 data.yml | pandoc -o report.pdf
 
 **1. 完全な Jinja2 サポート**
 ```markdown
-​```{.jinja}
+​```embedz
 ---
 data: incidents.csv
 ---
@@ -177,7 +177,7 @@ data: incidents.csv
 **3. 外部ファイルとインラインデータ**
 ```markdown
 # 外部ファイル
-​```{.jinja}
+​```embedz
 ---
 data: monthly_stats.csv
 ---
@@ -185,7 +185,7 @@ data: monthly_stats.csv
 ​```
 
 # インラインデータ
-​```{.jinja}
+​```embedz
 ---
 format: json
 ---
@@ -198,7 +198,7 @@ format: json
 **4. テンプレートの再利用**
 ```markdown
 # テンプレート定義
-​```{.jinja}
+​```embedz
 ---
 name: incident-list
 data: data1.csv
@@ -209,7 +209,7 @@ data: data1.csv
 ​```
 
 # テンプレート再利用
-​```{.jinja}
+​```embedz
 ---
 template: incident-list
 data: data2.csv
@@ -220,7 +220,7 @@ data: data2.csv
 **5. 変数スコープ管理**
 ```markdown
 # グローバル変数（ドキュメント全体）
-​```{.jinja}
+​```embedz
 ---
 global:
   threshold: 100
@@ -228,7 +228,7 @@ global:
 ​```
 
 # ローカル変数（ブロック内のみ）
-​```{.jinja}
+​```embedz
 ---
 data: data.csv
 local:
@@ -242,7 +242,7 @@ local:
 
 **6. 構造化データ対応**
 ```markdown
-​```{.jinja}
+​```embedz
 ---
 data: report.json
 ---
@@ -260,7 +260,7 @@ data: report.json
 
 ## 機能比較表
 
-| 機能 | csv2table | pandoc-jinja | Lua | R Markdown | 前処理 | **filter/jinja.py** |
+| 機能 | csv2table | pandoc-jinja | Lua | R Markdown | 前処理 | **pandoc-embedz** |
 |------|-----------|--------------|-----|------------|--------|---------------------|
 | テーブル生成 | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | リスト生成 | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
@@ -279,13 +279,13 @@ data: report.json
 ## ユースケース別推奨
 
 ### 単純なCSVテーブル挿入
-→ **pandoc-csv2table** または **filter/jinja.py**
+→ **pandoc-csv2table** または **pandoc-embedz**
 
 ### メタデータの変数展開のみ
 → **pandoc-jinja** または Pandoc組み込みテンプレート
 
 ### データからテーブル・リストを柔軟に生成（推奨）
-→ **filter/jinja.py**
+→ **pandoc-embedz**
 - ループ・条件分岐が使える
 - 複数フォーマット対応
 - テンプレート再利用可能
@@ -294,12 +294,12 @@ data: report.json
 → **R Markdown / Quarto**
 
 ### 高度にカスタマイズされた処理
-→ **Lua フィルタ**（または filter/jinja.py で不足なら）
+→ **Lua フィルタ**（または pandoc-embedz で不足なら）
 
 
 ## 結論
 
-filter/jinja.py は、**データ駆動のドキュメント生成**において：
+pandoc-embedz は、**データ駆動のドキュメント生成**において：
 
 1. **Pandocのワークフローに自然に統合**される
 2. **Jinja2の強力なテンプレート機能**をフルに活用できる
@@ -314,11 +314,18 @@ filter/jinja.py は、**データ駆動のドキュメント生成**において
 ---
 
 **インストール:**
+
+GitHubから直接インストール（現在はこちらを使用）:
 ```bash
-pip install panflute jinja2 pandas pyyaml
+pip install git+https://github.com/tecolicom/pandoc-embedz.git
+```
+
+または、PyPIから（リリース後）:
+```bash
+pip install pandoc-embedz
 ```
 
 **使用:**
 ```bash
-pandoc report.md --filter=filter/jinja.py -o report.pdf
+pandoc report.md --filter pandoc-embedz -o report.pdf
 ```

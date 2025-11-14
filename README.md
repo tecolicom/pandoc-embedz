@@ -21,6 +21,14 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 
 ## Installation
 
+From GitHub (recommended for now):
+
+```bash
+pip install git+https://github.com/tecolicom/pandoc-embedz.git
+```
+
+Or from PyPI (once released):
+
 ```bash
 pip install pandoc-embedz
 ```
