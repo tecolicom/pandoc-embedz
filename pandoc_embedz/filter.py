@@ -190,11 +190,11 @@ def print_error_info(e, template_part, config, data_file, has_header, data_part=
     sys.stderr.write(f"{'='*60}\n\n")
 
 def process_embedz(elem, doc):
-    """Process code blocks with .embedz or .jinja class"""
-    # Guard: return element unchanged if not an embedz/jinja code block
+    """Process code blocks with .embedz class"""
+    # Guard: return element unchanged if not an embedz code block
     if not isinstance(elem, pf.CodeBlock):
         return elem
-    if 'embedz' not in elem.classes and 'jinja' not in elem.classes:
+    if 'embedz' not in elem.classes:
         return elem
 
     text = elem.text.strip()
