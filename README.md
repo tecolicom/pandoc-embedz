@@ -9,11 +9,13 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 
 ## Features
 
-- 🔄 **Full Jinja2 Support**: Loops, conditionals, filters, and all template features
+- 🔄 **Full Jinja2 Support**: Loops, conditionals, filters, macros, and all template features
 - 📊 **6 Data Formats**: CSV, TSV, SSV (space-separated), lines, JSON, YAML
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
 - 🔁 **Template Reuse**: Define templates once, use them multiple times
+- 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
+- 🎨 **Jinja2 Macros**: Create parameterized template functions
 - 🌐 **Variable Scoping**: Local and global variable management
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 
@@ -140,6 +142,97 @@ data: february.csv
 ---
 ​```
 ```
+
+### Template Inclusion (Nested Templates)
+
+Use `{% include %}` to embed templates within other templates for more modular content generation.
+
+```markdown
+# Define reusable formatting templates
+​```{.embedz}
+---
+name: date-format
+---
+{{ item.date }}
+​```
+
+​```{.embedz}
+---
+name: title-format
+---
+**{{ item.title }}**
+​```
+
+# Combine templates
+​```{.embedz}
+---
+data: incidents.csv
+---
+{% for item in data %}
+- {% include 'date-format' with context %} {% include 'title-format' with context %}
+{% endfor %}
+​```
+```
+
+Templates can also be nested multiple levels:
+
+```markdown
+​```{.embedz}
+---
+name: severity-badge
+---
+{% if item.severity == "high" %}🔴{% elif item.severity == "medium" %}🟡{% else %}🟢{% endif %}
+​```
+
+​```{.embedz}
+---
+data: vulnerabilities.csv
+---
+## Vulnerabilities
+{% for item in data %}
+- {% include 'severity-badge' with context %} {{ item.title }}
+{% endfor %}
+​```
+```
+
+**Note**: The `with context` clause passes the current template variables to the included template.
+
+### Template Macros (Advanced)
+
+Jinja2 macros allow you to define reusable template functions with parameters, providing even more flexibility than `{% include %}`.
+
+```markdown
+# Define macros
+​```{.embedz}
+---
+name: formatters
+---
+{% macro format_item(title, date) -%}
+**{{ title }}** ({{ date }})
+{%- endmacro %}
+
+{% macro severity_badge(level) -%}
+{% if level == "high" %}🔴 High{% elif level == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
+{%- endmacro %}
+​```
+
+# Use macros with import
+​```{.embedz}
+---
+data: vulnerabilities.csv
+---
+{% from 'formatters' import format_item, severity_badge %}
+
+## Vulnerability Report
+{% for item in data %}
+- {{ format_item(item.title, item.date) }} - {{ severity_badge(item.severity) }}
+{% endfor %}
+​```
+```
+
+**Macro vs Include**:
+- **Macros**: Accept parameters, more flexible, explicit imports required
+- **Include**: Simpler, uses current context automatically, no parameters
 
 ## Supported Formats
 

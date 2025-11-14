@@ -6,7 +6,7 @@ into your Markdown documents using Jinja2 template syntax within code blocks.
 """
 
 import panflute as pf
-from jinja2 import Template
+from jinja2 import Environment, FunctionLoader, TemplateNotFound
 import pandas as pd
 import yaml
 import json
@@ -17,6 +17,23 @@ import os
 # Store templates and global variables
 SAVED_TEMPLATES = {}
 GLOBAL_VARS = {}
+
+def load_template_from_saved(name):
+    """Loader function for saved templates
+
+    Args:
+        name: Template name
+
+    Returns:
+        tuple: (template_source, None, lambda: True)
+
+    Raises:
+        TemplateNotFound: If template is not found
+    """
+    if name not in SAVED_TEMPLATES:
+        raise TemplateNotFound(name)
+    # Return (source, filename, uptodate_func) tuple
+    return SAVED_TEMPLATES[name], None, lambda: True
 
 def guess_format_from_filename(filename):
     """Guess data format from filename extension
@@ -245,6 +262,9 @@ def process_embedz(elem, doc):
         if not data:
             return []
 
+        # Create Jinja2 Environment with access to saved templates
+        env = Environment(loader=FunctionLoader(load_template_from_saved))
+
         # Render with Jinja2
         render_vars = {
             **GLOBAL_VARS,           # Expand global variables
@@ -253,7 +273,7 @@ def process_embedz(elem, doc):
             'local': local_vars,     # Also accessible as local.xxx
             'data': data             # Data
         }
-        template = Template(template_part)
+        template = env.from_string(template_part)
         result = template.render(**render_vars)
 
         return pf.convert_text(result, input_format='markdown')
