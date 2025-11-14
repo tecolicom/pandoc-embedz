@@ -12,6 +12,7 @@ import yaml
 import json
 from io import StringIO
 import sys
+import os
 
 # Store templates and global variables
 SAVED_TEMPLATES = {}
@@ -267,6 +268,9 @@ def process_embedz(elem, doc):
             has_header if 'has_header' in locals() else True,
             data_part if 'data_part' in locals() else None
         )
+        # In test environment, raise exception; otherwise exit
+        if os.environ.get('PYTEST_CURRENT_TEST'):
+            raise
         sys.exit(1)
 
 def main():

@@ -125,7 +125,7 @@ format: json
         elem = pf.CodeBlock(code, classes=['embedz'])
         doc = pf.Doc()
 
-        with pytest.raises(SystemExit):
+        with pytest.raises(ValueError, match="Template 'nonexistent' not found"):
             process_embedz(elem, doc)
 
 
