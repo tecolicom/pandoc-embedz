@@ -13,6 +13,7 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 - 📊 **6 Data Formats**: CSV, TSV, SSV (space-separated), lines, JSON, YAML
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
+- ⚡ **Flexible Syntax**: Both YAML headers and code block attributes supported
 - 🔁 **Template Reuse**: Define templates once, use them multiple times
 - 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
@@ -110,6 +111,50 @@ format: json
 ]
 ​```
 ```
+
+### Attribute Syntax (Alternative to YAML)
+
+You can use code block attributes as a shorthand for configuration:
+
+```markdown
+​```{.embedz data=data.csv}
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+​```
+```
+
+Using a saved template with inline data (no YAML needed):
+
+```markdown
+# Define template first
+​```{.embedz name=product-list}
+{% for item in data %}
+- {{ item.product }}: ${{ item.price }}
+{% endfor %}
+​```
+
+# Use template with inline CSV data
+​```{.embedz template=product-list format=csv}
+product,price
+Widget,19.99
+Gadget,29.99
+​```
+```
+
+Using `header=false` for data without header row:
+
+```markdown
+​```{.embedz template=product-list format=csv header=false}
+Widget,19.99
+Gadget,29.99
+Tool,39.99
+​```
+```
+
+In this case, `data` will be a list of lists instead of a list of dictionaries.
+
+**Note**: YAML configuration takes precedence over attributes. If both are specified, YAML values override attribute values.
 
 ### Conditionals
 

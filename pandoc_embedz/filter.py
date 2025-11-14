@@ -166,6 +166,29 @@ def load_data(
             df = pd.read_csv(source, header=None)
             return df.values.tolist()
 
+def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
+    """Parse code block attributes into config dictionary
+
+    Args:
+        elem: Pandoc CodeBlock element
+
+    Returns:
+        dict: Parsed configuration with proper type conversion
+    """
+    config: Dict[str, Any] = {}
+
+    # elem.attributes is a dictionary
+    if hasattr(elem, 'attributes') and elem.attributes:
+        for key, value in elem.attributes.items():
+            # Type conversion for boolean values
+            if isinstance(value, str) and value.lower() in ('true', 'false'):
+                config[key] = value.lower() == 'true'
+            # Keep everything else as-is
+            else:
+                config[key] = value
+
+    return config
+
 def parse_code_block(text: str) -> Tuple[Dict[str, Any], str, Optional[str]]:
     """Parse code block into YAML config, template, and data sections
 
@@ -176,6 +199,7 @@ def parse_code_block(text: str) -> Tuple[Dict[str, Any], str, Optional[str]]:
         tuple: (config dict, template_part str, data_part str or None)
     """
     if not text.startswith('---'):
+        # No YAML header - entire content is either template or inline data
         return {}, text, None
 
     stream = StringIO(text)
@@ -310,8 +334,21 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
     text = elem.text.strip()
 
     try:
-        # Parse code block
-        config, template_part, data_part = parse_code_block(text)
+        # Parse attributes from code block
+        attr_config = parse_attributes(elem)
+
+        # Parse code block content
+        yaml_config, template_part, data_part = parse_code_block(text)
+
+        # Merge configurations: YAML takes precedence over attributes
+        config = {**attr_config, **yaml_config}
+
+        # Special handling: if no YAML header and template is specified in attributes,
+        # treat entire content as inline data
+        if not text.startswith('---') and 'template' in attr_config:
+            # Entire text is inline data
+            data_part = text
+            template_part = ''
 
         # Validate configuration
         validate_config(config)
