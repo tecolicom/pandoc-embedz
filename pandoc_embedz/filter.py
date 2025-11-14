@@ -276,6 +276,10 @@ def process_embedz(elem, doc):
         template = env.from_string(template_part)
         result = template.render(**render_vars)
 
+        # Ensure output ends with newline (prevents concatenation with next paragraph)
+        if result and not result.endswith('\n'):
+            result += '\n'
+
         return pf.convert_text(result, input_format='markdown')
 
     except Exception as e:

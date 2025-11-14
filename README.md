@@ -236,7 +236,7 @@ data: vulnerabilities.csv
 
 ## Template Whitespace Handling
 
-Templates preserve leading whitespace but remove trailing newlines (similar to shell `$(...)` behavior):
+Templates preserve leading whitespace but remove trailing newlines, similar to shell `$(...)` behavior:
 
 ```markdown
 ​```{.embedz}
@@ -248,12 +248,15 @@ name: indented-code
 ​```
 ```
 
-**Behavior**:
+**Template storage** (used with `{% include %}` and macros):
 - ✅ Leading whitespace preserved (indentation maintained)
 - ✅ Internal newlines preserved (blank lines kept)
-- ✅ Trailing newlines removed (clean output)
+- ✅ Trailing newlines removed (enables inline composition)
 
-This allows natural template composition with `{% include %}` and macros without unwanted extra newlines.
+**Output rendering** (top-level code blocks):
+- ✅ Always ends with a newline (prevents concatenation with next paragraph)
+
+This design allows clean template composition (`{% include %}` works inline) while ensuring document-level output is properly separated.
 
 ## Supported Formats
 
