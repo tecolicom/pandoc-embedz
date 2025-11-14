@@ -96,7 +96,7 @@ def load_data(
 
     Args:
         source: File path or StringIO object
-        format: Data format ('csv', 'tsv', 'ssv', 'json', 'yaml', 'lines')
+        format: Data format ('csv', 'tsv', 'ssv'/'spaces', 'json', 'yaml', 'lines')
                If None, auto-detect from filename
         has_header: Whether CSV/TSV/SSV has header row (ignored for json/yaml/lines)
 
@@ -106,6 +106,11 @@ def load_data(
     # Validate file path if source is a string (file path)
     if isinstance(source, str):
         source = validate_file_path(source)
+
+    # Normalize format: 'spaces' is an alias for 'ssv'
+    if format == 'spaces':
+        format = 'ssv'
+
     # Auto-detect format if not specified
     if format is None:
         if isinstance(source, str):
@@ -252,11 +257,11 @@ def validate_config(config: Dict[str, Any]) -> None:
 
     # Validate format
     if 'format' in config:
-        valid_formats = {'csv', 'tsv', 'ssv', 'json', 'yaml', 'lines'}
+        valid_formats = {'csv', 'tsv', 'ssv', 'spaces', 'json', 'yaml', 'lines'}
         if config['format'] not in valid_formats:
             raise ValueError(
                 f"Invalid format: {config['format']}. "
-                f"Must be one of: {', '.join(valid_formats)}"
+                f"Must be one of: {', '.join(sorted(valid_formats))}"
             )
 
     # Validate header

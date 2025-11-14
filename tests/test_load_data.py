@@ -85,6 +85,22 @@ class TestLoadSSV:
         assert isinstance(data[0], list)
         assert data[0][0] == 'Arthur'
 
+    def test_load_spaces_alias_with_header(self):
+        """Test that 'spaces' is an alias for 'ssv' with header"""
+        spaces_data = StringIO("name value category\nArthur 42 A\nFord 100 B")
+        data = load_data(spaces_data, format='spaces', has_header=True)
+        assert len(data) == 2
+        assert data[0]['name'] == 'Arthur'
+        assert data[0]['value'] == 42
+
+    def test_load_spaces_alias_without_header(self):
+        """Test that 'spaces' is an alias for 'ssv' without header"""
+        spaces_data = StringIO("Arthur 42 A\nFord 100 B")
+        data = load_data(spaces_data, format='spaces', has_header=False)
+        assert len(data) == 2
+        assert isinstance(data[0], list)
+        assert data[0][0] == 'Arthur'
+
 
 class TestLoadJSON:
     """Tests for JSON data loading"""

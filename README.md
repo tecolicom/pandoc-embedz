@@ -10,7 +10,7 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 ## Features
 
 - 🔄 **Full Jinja2 Support**: Loops, conditionals, filters, macros, and all template features
-- 📊 **6 Data Formats**: CSV, TSV, SSV (space-separated), lines, JSON, YAML
+- 📊 **6 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
 - ⚡ **Flexible Syntax**: Both YAML headers and code block attributes supported
@@ -317,10 +317,12 @@ This design allows clean template composition (`{% include %}` works inline) whi
 |--------|-----------|-------------|
 | CSV | `.csv` | Comma-separated values (header support) |
 | TSV | `.tsv` | Tab-separated values (header support) |
-| SSV | - | Space-separated values (via `format: ssv`) |
+| SSV/Spaces | - | Space/whitespace-separated values (via `format: ssv` or `format: spaces`) |
 | Lines | `.txt` | One item per line (plain text) |
 | JSON | `.json` | Structured data (lists and objects) |
 | YAML | `.yaml`, `.yml` | Structured data with hierarchies |
+
+**Note**: SSV (Space-Separated Values) treats consecutive spaces and tabs as a single delimiter, making it ideal for manually aligned data. Both `ssv` and `spaces` can be used interchangeably.
 
 ## Variable Scoping
 
