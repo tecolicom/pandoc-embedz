@@ -26,7 +26,7 @@ jobs:
 
     - name: Install Pandoc (Linux)
       if: runner.os == 'Linux'
-      uses: tecolicom/actions-use-apt-tools@v1
+      uses: tecolicom/actions-use-apt-tools@v1.7
       with:
         tools: pandoc
         path:  /etc /usr/bin /usr/sbin /usr/lib /usr/share /var/lib /opt
