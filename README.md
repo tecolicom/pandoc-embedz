@@ -34,7 +34,7 @@ Create a markdown file with a data block:
 ```markdown
 # Monthly Report
 
-​```{.embedz}
+​```embedz
 ---
 data: stats.csv
 ---
@@ -57,7 +57,7 @@ pandoc report.md --filter pandoc-embedz -o report.pdf
 ### CSV File (Auto-detected)
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 data: data.csv
 ---
@@ -70,7 +70,7 @@ data: data.csv
 ### JSON Structure
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 data: report.json
 ---
@@ -88,7 +88,7 @@ data: report.json
 ### Inline Data
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 format: json
 ---
@@ -106,7 +106,7 @@ format: json
 ### Conditionals
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 data: incidents.csv
 ---
@@ -124,7 +124,7 @@ data: incidents.csv
 
 ```markdown
 # Define template
-​```{.embedz}
+​```embedz
 ---
 name: incident-list
 data: january.csv
@@ -135,7 +135,7 @@ data: january.csv
 ​```
 
 # Reuse template
-​```{.embedz}
+​```embedz
 ---
 template: incident-list
 data: february.csv
@@ -149,14 +149,14 @@ Use `{% include %}` to embed templates within other templates for more modular c
 
 ```markdown
 # Define reusable formatting templates
-​```{.embedz}
+​```embedz
 ---
 name: date-format
 ---
 {{ item.date }}
 ​```
 
-​```{.embedz}
+​```embedz
 ---
 name: title-format
 ---
@@ -164,7 +164,7 @@ name: title-format
 ​```
 
 # Combine templates
-​```{.embedz}
+​```embedz
 ---
 data: incidents.csv
 ---
@@ -177,14 +177,14 @@ data: incidents.csv
 Templates can also be nested multiple levels:
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 name: severity-badge
 ---
 {% if item.severity == "high" %}🔴{% elif item.severity == "medium" %}🟡{% else %}🟢{% endif %}
 ​```
 
-​```{.embedz}
+​```embedz
 ---
 data: vulnerabilities.csv
 ---
@@ -203,7 +203,7 @@ Jinja2 macros allow you to define reusable template functions with parameters, p
 
 ```markdown
 # Define macros
-​```{.embedz}
+​```embedz
 ---
 name: formatters
 ---
@@ -217,7 +217,7 @@ name: formatters
 ​```
 
 # Use macros with import
-​```{.embedz}
+​```embedz
 ---
 data: vulnerabilities.csv
 ---
@@ -239,7 +239,7 @@ data: vulnerabilities.csv
 Templates preserve leading whitespace but remove trailing newlines, similar to shell `$(...)` behavior:
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 name: indented-code
 ---
@@ -274,7 +274,7 @@ This design allows clean template composition (`{% include %}` works inline) whi
 ### Local Variables (Block-scoped)
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 data: data.csv
 local:
@@ -292,7 +292,7 @@ local:
 ### Global Variables (Document-scoped)
 
 ```markdown
-​```{.embedz}
+​```embedz
 ---
 global:
   threshold: 100
@@ -300,7 +300,7 @@ global:
 ​```
 
 # Later blocks can use 'threshold'
-​```{.embedz}
+​```embedz
 ---
 data: data.csv
 ---

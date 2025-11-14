@@ -2,7 +2,7 @@
 
 ## CSV Example
 
-​```{.embedz}
+​```embedz
 ---
 data: sample_data.csv
 ---
@@ -15,7 +15,7 @@ data: sample_data.csv
 
 ## Inline JSON Example
 
-​```{.embedz}
+​```embedz
 ---
 format: json
 ---
@@ -37,7 +37,7 @@ format: json
 
 ## Conditional Example
 
-​```{.embedz}
+​```embedz
 ---
 data: sample_data.csv
 local:

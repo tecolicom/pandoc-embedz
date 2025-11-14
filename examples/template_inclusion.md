@@ -6,14 +6,14 @@ This document demonstrates the template inclusion feature, which allows you to n
 
 First, define some reusable format templates:
 
-```{.embedz}
+```embedz
 ---
 name: date-format
 ---
 {{ item.date }}
 ```
 
-```{.embedz}
+```embedz
 ---
 name: title-format
 ---
@@ -22,7 +22,7 @@ name: title-format
 
 Now combine them to create formatted entries:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -42,7 +42,7 @@ format: json
 
 Define a template that uses conditionals:
 
-```{.embedz}
+```embedz
 ---
 name: severity-badge
 ---
@@ -51,7 +51,7 @@ name: severity-badge
 
 Use it to show severity levels:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -71,14 +71,14 @@ format: json
 
 Create multiple levels of template composition:
 
-```{.embedz}
+```embedz
 ---
 name: status-icon
 ---
 {% if item.status == "resolved" %}✅{% elif item.status == "investigating" %}🔍{% else %}⏳{% endif %}
 ```
 
-```{.embedz}
+```embedz
 ---
 name: incident-entry
 ---
@@ -87,7 +87,7 @@ name: incident-entry
 
 Use the composite template:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -107,7 +107,7 @@ format: json
 
 Define a template for table rows:
 
-```{.embedz}
+```embedz
 ---
 name: table-row
 ---
@@ -116,7 +116,7 @@ name: table-row
 
 Generate a table:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---

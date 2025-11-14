@@ -6,7 +6,7 @@
 
 テンプレートを定義：
 
-```{.embedz}
+```embedz
 ---
 name: simple-item
 ---
@@ -15,7 +15,7 @@ name: simple-item
 
 インデントレベル0で使用：
 
-```{.embedz}
+```embedz
 ---
 format: json
 local:
@@ -30,7 +30,7 @@ local:
 
 インデントレベル1（スペース2つ）で使用：
 
-```{.embedz}
+```embedz
 ---
 format: json
 local:
@@ -47,7 +47,7 @@ local:
 
 インデント可能なマクロを定義：
 
-```{.embedz}
+```embedz
 ---
 name: indent-macros
 ---
@@ -62,7 +62,7 @@ name: indent-macros
 
 データにレベル情報を含めて使用：
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -90,7 +90,7 @@ format: json
 
 構造化データ用の再帰マクロ：
 
-```{.embedz}
+```embedz
 ---
 name: tree-renderer
 ---
@@ -106,7 +106,7 @@ name: tree-renderer
 
 階層データを自動的にレンダリング：
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -153,7 +153,7 @@ format: json
 
 アイテムのプロパティから動的に計算：
 
-```{.embedz}
+```embedz
 ---
 name: dynamic-indent
 ---
@@ -164,7 +164,7 @@ name: dynamic-indent
 
 優先度が高いほどインデントが少ない：
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---

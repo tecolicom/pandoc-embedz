@@ -10,7 +10,7 @@ Macros are like functions in programming - they accept parameters and return for
 
 Define simple formatting macros:
 
-```{.embedz}
+```embedz
 ---
 name: basic-formatters
 ---
@@ -29,7 +29,7 @@ name: basic-formatters
 
 Use them with different parameters:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -52,7 +52,7 @@ format: json
 
 Create macros with conditional logic:
 
-```{.embedz}
+```embedz
 ---
 name: status-macros
 ---
@@ -75,7 +75,7 @@ name: status-macros
 
 Use them together:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -101,7 +101,7 @@ format: json
 
 Macros can accept multiple parameters with default values:
 
-```{.embedz}
+```embedz
 ---
 name: advanced-formatters
 ---
@@ -122,7 +122,7 @@ name: advanced-formatters
 
 Use with different parameter combinations:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -149,7 +149,7 @@ format: json
 
 Macros can call other macros:
 
-```{.embedz}
+```embedz
 ---
 name: composite-macros
 ---
@@ -168,7 +168,7 @@ name: composite-macros
 
 Use the composite macro:
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -192,14 +192,14 @@ format: json
 
 ### Using Include (simpler, but less flexible)
 
-```{.embedz}
+```embedz
 ---
 name: simple-item
 ---
 - {{ item.name }}: {{ item.value }}
 ```
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
@@ -212,7 +212,7 @@ format: json
 
 ### Using Macro (more flexible with parameters)
 
-```{.embedz}
+```embedz
 ---
 name: macro-item
 ---
@@ -221,7 +221,7 @@ name: macro-item
 {%- endmacro %}
 ```
 
-```{.embedz}
+```embedz
 ---
 format: json
 ---
