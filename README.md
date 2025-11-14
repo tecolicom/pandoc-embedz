@@ -234,6 +234,27 @@ data: vulnerabilities.csv
 - **Macros**: Accept parameters, more flexible, explicit imports required
 - **Include**: Simpler, uses current context automatically, no parameters
 
+## Template Whitespace Handling
+
+Templates preserve leading whitespace but remove trailing newlines (similar to shell `$(...)` behavior):
+
+```markdown
+​```{.embedz}
+---
+name: indented-code
+---
+    def hello():
+        print("Hello")
+​```
+```
+
+**Behavior**:
+- ✅ Leading whitespace preserved (indentation maintained)
+- ✅ Internal newlines preserved (blank lines kept)
+- ✅ Trailing newlines removed (clean output)
+
+This allows natural template composition with `{% include %}` and macros without unwanted extra newlines.
+
 ## Supported Formats
 
 | Format | Extension | Description |

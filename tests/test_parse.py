@@ -137,3 +137,47 @@ Template
         assert template == 'Template'
         assert '"name": "Arthur"' in data
         assert '"value": 100' in data
+
+    def test_parse_preserves_leading_whitespace(self):
+        """Leading whitespace should be preserved (unlike .strip())"""
+        text = """---
+name: test
+---
+    indented content
+    more indented"""
+
+        config, template, data = parse_code_block(text)
+
+        assert template == '    indented content\n    more indented'
+        assert template.startswith('    ')  # Leading whitespace preserved
+
+    def test_parse_removes_trailing_newlines(self):
+        """Trailing newlines should be removed (like shell $(...))"""
+        text = """---
+name: test
+---
+content
+
+
+"""
+
+        config, template, data = parse_code_block(text)
+
+        assert template == 'content'  # Trailing newlines removed
+        assert not template.endswith('\n')
+
+    def test_parse_preserves_internal_newlines(self):
+        """Internal newlines should be preserved"""
+        text = """---
+name: test
+---
+line1
+
+line2
+
+line3"""
+
+        config, template, data = parse_code_block(text)
+
+        assert template == 'line1\n\nline2\n\nline3'
+        assert template.count('\n') == 4  # 2 blank lines = 4 newlines total

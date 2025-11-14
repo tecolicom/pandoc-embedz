@@ -166,7 +166,7 @@ def parse_code_block(text):
             break
         template_lines.append(line)
 
-    template_part = ''.join(template_lines).strip()
+    template_part = ''.join(template_lines).rstrip('\n')
     return config, template_part, data_part
 
 def print_error_info(e, template_part, config, data_file, has_header, data_part=None):
