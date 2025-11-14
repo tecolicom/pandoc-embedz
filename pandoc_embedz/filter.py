@@ -5,20 +5,52 @@ This filter allows you to embed data from various formats (CSV, TSV, JSON, YAML,
 into your Markdown documents using Jinja2 template syntax within code blocks.
 """
 
+from typing import Dict, Any, Tuple, Optional, Union, List, Callable
 import panflute as pf
 from jinja2 import Environment, FunctionLoader, TemplateNotFound
 import pandas as pd
 import yaml
 import json
 from io import StringIO
+from pathlib import Path
 import sys
 import os
 
 # Store templates and global variables
-SAVED_TEMPLATES = {}
-GLOBAL_VARS = {}
+SAVED_TEMPLATES: Dict[str, str] = {}
+GLOBAL_VARS: Dict[str, Any] = {}
 
-def load_template_from_saved(name):
+def validate_file_path(file_path: str) -> str:
+    """Validate file path to prevent path traversal attacks
+
+    Args:
+        file_path: File path to validate
+
+    Returns:
+        str: Validated absolute file path
+
+    Raises:
+        FileNotFoundError: If file does not exist
+        ValueError: If path appears to be malicious
+    """
+    try:
+        # Convert to Path object and resolve to absolute path
+        path = Path(file_path).resolve()
+
+        # Check if file exists
+        if not path.exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        # Check if it's actually a file (not a directory)
+        if not path.is_file():
+            raise ValueError(f"Path is not a file: {file_path}")
+
+        return str(path)
+    except (OSError, RuntimeError) as e:
+        # Catch potential path resolution errors
+        raise ValueError(f"Invalid file path: {file_path}") from e
+
+def load_template_from_saved(name: str) -> Tuple[str, None, Callable[[], bool]]:
     """Loader function for saved templates
 
     Args:
@@ -35,7 +67,7 @@ def load_template_from_saved(name):
     # Return (source, filename, uptodate_func) tuple
     return SAVED_TEMPLATES[name], None, lambda: True
 
-def guess_format_from_filename(filename):
+def guess_format_from_filename(filename: str) -> str:
     """Guess data format from filename extension
 
     Args:
@@ -55,7 +87,11 @@ def guess_format_from_filename(filename):
             return 'yaml'
     return 'csv'
 
-def load_data(source, format=None, has_header=True):
+def load_data(
+    source: Union[str, StringIO],
+    format: Optional[str] = None,
+    has_header: bool = True
+) -> Union[List[Any], Dict[str, Any]]:
     """Load data from file or StringIO and convert to list or dict
 
     Args:
@@ -67,6 +103,9 @@ def load_data(source, format=None, has_header=True):
     Returns:
         list or dict: Data (structure preserved)
     """
+    # Validate file path if source is a string (file path)
+    if isinstance(source, str):
+        source = validate_file_path(source)
     # Auto-detect format if not specified
     if format is None:
         if isinstance(source, str):
@@ -127,8 +166,11 @@ def load_data(source, format=None, has_header=True):
             df = pd.read_csv(source, header=None)
             return df.values.tolist()
 
-def parse_code_block(text):
+def parse_code_block(text: str) -> Tuple[Dict[str, Any], str, Optional[str]]:
     """Parse code block into YAML config, template, and data sections
+
+    Args:
+        text: Code block text to parse
 
     Returns:
         tuple: (config dict, template_part str, data_part str or None)
@@ -169,7 +211,49 @@ def parse_code_block(text):
     template_part = ''.join(template_lines).rstrip('\n')
     return config, template_part, data_part
 
-def print_error_info(e, template_part, config, data_file, has_header, data_part=None):
+def validate_config(config: Dict[str, Any]) -> None:
+    """Validate configuration to prevent invalid settings
+
+    Args:
+        config: Configuration dictionary to validate
+
+    Raises:
+        ValueError: If configuration contains invalid values
+        TypeError: If configuration values have wrong types
+    """
+    valid_keys = {'data', 'format', 'header', 'local', 'global', 'name', 'template'}
+    invalid_keys = set(config.keys()) - valid_keys
+    if invalid_keys:
+        raise ValueError(f"Invalid config keys: {', '.join(invalid_keys)}")
+
+    # Validate format
+    if 'format' in config:
+        valid_formats = {'csv', 'tsv', 'ssv', 'json', 'yaml', 'lines'}
+        if config['format'] not in valid_formats:
+            raise ValueError(
+                f"Invalid format: {config['format']}. "
+                f"Must be one of: {', '.join(valid_formats)}"
+            )
+
+    # Validate header
+    if 'header' in config and not isinstance(config['header'], bool):
+        raise TypeError("'header' must be a boolean")
+
+    # Validate local and global
+    if 'local' in config and not isinstance(config['local'], dict):
+        raise TypeError("'local' must be a mapping of variable names to values")
+
+    if 'global' in config and not isinstance(config['global'], dict):
+        raise TypeError("'global' must be a mapping of variable names to values")
+
+def print_error_info(
+    e: Exception,
+    template_part: str,
+    config: Dict[str, Any],
+    data_file: Optional[str],
+    has_header: bool,
+    data_part: Optional[str] = None
+) -> None:
     """Print error information to stderr"""
     sys.stderr.write(f"\n{'='*60}\n")
     sys.stderr.write(f"pandoc-embedz Error\n")
@@ -207,8 +291,16 @@ def print_error_info(e, template_part, config, data_file, has_header, data_part=
     sys.stderr.write(f"\nFor more information, see the documentation.\n")
     sys.stderr.write(f"{'='*60}\n\n")
 
-def process_embedz(elem, doc):
-    """Process code blocks with .embedz class"""
+def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.Element], None]:
+    """Process code blocks with .embedz class
+
+    Args:
+        elem: Pandoc element to process
+        doc: Pandoc document
+
+    Returns:
+        Processed element(s) or None
+    """
     # Guard: return element unchanged if not an embedz code block
     if not isinstance(elem, pf.CodeBlock):
         return elem
@@ -221,9 +313,14 @@ def process_embedz(elem, doc):
         # Parse code block
         config, template_part, data_part = parse_code_block(text)
 
+        # Validate configuration
+        validate_config(config)
+
         # Save named template
         template_name = config.get('name')
         if template_name:
+            if template_name in SAVED_TEMPLATES:
+                sys.stderr.write(f"Warning: Overwriting template '{template_name}'\n")
             SAVED_TEMPLATES[template_name] = template_part
 
         # Load saved template
@@ -247,14 +344,10 @@ def process_embedz(elem, doc):
             data = []
 
         # Prepare variables
-        local_vars = {}
+        local_vars: Dict[str, Any] = {}
         if 'local' in config:
-            if not isinstance(config['local'], dict):
-                raise TypeError("Expected 'local' to be a mapping of variable names to values.")
             local_vars.update(config['local'])
         if 'global' in config:
-            if not isinstance(config['global'], dict):
-                raise TypeError("Expected 'global' to be a mapping of variable names to values.")
             # Store global variables persistently
             GLOBAL_VARS.update(config['global'])
 
@@ -282,8 +375,9 @@ def process_embedz(elem, doc):
 
         return pf.convert_text(result, input_format='markdown')
 
-    except Exception as e:
-        # Print debug info on error
+    except (FileNotFoundError, ValueError, TypeError, yaml.YAMLError,
+            pd.errors.ParserError, TemplateNotFound, KeyError) as e:
+        # Handle known exceptions with detailed error info
         print_error_info(
             e,
             template_part if 'template_part' in locals() else 'N/A',
@@ -296,8 +390,18 @@ def process_embedz(elem, doc):
         if os.environ.get('PYTEST_CURRENT_TEST'):
             raise
         sys.exit(1)
+    except Exception as e:
+        # Unexpected exception - always show and raise
+        sys.stderr.write(f"\n{'='*60}\n")
+        sys.stderr.write(f"pandoc-embedz: Unexpected Error\n")
+        sys.stderr.write(f"{'='*60}\n")
+        sys.stderr.write(f"Error: {type(e).__name__}: {e}\n")
+        sys.stderr.write(f"This may be a bug. Please report at:\n")
+        sys.stderr.write(f"https://github.com/tecolicom/pandoc-embedz/issues\n")
+        sys.stderr.write(f"{'='*60}\n\n")
+        raise
 
-def main():
+def main() -> None:
     """Entry point for pandoc filter"""
     pf.run_filter(process_embedz)
 
