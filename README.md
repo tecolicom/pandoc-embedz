@@ -200,7 +200,7 @@ pandoc-embedz provides the sweet spot: powerful templating with minimal setup.
 
 ## Code Block Class Name
 
-The filter recognizes code blocks with the `.embedz` class. For backward compatibility, `.jinja` is also supported.
+The filter recognizes code blocks with the `.embedz` class.
 
 ## Documentation
 
@@ -210,12 +210,17 @@ For complete documentation, see:
 
 ## License
 
-MIT License - See [LICENSE](LICENSE) file for details.
+MIT License
+
+Copyright © 2025 Office TECOLI, LLC
+Copyright © 2025 Kazumasa Utashiro
+
+See [LICENSE](LICENSE) file for details.
+
+## Author
+
+Kazumasa Utashiro
 
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## Author
-
-Created for generating data-driven reports and documentation where manual data entry is error-prone and inefficient.

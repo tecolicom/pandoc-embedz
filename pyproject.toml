@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.7"
 license = {text = "MIT"}
 authors = [
-    {name = "pandoc-embedz contributors"}
+    {name = "Kazumasa Utashiro"}
 ]
 keywords = ["pandoc", "filter", "jinja2", "data", "template", "markdown"]
 classifiers = [
@@ -35,10 +35,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/pandoc-embedz"
-Documentation = "https://github.com/yourusername/pandoc-embedz#readme"
-Repository = "https://github.com/yourusername/pandoc-embedz"
-Issues = "https://github.com/yourusername/pandoc-embedz/issues"
+Homepage = "https://github.com/tecolicom/pandoc-embedz"
+Documentation = "https://github.com/tecolicom/pandoc-embedz#readme"
+Repository = "https://github.com/tecolicom/pandoc-embedz"
+Issues = "https://github.com/tecolicom/pandoc-embedz/issues"
 
 [project.scripts]
 pandoc-embedz = "pandoc_embedz.filter:main"
