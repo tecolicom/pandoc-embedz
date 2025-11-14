@@ -151,22 +151,42 @@ def parse_code_block(text):
     template_part = ''.join(template_lines).strip()
     return config, template_part, data_part
 
-def print_error_info(e, template_part, config, data_file, has_header):
+def print_error_info(e, template_part, config, data_file, has_header, data_part=None):
     """Print error information to stderr"""
     sys.stderr.write(f"\n{'='*60}\n")
     sys.stderr.write(f"pandoc-embedz Error\n")
     sys.stderr.write(f"{'='*60}\n")
-    sys.stderr.write(f"Error Type: {type(e).__name__}\n")
-    sys.stderr.write(f"Error Message: {e}\n")
-    sys.stderr.write(f"\nTemplate (first 500 chars):\n")
-    sys.stderr.write(f"{'-'*60}\n")
-    sys.stderr.write(f"{template_part[:500]}\n")
-    if len(template_part) > 500:
-        sys.stderr.write(f"... (truncated, total {len(template_part)} chars)\n")
-    sys.stderr.write(f"{'-'*60}\n")
-    sys.stderr.write(f"\nConfig: {config}\n")
-    sys.stderr.write(f"Data file: {data_file}\n")
-    sys.stderr.write(f"Has header: {has_header}\n")
+    sys.stderr.write(f"Error: {e}\n")
+
+    # Add helpful hints for common errors
+    error_msg = str(e)
+    if 'ParserError' in type(e).__name__ or 'Expected' in error_msg:
+        sys.stderr.write(f"\nHint: Data parsing failed. Common causes:\n")
+        sys.stderr.write(f"  - SSV format with spaces in field values\n")
+        sys.stderr.write(f"  - Inconsistent number of fields\n")
+        sys.stderr.write(f"  - Try using 'tsv' or 'csv' format instead\n")
+    elif 'FileNotFoundError' in type(e).__name__:
+        sys.stderr.write(f"\nHint: Data file not found.\n")
+        sys.stderr.write(f"  - Check the file path: {data_file}\n")
+        sys.stderr.write(f"  - Use relative paths from the markdown file location\n")
+    elif 'Template' in error_msg or 'not found' in error_msg.lower():
+        sys.stderr.write(f"\nHint: Template issue.\n")
+        sys.stderr.write(f"  - Check template syntax\n")
+        sys.stderr.write(f"  - Ensure referenced templates are defined first\n")
+
+    sys.stderr.write(f"\nConfig:\n")
+    sys.stderr.write(f"  Data file: {data_file or 'inline'}\n")
+    sys.stderr.write(f"  Format: {config.get('format', 'auto-detect')}\n")
+    sys.stderr.write(f"  Header: {has_header}\n")
+    sys.stderr.write(f"  Template: {config.get('template', config.get('name', 'inline'))}\n")
+
+    if data_part and len(data_part) < 500:
+        sys.stderr.write(f"\nInline data:\n")
+        sys.stderr.write(f"{'-'*60}\n")
+        sys.stderr.write(f"{data_part}\n")
+        sys.stderr.write(f"{'-'*60}\n")
+
+    sys.stderr.write(f"\nFor more information, see the documentation.\n")
     sys.stderr.write(f"{'='*60}\n\n")
 
 def process_embedz(elem, doc):
@@ -244,9 +264,10 @@ def process_embedz(elem, doc):
             template_part if 'template_part' in locals() else 'N/A',
             config if 'config' in locals() else {},
             data_file if 'data_file' in locals() else None,
-            has_header if 'has_header' in locals() else True
+            has_header if 'has_header' in locals() else True,
+            data_part if 'data_part' in locals() else None
         )
-        raise
+        sys.exit(1)
 
 def main():
     """Entry point for pandoc filter"""
