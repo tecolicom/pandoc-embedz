@@ -29,6 +29,7 @@ jobs:
       uses: tecolicom/actions-use-apt-tools@v1
       with:
         tools: pandoc
+        path:  /etc /usr/bin /usr/sbin /usr/lib /usr/share /var/lib /opt
 
     - name: Install Pandoc (macOS)
       if: runner.os == 'macOS'
