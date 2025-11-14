@@ -22,14 +22,19 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        cache: 'pip'
 
     - name: Install Pandoc (Linux)
       if: runner.os == 'Linux'
-      run: sudo apt-get update && sudo apt-get install -y pandoc
+      uses: tecolicom/actions-use-apt-tools@v1
+      with:
+        tools: pandoc
 
     - name: Install Pandoc (macOS)
       if: runner.os == 'macOS'
-      run: brew install pandoc
+      uses: tecolicom/actions-use-homebrew-tools@v1
+      with:
+        tools: pandoc
 
     - name: Install Pandoc (Windows)
       if: runner.os == 'Windows'
