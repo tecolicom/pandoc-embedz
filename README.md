@@ -193,15 +193,32 @@ data: data.csv
 ​```
 ```
 
-## Why pandoc-embedz?
+## Related Tools
 
-See [COMPARISON.md](COMPARISON.md) for a detailed comparison with other solutions like:
-- pandoc-csv2table (limited to tables only)
-- pandoc-jinja (no loops/conditionals, metadata only)
-- Lua filters (requires custom scripting)
-- R Markdown / Quarto (heavyweight setup)
+### Similar Pandoc Filters (on PyPI)
 
-pandoc-embedz provides the sweet spot: powerful templating with minimal setup.
+- **[pantable](https://pypi.org/project/pantable/)** - CSV/TSV to table with powerful options, table-focused
+- **[pandoc-jinja](https://pypi.org/project/pandoc-jinja/)** - Document-wide metadata expansion, not for code blocks
+- **[pandoc-include](https://pypi.org/project/pandoc-include/)** - Include external files with template support
+- **[pandoc-pyrun](https://pypi.org/project/pandoc-pyrun/)** - Execute Python code in code blocks
+
+### Additional Tools
+
+- **[pandoc-csv2table](https://github.com/baig/pandoc-csv2table)** (Haskell) - CSV to table conversion only
+- **[Quarto](https://quarto.org/)** - Comprehensive publishing system based on Pandoc. Excellent for data science and technical documents, but requires dedicated environment and workflow
+- **R Markdown** - Similar to Quarto, requires R environment
+- **Lua Filters** - Requires custom Lua scripting for each use case
+
+### Why pandoc-embedz?
+
+pandoc-embedz fills a unique niche:
+- ✅ Full Jinja2 templating (loops, conditionals, filters)
+- ✅ Multiple data formats (CSV, JSON, YAML, etc.)
+- ✅ Code block level processing (not document-wide)
+- ✅ Lightweight - no heavy dependencies
+- ✅ Works with existing Pandoc workflow
+
+See [COMPARISON.md](COMPARISON.md) for detailed comparison.
 
 ## Code Block Class Name
 
@@ -218,6 +235,7 @@ For complete documentation, see:
 MIT License
 
 Copyright © 2025 Office TECOLI, LLC
+
 Copyright © 2025 Kazumasa Utashiro
 
 See [LICENSE](LICENSE) file for details.
