@@ -181,16 +181,30 @@ def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
         dict: Parsed configuration with proper type conversion
     """
     config: Dict[str, Any] = {}
+    with_vars: Dict[str, Any] = {}
 
     # elem.attributes is a dictionary
     if hasattr(elem, 'attributes') and elem.attributes:
         for key, value in elem.attributes.items():
-            # Type conversion for boolean values
-            if isinstance(value, str) and value.lower() in ('true', 'false'):
-                config[key] = value.lower() == 'true'
-            # Keep everything else as-is
+            # Handle with.* attributes (e.g., with.title="Title")
+            if key.startswith('with.'):
+                var_name = key[5:]  # Strip 'with.' prefix
+                # Type conversion for boolean values
+                if isinstance(value, str) and value.lower() in ('true', 'false'):
+                    with_vars[var_name] = value.lower() == 'true'
+                else:
+                    with_vars[var_name] = value
             else:
-                config[key] = value
+                # Type conversion for boolean values
+                if isinstance(value, str) and value.lower() in ('true', 'false'):
+                    config[key] = value.lower() == 'true'
+                # Keep everything else as-is
+                else:
+                    config[key] = value
+
+    # Add with_vars to config if any exist
+    if with_vars:
+        config['with'] = with_vars
 
     return config
 

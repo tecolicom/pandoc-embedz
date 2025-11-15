@@ -439,3 +439,101 @@ with:
         output = stringify_result(result)
 
         assert '3 items' in output
+
+
+class TestWithDotNotation:
+    """Tests for with.* attribute notation"""
+
+    def setup_method(self):
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+    def test_with_dot_single_variable(self):
+        """Test with.key="value" attribute notation"""
+        # Define template
+        SAVED_TEMPLATES['test'] = 'Title: {{ title }}'
+
+        # Use with.title attribute
+        code_block = pf.CodeBlock(
+            text='',
+            classes=['embedz'],
+            attributes={'data': 'tests/fixtures/sample.csv', 'as': 'test', 'with.title': 'My Title'}
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        assert 'Title: My Title' in output
+
+    def test_with_dot_multiple_variables(self):
+        """Test multiple with.* attributes"""
+        SAVED_TEMPLATES['test'] = 'Title: {{ title }}, URL: {{ url }}'
+
+        code_block = pf.CodeBlock(
+            text='',
+            classes=['embedz'],
+            attributes={
+                'data': 'tests/fixtures/sample.csv',
+                'as': 'test',
+                'with.title': 'My Title',
+                'with.url': 'http://example.com'
+            }
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        assert 'Title: My Title' in output
+        assert 'URL: http://example.com' in output
+
+    def test_with_dot_accessible_as_with_namespace(self):
+        """Test that with.* attributes are accessible as with.key"""
+        SAVED_TEMPLATES['test'] = 'Title: {{ with.title }}'
+
+        code_block = pf.CodeBlock(
+            text='',
+            classes=['embedz'],
+            attributes={'data': 'tests/fixtures/sample.csv', 'as': 'test', 'with.title': 'Namespaced'}
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        assert 'Title: Namespaced' in output
+
+    def test_yaml_with_overrides_attribute_with(self):
+        """Test that YAML with: takes precedence over with.* attributes"""
+        SAVED_TEMPLATES['test'] = 'Title: {{ title }}'
+
+        code_block = pf.CodeBlock(
+            text="""with:
+  title: "YAML Title" """,
+            classes=['embedz'],
+            attributes={
+                'data': 'tests/fixtures/sample.csv',
+                'as': 'test',
+                'with.title': 'Attribute Title'  # Should be overridden
+            }
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        # YAML should win
+        assert 'Title: YAML Title' in output
+        assert 'Attribute Title' not in output
+
+    def test_with_dot_boolean_conversion(self):
+        """Test that boolean strings are converted in with.* attributes"""
+        SAVED_TEMPLATES['test'] = '{% if debug %}Debug mode{% endif %}'
+
+        code_block = pf.CodeBlock(
+            text='',
+            classes=['embedz'],
+            attributes={'data': 'tests/fixtures/sample.csv', 'as': 'test', 'with.debug': 'true'}
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        assert 'Debug mode' in output
