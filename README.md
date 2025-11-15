@@ -13,13 +13,12 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 - 📊 **6 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
-- ⚡ **Flexible Syntax**: YAML headers, code block attributes, and dot notation for variables
+- ⚡ **Flexible Syntax**: YAML headers and code block attributes
 - ✨ **Elegant Syntax**: `{.embedz data=file.csv as=template}` with optional YAML delimiters
 - 🔁 **Template Reuse**: Define templates once, use them multiple times
 - 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
 - 🌐 **Variable Scoping**: Local (`with:`) and global (`global:`) variable management
-- 🔧 **Dot Notation**: Simple variables via attributes: `with.title="Title"` `global.author="John"`
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 
 ## Installation
@@ -42,20 +41,20 @@ Dependencies: `panflute`, `jinja2`, `pandas`, `pyyaml`
 
 Create a markdown file with a data block:
 
-```markdown
+````markdown
 # Monthly Report
 
-​```embedz
+```embedz
 ---
 data: stats.csv
 ---
-| Month | Count |
-|:------|------:|
+| Month           |           Count |
+|:----------------|----------------:|
 {% for row in data %}
 | {{ row.month }} | {{ row.count }} |
 {% endfor %}
-​```
 ```
+````
 
 Convert with Pandoc:
 
@@ -67,21 +66,21 @@ pandoc report.md --filter pandoc-embedz -o report.pdf
 
 ### CSV File (Auto-detected)
 
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 data: data.csv
 ---
 {% for row in data %}
 - {{ row.name }}: {{ row.value }}
 {% endfor %}
-​```
 ```
+````
 
 ### JSON Structure
 
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 data: report.json
 ---
@@ -93,13 +92,13 @@ data: report.json
 - {{ item }}
 {% endfor %}
 {% endfor %}
-​```
 ```
+````
 
 ### Inline Data
 
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 format: json
 ---
@@ -111,84 +110,65 @@ format: json
   {"name": "Apple", "count": 10},
   {"name": "Banana", "count": 5}
 ]
-​```
 ```
+````
 
 ### Attribute Syntax
 
 Code block attributes provide a concise way to specify configuration:
 
-```markdown
-​```{.embedz data=data.csv}
+````markdown
+```{.embedz data=data.csv}
 {% for row in data %}
 - {{ row.name }}: {{ row.value }}
 {% endfor %}
-​```
 ```
+````
 
 #### Elegant Syntax: Combining Attributes with YAML
 
 Attributes and YAML work together naturally. When you use `data` and `as` attributes, you can write YAML configuration without `---` delimiters:
 
-```markdown
+````markdown
 # Define template
-​```{.embedz name=product-list}
+```{.embedz name=product-list}
 {% for item in data %}
 - {{ item.product }}: ${{ item.price }}
 {% endfor %}
-​```
+```
 
 # Use template with parameters - no --- delimiters needed
-​```{.embedz data=products.csv as=product-list}
+```{.embedz data=products.csv as=product-list}
 with:
-  title: "Product List"
+  title: Product List
   tax_rate: 0.08
-​```
 ```
+````
 
 This reads naturally: "use products.csv as product-list template, with these parameters"
 
-#### Dot Notation for Variables
-
-For simple scalar values, use dot notation in attributes:
-
-```markdown
-# with.* for template parameters (replaces YAML with:)
-​```{.embedz data=data.csv as=template with.title="Report" with.year="2024"}
-
-# global.* for document-wide variables
-​```{.embedz global.author="John" global.version="1.0"}
-
-# Accessible in templates as {{ title }} or {{ with.title }}
-​```
-```
-
-**Dot notation supports**:
-- Single-level nesting: `with.key="value"` ✅
-- Multi-level nesting: `with.nested.key` ❌ (use YAML for complex structures)
-- Boolean conversion: `with.debug="true"` → `True`
-- Works with any key: `with.*`, `global.*`, or custom keys
+**Note**: For simple scalar values, you can also use dot notation in attributes (e.g., `with.title="Report"` or `global.author="John"`), though YAML is generally more readable for complex configurations.
 
 #### Using Templates with Inline Data
 
-```markdown
+````markdown
 # Use template with inline CSV data
-​```{.embedz as=product-list format=csv}
+```{.embedz as=product-list format=csv}
 product,price
 Widget,19.99
 Gadget,29.99
-​```
 ```
+````
 
 Using `header=false` for data without header row:
 
-```markdown
-​```{.embedz as=product-list format=csv header=false}
+````markdown
+```{.embedz as=product-list format=csv header=false}
 Widget,19.99
 Gadget,29.99
 Tool,39.99
-​```
 ```
+````
 
 In this case, `data` will be a list of lists instead of a list of dictionaries.
 
@@ -196,8 +176,8 @@ In this case, `data` will be a list of lists instead of a list of dictionaries.
 
 ### Conditionals
 
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 data: incidents.csv
 ---
@@ -208,14 +188,14 @@ data: incidents.csv
 - {{ row.title }}: {{ row.count }} incidents
 {% endif %}
 {% endfor %}
-​```
 ```
+````
 
 ### Template Reuse
 
 Name a block with `name` so you can treat it as a reusable template. Provide the default dataset inside the same block or leave it empty and supply fresh data when you reuse it.
 
-```markdown
+````markdown
 # Define template
 ```embedz
 ---
@@ -234,12 +214,12 @@ as: incident-list
 data: february.csv
 ---
 ```
-```
+````
 ### Template Inclusion (Nested Templates)
 
 Break complex layouts into smaller fragments and stitch them together with `{% include %}`. Define each fragment with `name` and reuse it inside loops so formatting stays centralized.
 
-```markdown
+````markdown
 # Define formatting fragments
 ```embedz
 ---
@@ -264,11 +244,11 @@ data: incidents.csv
 - {% include 'date-format' with context %} {% include 'title-format' with context %}
 {% endfor %}
 ```
-```
+````
 
 The `with context` clause forwards the current loop variables so included templates can read `item`. You can also layer includes, for example:
 
-```markdown
+````markdown
 ```embedz
 ---
 name: severity-badge
@@ -285,12 +265,12 @@ data: vulnerabilities.csv
 - {% include 'severity-badge' with context %} {{ item.title }}
 {% endfor %}
 ```
-```
+````
 ### Template Macros (Advanced)
 
 Jinja2 macros allow you to define reusable template functions with parameters, providing even more flexibility than `{% include %}` when you need parameterized helpers.
 
-```markdown
+````markdown
 # Define macros
 ```embedz
 ---
@@ -303,7 +283,7 @@ name: formatters
 {% macro severity_badge(level) -%}
 {% if level == "high" %}🔴 High{% elif level == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
 {%- endmacro %}
-``` 
+```
 
 # Use macros with import
 ```embedz
@@ -317,7 +297,7 @@ data: vulnerabilities.csv
 - {{ format_item(item.title, item.date) }} - {{ severity_badge(item.severity) }}
 {% endfor %}
 ```
-```
+````
 
 **Macro vs Include**:
 - **Macros**: Accept parameters, more flexible, explicit imports required
@@ -327,15 +307,15 @@ data: vulnerabilities.csv
 
 Templates preserve leading whitespace but remove trailing newlines, similar to shell `$(...)` behavior. The example below shows how an indented snippet keeps its spacing without accumulating extra blank lines.
 
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 name: indented-code
 ---
     def hello():
         print("Hello")
-​```
 ```
+````
 
 **Template storage** (used with `{% include %}` and macros):
 - ✅ Leading whitespace preserved (indentation maintained)
@@ -368,44 +348,44 @@ Use `with` to scope variables to a single embed block and `global` to share valu
 
 Put block-specific values under `with:` so subsequent content in the same code block can rely on them without leaking to other blocks.
 
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 data: data.csv
 with:
   threshold: 100
-  label: "High"
+  label: High
 ---
 {% for row in data %}
 {% if row.count > threshold %}
 - {{ label }}: {{ row.name }}
 {% endif %}
 {% endfor %}
-​```
 ```
+````
 
 ### Global Variables (Document-scoped)
 
 Values under `global:` stay available to every embed block that follows a definition, enabling document-wide configuration.
 
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 global:
   threshold: 100
 ---
-​```
+```
 
 # Later blocks can use 'threshold'
-​```embedz
+```embedz
 ---
 data: data.csv
 ---
 {% for row in data if row.count > threshold %}
 - {{ row.name }}
 {% endfor %}
-​```
 ```
+````
 
 ## Related Tools
 
