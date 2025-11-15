@@ -363,3 +363,79 @@ format: json
         # Should save template even without data
         process_embedz(code_block, pf.Doc())
         assert 'test-template' in SAVED_TEMPLATES
+"""Test YAML content without --- delimiters when data + with attributes"""
+import pytest
+import panflute as pf
+from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+from io import StringIO
+
+
+def stringify_result(result):
+    if isinstance(result, list):
+        return '\n'.join(pf.stringify(elem) for elem in result if elem is not None)
+    elif result is not None:
+        return pf.stringify(result)
+    return ''
+
+
+class TestYAMLWithoutDelimiters:
+    def setup_method(self):
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+    def test_data_with_yaml_content_no_delimiters(self):
+        """Test data + with attributes with YAML content (no --- delimiters)"""
+        # Define template
+        SAVED_TEMPLATES['test'] = 'Title: {{ local.title }}, Count: {{ data | length }}'
+
+        # Use template with data attribute and YAML content
+        code_block = pf.CodeBlock(
+            text="""local:
+  title: "Test Title"
+  url: "http://example.com" """,
+            classes=['embedz'],
+            attributes={'data': 'tests/fixtures/sample.csv', 'with': 'test'}
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        assert 'Test Title' in output
+        assert 'Count: 3' in output
+
+    def test_data_with_invalid_yaml_treated_as_data(self):
+        """Test that invalid YAML is treated as inline data"""
+        # Define template
+        SAVED_TEMPLATES['test'] = 'Count: {{ data | length }}'
+
+        # Invalid YAML (should be treated as CSV data, but data attribute takes precedence)
+        code_block = pf.CodeBlock(
+            text="""Alice,100
+Bob,200""",
+            classes=['embedz'],
+            attributes={'data': 'tests/fixtures/sample.csv', 'with': 'test', 'format': 'csv'}
+        )
+
+        # Should use data from attribute and warn
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        # Data from attribute (sample.csv has 3 rows)
+        assert 'Count: 3' in output
+
+    def test_yaml_with_format_specification(self):
+        """Test YAML content with format specification"""
+        SAVED_TEMPLATES['test'] = '{{ data | length }} items'
+
+        code_block = pf.CodeBlock(
+            text="""format: json
+local:
+  debug: true""",
+            classes=['embedz'],
+            attributes={'data': 'tests/fixtures/sample.json', 'with': 'test'}
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        output = stringify_result(result)
+
+        assert '3 items' in output

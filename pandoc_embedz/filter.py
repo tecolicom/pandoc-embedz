@@ -345,15 +345,39 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         # Parse code block content
         yaml_config, template_part, data_part = parse_code_block(text)
 
-        # Merge configurations: YAML takes precedence over attributes
-        config = {**attr_config, **yaml_config}
-
+        # Special handling: if data + with attributes without YAML header,
+        # treat content as YAML configuration
+        if ('data' in attr_config and 'with' in attr_config and
+            not text.startswith('---') and text.strip()):
+            try:
+                # Try parsing content as YAML configuration
+                content_config = yaml.safe_load(text) or {}
+                if isinstance(content_config, dict):
+                    # Merge: attr < content < yaml_config (yaml_config is empty here)
+                    yaml_config = content_config
+                    data_part = None
+                    template_part = ''
+                else:
+                    # Not a dict, treat as inline data
+                    data_part = text
+                    template_part = ''
+            except yaml.YAMLError:
+                # YAML parse error, treat as inline data
+                data_part = text
+                template_part = ''
         # Special handling: if no YAML header and with is specified in attributes,
         # treat entire content as inline data
-        if not text.startswith('---') and 'with' in attr_config:
+        elif not text.startswith('---') and 'with' in attr_config:
             # Entire text is inline data
             data_part = text
             template_part = ''
+
+        # Merge configurations: YAML takes precedence over attributes
+        config = {**attr_config, **yaml_config}
+
+        # Warn if both data attribute and inline data are specified
+        if 'data' in attr_config and data_part:
+            sys.stderr.write(f"Warning: Both data attribute ('{attr_config['data']}') and inline data specified. Using data from attribute.\n")
 
         # Validate configuration
         validate_config(config)
