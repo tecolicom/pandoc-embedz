@@ -114,9 +114,9 @@ format: json
 ​```
 ```
 
-### Attribute Syntax (Alternative to YAML)
+### Attribute Syntax
 
-You can use code block attributes as a shorthand for configuration:
+Code block attributes provide a concise way to specify configuration:
 
 ```markdown
 ​```{.embedz data=data.csv}
@@ -126,9 +126,9 @@ You can use code block attributes as a shorthand for configuration:
 ​```
 ```
 
-#### Elegant Syntax: Attributes + YAML Parameters (No Delimiters)
+#### Elegant Syntax: Combining Attributes with YAML
 
-When both `data` and `as` attributes are present, YAML delimiters (`---`) are optional:
+Attributes and YAML work together naturally. When you use `data` and `as` attributes, you can write YAML configuration without `---` delimiters:
 
 ```markdown
 # Define template
@@ -138,7 +138,7 @@ When both `data` and `as` attributes are present, YAML delimiters (`---`) are op
 {% endfor %}
 ​```
 
-# Use template with data file + YAML parameters (no --- needed)
+# Use template with parameters - no --- delimiters needed
 ​```{.embedz data=products.csv as=product-list}
 with:
   title: "Product List"
@@ -146,7 +146,7 @@ with:
 ​```
 ```
 
-This reads naturally: "Use products.csv AS product-list template WITH these parameters"
+This reads naturally: "use products.csv as product-list template, with these parameters"
 
 #### Dot Notation for Variables
 
@@ -213,9 +213,11 @@ data: incidents.csv
 
 ### Template Reuse
 
+Name a block with `name` so you can treat it as a reusable template. Provide the default dataset inside the same block or leave it empty and supply fresh data when you reuse it.
+
 ```markdown
 # Define template
-​```embedz
+```embedz
 ---
 name: incident-list
 data: january.csv
@@ -223,59 +225,58 @@ data: january.csv
 {% for row in data %}
 - {{ row.date }}: {{ row.title }}
 {% endfor %}
-​```
+```
 
-# Reuse template
-​```embedz
+# Reuse template with new data
+```embedz
 ---
 as: incident-list
 data: february.csv
 ---
-​```
 ```
-
+```
 ### Template Inclusion (Nested Templates)
 
-Use `{% include %}` to embed templates within other templates for more modular content generation.
+Break complex layouts into smaller fragments and stitch them together with `{% include %}`. Define each fragment with `name` and reuse it inside loops so formatting stays centralized.
 
 ```markdown
-# Define reusable formatting templates
-​```embedz
+# Define formatting fragments
+```embedz
 ---
 name: date-format
 ---
 {{ item.date }}
-​```
+```
 
-​```embedz
+```embedz
 ---
 name: title-format
 ---
 **{{ item.title }}**
-​```
+```
 
-# Combine templates
-​```embedz
+# Compose fragments inside a loop
+```embedz
 ---
 data: incidents.csv
 ---
 {% for item in data %}
 - {% include 'date-format' with context %} {% include 'title-format' with context %}
 {% endfor %}
-​```
+```
 ```
 
-Templates can also be nested multiple levels:
+The `with context` clause forwards the current loop variables so included templates can read `item`. You can also layer includes, for example:
 
 ```markdown
-​```embedz
+```embedz
 ---
 name: severity-badge
 ---
 {% if item.severity == "high" %}🔴{% elif item.severity == "medium" %}🟡{% else %}🟢{% endif %}
-​```
+```
 
-​```embedz
+```embedz
 ---
 data: vulnerabilities.csv
 ---
@@ -283,18 +284,15 @@ data: vulnerabilities.csv
 {% for item in data %}
 - {% include 'severity-badge' with context %} {{ item.title }}
 {% endfor %}
-​```
 ```
-
-**Note**: The `with context` clause passes the current template variables to the included template.
-
+```
 ### Template Macros (Advanced)
 
-Jinja2 macros allow you to define reusable template functions with parameters, providing even more flexibility than `{% include %}`.
+Jinja2 macros allow you to define reusable template functions with parameters, providing even more flexibility than `{% include %}` when you need parameterized helpers.
 
 ```markdown
 # Define macros
-​```embedz
+```embedz
 ---
 name: formatters
 ---
@@ -305,10 +303,10 @@ name: formatters
 {% macro severity_badge(level) -%}
 {% if level == "high" %}🔴 High{% elif level == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
 {%- endmacro %}
-​```
+``` 
 
 # Use macros with import
-​```embedz
+```embedz
 ---
 data: vulnerabilities.csv
 ---
@@ -318,7 +316,7 @@ data: vulnerabilities.csv
 {% for item in data %}
 - {{ format_item(item.title, item.date) }} - {{ severity_badge(item.severity) }}
 {% endfor %}
-​```
+```
 ```
 
 **Macro vs Include**:
@@ -327,7 +325,7 @@ data: vulnerabilities.csv
 
 ## Template Whitespace Handling
 
-Templates preserve leading whitespace but remove trailing newlines, similar to shell `$(...)` behavior:
+Templates preserve leading whitespace but remove trailing newlines, similar to shell `$(...)` behavior. The example below shows how an indented snippet keeps its spacing without accumulating extra blank lines.
 
 ```markdown
 ​```embedz
@@ -364,7 +362,11 @@ This design allows clean template composition (`{% include %}` works inline) whi
 
 ## Variable Scoping
 
+Use `with` to scope variables to a single embed block and `global` to share values across the document. The examples show block-limited and document-wide variables respectively.
+
 ### Local Variables (Block-scoped)
+
+Put block-specific values under `with:` so subsequent content in the same code block can rely on them without leaking to other blocks.
 
 ```markdown
 ​```embedz
@@ -383,6 +385,8 @@ with:
 ```
 
 ### Global Variables (Document-scoped)
+
+Values under `global:` stay available to every embed block that follows a definition, enabling document-wide configuration.
 
 ```markdown
 ​```embedz
