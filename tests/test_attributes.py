@@ -537,3 +537,40 @@ class TestWithDotNotation:
         output = stringify_result(result)
 
         assert 'Debug mode' in output
+
+    def test_global_dot_notation(self):
+        """Test that global.* attribute notation works"""
+        # Set global variable via attribute
+        code_block1 = pf.CodeBlock(
+            text='',
+            classes=['embedz'],
+            attributes={'global.author': 'John Doe'}
+        )
+        process_embedz(code_block1, pf.Doc())
+
+        # Use global variable in template
+        SAVED_TEMPLATES['test'] = 'Author: {{ author }}'
+        code_block2 = pf.CodeBlock(
+            text='',
+            classes=['embedz'],
+            attributes={'data': 'tests/fixtures/sample.csv', 'as': 'test'}
+        )
+
+        result = process_embedz(code_block2, pf.Doc())
+        output = stringify_result(result)
+
+        assert 'Author: John Doe' in output
+
+    def test_arbitrary_dot_notation(self):
+        """Test that arbitrary key.subkey notation creates nested dicts"""
+        code_block = pf.CodeBlock(
+            text='',
+            classes=['embedz'],
+            attributes={'custom.field': 'value'}
+        )
+
+        from pandoc_embedz.filter import parse_attributes
+        config = parse_attributes(code_block)
+
+        assert 'custom' in config
+        assert config['custom']['field'] == 'value'

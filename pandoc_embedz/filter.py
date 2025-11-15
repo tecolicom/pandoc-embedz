@@ -174,6 +174,9 @@ def load_data(
 def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
     """Parse code block attributes into config dictionary
 
+    Supports dot notation for nested dictionaries (e.g., with.title="Title", global.author="John")
+    Only single-level nesting is supported.
+
     Args:
         elem: Pandoc CodeBlock element
 
@@ -181,19 +184,21 @@ def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
         dict: Parsed configuration with proper type conversion
     """
     config: Dict[str, Any] = {}
-    with_vars: Dict[str, Any] = {}
+    nested_vars: Dict[str, Dict[str, Any]] = {}
 
     # elem.attributes is a dictionary
     if hasattr(elem, 'attributes') and elem.attributes:
         for key, value in elem.attributes.items():
-            # Handle with.* attributes (e.g., with.title="Title")
-            if key.startswith('with.'):
-                var_name = key[5:]  # Strip 'with.' prefix
+            # Handle dot notation (e.g., with.title="Title", global.author="John")
+            if '.' in key:
+                main_key, sub_key = key.split('.', 1)  # Split on first dot only
+                if main_key not in nested_vars:
+                    nested_vars[main_key] = {}
                 # Type conversion for boolean values
                 if isinstance(value, str) and value.lower() in ('true', 'false'):
-                    with_vars[var_name] = value.lower() == 'true'
+                    nested_vars[main_key][sub_key] = value.lower() == 'true'
                 else:
-                    with_vars[var_name] = value
+                    nested_vars[main_key][sub_key] = value
             else:
                 # Type conversion for boolean values
                 if isinstance(value, str) and value.lower() in ('true', 'false'):
@@ -202,9 +207,9 @@ def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
                 else:
                     config[key] = value
 
-    # Add with_vars to config if any exist
-    if with_vars:
-        config['with'] = with_vars
+    # Add nested vars to config
+    for main_key, sub_vars in nested_vars.items():
+        config[main_key] = sub_vars
 
     return config
 
