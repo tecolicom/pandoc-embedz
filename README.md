@@ -13,11 +13,13 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 - 📊 **6 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
-- ⚡ **Flexible Syntax**: Both YAML headers and code block attributes supported
+- ⚡ **Flexible Syntax**: YAML headers, code block attributes, and dot notation for variables
+- ✨ **Elegant Syntax**: `{.embedz data=file.csv as=template}` with optional YAML delimiters
 - 🔁 **Template Reuse**: Define templates once, use them multiple times
 - 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
-- 🌐 **Variable Scoping**: Local and global variable management
+- 🌐 **Variable Scoping**: Local (`with:`) and global (`global:`) variable management
+- 🔧 **Dot Notation**: Simple variables via attributes: `with.title="Title"` `global.author="John"`
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 
 ## Installation
@@ -124,18 +126,54 @@ You can use code block attributes as a shorthand for configuration:
 ​```
 ```
 
-Using a saved template with inline data (no YAML needed):
+#### Elegant Syntax: Attributes + YAML Parameters (No Delimiters)
+
+When both `data` and `as` attributes are present, YAML delimiters (`---`) are optional:
 
 ```markdown
-# Define template first
+# Define template
 ​```{.embedz name=product-list}
 {% for item in data %}
 - {{ item.product }}: ${{ item.price }}
 {% endfor %}
 ​```
 
+# Use template with data file + YAML parameters (no --- needed)
+​```{.embedz data=products.csv as=product-list}
+with:
+  title: "Product List"
+  tax_rate: 0.08
+​```
+```
+
+This reads naturally: "Use products.csv AS product-list template WITH these parameters"
+
+#### Dot Notation for Variables
+
+For simple scalar values, use dot notation in attributes:
+
+```markdown
+# with.* for template parameters (replaces YAML with:)
+​```{.embedz data=data.csv as=template with.title="Report" with.year="2024"}
+
+# global.* for document-wide variables
+​```{.embedz global.author="John" global.version="1.0"}
+
+# Accessible in templates as {{ title }} or {{ with.title }}
+​```
+```
+
+**Dot notation supports**:
+- Single-level nesting: `with.key="value"` ✅
+- Multi-level nesting: `with.nested.key` ❌ (use YAML for complex structures)
+- Boolean conversion: `with.debug="true"` → `True`
+- Works with any key: `with.*`, `global.*`, or custom keys
+
+#### Using Templates with Inline Data
+
+```markdown
 # Use template with inline CSV data
-​```{.embedz template=product-list format=csv}
+​```{.embedz as=product-list format=csv}
 product,price
 Widget,19.99
 Gadget,29.99
@@ -145,7 +183,7 @@ Gadget,29.99
 Using `header=false` for data without header row:
 
 ```markdown
-​```{.embedz template=product-list format=csv header=false}
+​```{.embedz as=product-list format=csv header=false}
 Widget,19.99
 Gadget,29.99
 Tool,39.99
