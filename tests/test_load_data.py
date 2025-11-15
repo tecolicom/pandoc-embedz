@@ -67,6 +67,27 @@ class TestLoadTSV:
         assert len(data) == 2
         assert data[0]['value'] == 42
 
+    def test_load_tsv_with_spaces_in_values(self):
+        """Test that TSV correctly handles spaces within field values"""
+        tsv_data = StringIO("name\tvalue\tcomment\nArthur Dent\t42\tHoopy frood\nFord Prefect\t100\tGreat guy")
+        data = load_data(tsv_data, format='tsv', has_header=True)
+
+        assert len(data) == 2
+        # Spaces within values should be preserved
+        assert data[0]['name'] == 'Arthur Dent'
+        assert data[0]['comment'] == 'Hoopy frood'
+        assert data[1]['name'] == 'Ford Prefect'
+        assert data[1]['comment'] == 'Great guy'
+
+    def test_load_tsv_without_header(self):
+        """Test TSV without header row"""
+        tsv_data = StringIO("Arthur Dent\t42\nFord Prefect\t100")
+        data = load_data(tsv_data, format='tsv', has_header=False)
+
+        assert len(data) == 2
+        assert data[0][0] == 'Arthur Dent'
+        assert data[0][1] == 42
+
 
 class TestLoadSSV:
     """Tests for SSV (space-separated) data loading"""
