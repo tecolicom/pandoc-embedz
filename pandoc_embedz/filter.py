@@ -250,7 +250,7 @@ def validate_config(config: Dict[str, Any]) -> None:
         ValueError: If configuration contains invalid values
         TypeError: If configuration values have wrong types
     """
-    valid_keys = {'data', 'format', 'header', 'local', 'global', 'name', 'with'}
+    valid_keys = {'data', 'format', 'header', 'with', 'global', 'name', 'as'}
     invalid_keys = set(config.keys()) - valid_keys
     if invalid_keys:
         raise ValueError(f"Invalid config keys: {', '.join(invalid_keys)}")
@@ -268,9 +268,9 @@ def validate_config(config: Dict[str, Any]) -> None:
     if 'header' in config and not isinstance(config['header'], bool):
         raise TypeError("'header' must be a boolean")
 
-    # Validate local and global
-    if 'local' in config and not isinstance(config['local'], dict):
-        raise TypeError("'local' must be a mapping of variable names to values")
+    # Validate with and global
+    if 'with' in config and not isinstance(config['with'], dict):
+        raise TypeError("'with' must be a mapping of variable names to values")
 
     if 'global' in config and not isinstance(config['global'], dict):
         raise TypeError("'global' must be a mapping of variable names to values")
@@ -309,7 +309,7 @@ def print_error_info(
     sys.stderr.write(f"  Data file: {data_file or 'inline'}\n")
     sys.stderr.write(f"  Format: {config.get('format', 'auto-detect')}\n")
     sys.stderr.write(f"  Header: {has_header}\n")
-    sys.stderr.write(f"  Template: {config.get('with', config.get('name', 'inline'))}\n")
+    sys.stderr.write(f"  Template: {config.get('as', config.get('name', 'inline'))}\n")
 
     if data_part and len(data_part) < 500:
         sys.stderr.write(f"\nInline data:\n")
@@ -345,9 +345,9 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         # Parse code block content
         yaml_config, template_part, data_part = parse_code_block(text)
 
-        # Special handling: if data + with attributes without YAML header,
+        # Special handling: if data + as attributes without YAML header,
         # treat content as YAML configuration
-        if ('data' in attr_config and 'with' in attr_config and
+        if ('data' in attr_config and 'as' in attr_config and
             not text.startswith('---') and text.strip()):
             try:
                 # Try parsing content as YAML configuration
@@ -365,9 +365,9 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
                 # YAML parse error, treat as inline data
                 data_part = text
                 template_part = ''
-        # Special handling: if no YAML header and with is specified in attributes,
+        # Special handling: if no YAML header and as is specified in attributes,
         # treat entire content as inline data
-        elif not text.startswith('---') and 'with' in attr_config:
+        elif not text.startswith('---') and 'as' in attr_config:
             # Entire text is inline data
             data_part = text
             template_part = ''
@@ -390,7 +390,7 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
             SAVED_TEMPLATES[template_name] = template_part
 
         # Load saved template
-        template_ref = config.get('with')
+        template_ref = config.get('as')
         if template_ref:
             if template_ref not in SAVED_TEMPLATES:
                 raise ValueError(f"Template '{template_ref}' not found. Define it first with name='{template_ref}'")
@@ -410,9 +410,9 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
             data = []
 
         # Prepare variables
-        local_vars: Dict[str, Any] = {}
-        if 'local' in config:
-            local_vars.update(config['local'])
+        with_vars: Dict[str, Any] = {}
+        if 'with' in config:
+            with_vars.update(config['with'])
         if 'global' in config:
             # Store global variables persistently
             GLOBAL_VARS.update(config['global'])
@@ -427,9 +427,9 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         # Render with Jinja2
         render_vars = {
             **GLOBAL_VARS,           # Expand global variables
-            **local_vars,            # Expand local variables (override globals)
+            **with_vars,             # Expand with variables (override globals)
             'global': GLOBAL_VARS,   # Also accessible as global.xxx
-            'local': local_vars,     # Also accessible as local.xxx
+            'with': with_vars,       # Also accessible as with.xxx
             'data': data             # Data
         }
         template = env.from_string(template_part)

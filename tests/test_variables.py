@@ -20,7 +20,7 @@ class TestLocalVariables:
     def test_local_variables_in_template(self):
         code = """---
 format: json
-local:
+with:
   threshold: 90
   label: "High"
 ---
@@ -41,11 +41,11 @@ local:
     def test_local_variables_accessible_as_local_dot(self):
         code = """---
 format: json
-local:
+with:
   threshold: 90
 ---
 {% for item in data %}
-{% if item.value > local.threshold %}
+{% if item.value > with.threshold %}
 - {{ item.name }}
 {% endif %}
 {% endfor %}
@@ -153,7 +153,7 @@ global:
         # Use local threshold (should override)
         use_code = """---
 format: json
-local:
+with:
   threshold: 90
 ---
 Threshold: {{ threshold }}

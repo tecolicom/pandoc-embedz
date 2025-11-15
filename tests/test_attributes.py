@@ -58,7 +58,7 @@ name: item-list
 Alice,100
 Bob,200""",
             classes=['embedz'],
-            attributes=[('with', 'item-list'), ('format', 'csv')]
+            attributes=[('as', 'item-list'), ('format', 'csv')]
         )
 
         result = process_embedz(code_block, pf.Doc())
@@ -90,7 +90,7 @@ name: json-template
   {"name": "Banana", "count": 5}
 ]""",
             classes=['embedz'],
-            attributes=[('with', 'json-template'), ('format', 'json')]
+            attributes=[('as', 'json-template'), ('format', 'json')]
         )
 
         result = process_embedz(code_block, pf.Doc())
@@ -182,7 +182,7 @@ Widget,19.99
 Gadget,29.99""",
             classes=['embedz'],
             attributes=[
-                ('with', 'product-list'),
+                ('as', 'product-list'),
                 ('format', 'csv'),
                 ('header', 'true')
             ]
@@ -248,7 +248,7 @@ test data""",
         code_block = pf.CodeBlock(
             text="""test data""",
             classes=['embedz'],
-            attributes=[('format', 'invalid_format'), ('with', 'foo')]
+            attributes=[('format', 'invalid_format'), ('as', 'foo')]
         )
 
         # Need to define template first
@@ -263,7 +263,7 @@ test data""",
             text="""name,value
 Alice,100""",
             classes=['embedz'],
-            attributes=[('with', 'nonexistent'), ('format', 'csv')]
+            attributes=[('as', 'nonexistent'), ('format', 'csv')]
         )
 
         with pytest.raises(ValueError, match="Template 'nonexistent' not found"):
@@ -300,7 +300,7 @@ a,b,c""",
             text="""Alice,100
 Bob,200""",
             classes=['embedz'],
-            attributes=[('with', 'no-header-template'), ('format', 'csv'), ('header', 'false')]
+            attributes=[('as', 'no-header-template'), ('format', 'csv'), ('header', 'false')]
         )
 
         result = process_embedz(code_block, pf.Doc())
@@ -318,7 +318,7 @@ Bob,200""",
         code_block = pf.CodeBlock(
             text="""---
 format: json
-with: test
+as: test
 ---
 ---
 ["apple", "banana"]""",
@@ -386,15 +386,15 @@ class TestYAMLWithoutDelimiters:
     def test_data_with_yaml_content_no_delimiters(self):
         """Test data + with attributes with YAML content (no --- delimiters)"""
         # Define template
-        SAVED_TEMPLATES['test'] = 'Title: {{ local.title }}, Count: {{ data | length }}'
+        SAVED_TEMPLATES['test'] = 'Title: {{ with.title }}, Count: {{ data | length }}'
 
         # Use template with data attribute and YAML content
         code_block = pf.CodeBlock(
-            text="""local:
+            text="""with:
   title: "Test Title"
   url: "http://example.com" """,
             classes=['embedz'],
-            attributes={'data': 'tests/fixtures/sample.csv', 'with': 'test'}
+            attributes={'data': 'tests/fixtures/sample.csv', 'as': 'test'}
         )
 
         result = process_embedz(code_block, pf.Doc())
@@ -413,7 +413,7 @@ class TestYAMLWithoutDelimiters:
             text="""Alice,100
 Bob,200""",
             classes=['embedz'],
-            attributes={'data': 'tests/fixtures/sample.csv', 'with': 'test', 'format': 'csv'}
+            attributes={'data': 'tests/fixtures/sample.csv', 'as': 'test', 'format': 'csv'}
         )
 
         # Should use data from attribute and warn
@@ -429,10 +429,10 @@ Bob,200""",
 
         code_block = pf.CodeBlock(
             text="""format: json
-local:
+with:
   debug: true""",
             classes=['embedz'],
-            attributes={'data': 'tests/fixtures/sample.json', 'with': 'test'}
+            attributes={'data': 'tests/fixtures/sample.json', 'as': 'test'}
         )
 
         result = process_embedz(code_block, pf.Doc())

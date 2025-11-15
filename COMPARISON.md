@@ -211,7 +211,7 @@ data: data1.csv
 # テンプレート再利用
 ​```embedz
 ---
-with: incident-list
+as: incident-list
 data: data2.csv
 ---
 ​```
@@ -231,7 +231,7 @@ global:
 ​```embedz
 ---
 data: data.csv
-local:
+with:
   prefix: "事例"
 ---
 {% for row in data %}

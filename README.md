@@ -190,7 +190,7 @@ data: january.csv
 # Reuse template
 ​```embedz
 ---
-with: incident-list
+as: incident-list
 data: february.csv
 ---
 ​```
@@ -332,7 +332,7 @@ This design allows clean template composition (`{% include %}` works inline) whi
 ​```embedz
 ---
 data: data.csv
-local:
+with:
   threshold: 100
   label: "High"
 ---

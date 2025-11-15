@@ -79,13 +79,13 @@ Template here"""
 data: file.csv
 format: csv
 header: true
-local:
+with:
   threshold: 100
   label: "High"
 global:
   author: "Arthur"
 name: my-template
-with: base-template
+as: base-template
 ---
 Template content"""
 
@@ -94,10 +94,10 @@ Template content"""
         assert config['data'] == 'file.csv'
         assert config['format'] == 'csv'
         assert config['header'] is True
-        assert config['local']['threshold'] == 100
+        assert config['with']['threshold'] == 100
         assert config['global']['author'] == 'Arthur'
         assert config['name'] == 'my-template'
-        assert config['with'] == 'base-template'
+        assert config['as'] == 'base-template'
         assert template == 'Template content'
 
     def test_parse_multiline_template(self):

@@ -104,7 +104,7 @@ name: list-template
 
         # Then use it
         use_code = """---
-with: list-template
+as: list-template
 format: json
 ---
 [{"name": "Arthur"}, {"name": "Ford"}]"""
@@ -117,7 +117,7 @@ format: json
 
     def test_use_nonexistent_template_fails(self):
         code = """---
-with: nonexistent
+as: nonexistent
 format: json
 ---
 [{"name": "Arthur"}]"""
