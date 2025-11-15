@@ -190,7 +190,7 @@ data: january.csv
 # Reuse template
 ​```embedz
 ---
-template: incident-list
+with: incident-list
 data: february.csv
 ---
 ​```

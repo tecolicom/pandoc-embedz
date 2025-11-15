@@ -85,7 +85,7 @@ local:
 global:
   author: "Arthur"
 name: my-template
-template: base-template
+with: base-template
 ---
 Template content"""
 
@@ -97,7 +97,7 @@ Template content"""
         assert config['local']['threshold'] == 100
         assert config['global']['author'] == 'Arthur'
         assert config['name'] == 'my-template'
-        assert config['template'] == 'base-template'
+        assert config['with'] == 'base-template'
         assert template == 'Template content'
 
     def test_parse_multiline_template(self):

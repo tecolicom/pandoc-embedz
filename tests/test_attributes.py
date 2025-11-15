@@ -58,7 +58,7 @@ name: item-list
 Alice,100
 Bob,200""",
             classes=['embedz'],
-            attributes=[('template', 'item-list'), ('format', 'csv')]
+            attributes=[('with', 'item-list'), ('format', 'csv')]
         )
 
         result = process_embedz(code_block, pf.Doc())
@@ -90,7 +90,7 @@ name: json-template
   {"name": "Banana", "count": 5}
 ]""",
             classes=['embedz'],
-            attributes=[('template', 'json-template'), ('format', 'json')]
+            attributes=[('with', 'json-template'), ('format', 'json')]
         )
 
         result = process_embedz(code_block, pf.Doc())
@@ -182,7 +182,7 @@ Widget,19.99
 Gadget,29.99""",
             classes=['embedz'],
             attributes=[
-                ('template', 'product-list'),
+                ('with', 'product-list'),
                 ('format', 'csv'),
                 ('header', 'true')
             ]
@@ -248,7 +248,7 @@ test data""",
         code_block = pf.CodeBlock(
             text="""test data""",
             classes=['embedz'],
-            attributes=[('format', 'invalid_format'), ('template', 'foo')]
+            attributes=[('format', 'invalid_format'), ('with', 'foo')]
         )
 
         # Need to define template first
@@ -263,7 +263,7 @@ test data""",
             text="""name,value
 Alice,100""",
             classes=['embedz'],
-            attributes=[('template', 'nonexistent'), ('format', 'csv')]
+            attributes=[('with', 'nonexistent'), ('format', 'csv')]
         )
 
         with pytest.raises(ValueError, match="Template 'nonexistent' not found"):
@@ -300,7 +300,7 @@ a,b,c""",
             text="""Alice,100
 Bob,200""",
             classes=['embedz'],
-            attributes=[('template', 'no-header-template'), ('format', 'csv'), ('header', 'false')]
+            attributes=[('with', 'no-header-template'), ('format', 'csv'), ('header', 'false')]
         )
 
         result = process_embedz(code_block, pf.Doc())
@@ -318,7 +318,7 @@ Bob,200""",
         code_block = pf.CodeBlock(
             text="""---
 format: json
-template: test
+with: test
 ---
 ---
 ["apple", "banana"]""",

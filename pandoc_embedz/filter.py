@@ -250,7 +250,7 @@ def validate_config(config: Dict[str, Any]) -> None:
         ValueError: If configuration contains invalid values
         TypeError: If configuration values have wrong types
     """
-    valid_keys = {'data', 'format', 'header', 'local', 'global', 'name', 'template'}
+    valid_keys = {'data', 'format', 'header', 'local', 'global', 'name', 'with'}
     invalid_keys = set(config.keys()) - valid_keys
     if invalid_keys:
         raise ValueError(f"Invalid config keys: {', '.join(invalid_keys)}")
@@ -309,7 +309,7 @@ def print_error_info(
     sys.stderr.write(f"  Data file: {data_file or 'inline'}\n")
     sys.stderr.write(f"  Format: {config.get('format', 'auto-detect')}\n")
     sys.stderr.write(f"  Header: {has_header}\n")
-    sys.stderr.write(f"  Template: {config.get('template', config.get('name', 'inline'))}\n")
+    sys.stderr.write(f"  Template: {config.get('with', config.get('name', 'inline'))}\n")
 
     if data_part and len(data_part) < 500:
         sys.stderr.write(f"\nInline data:\n")
@@ -348,9 +348,9 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         # Merge configurations: YAML takes precedence over attributes
         config = {**attr_config, **yaml_config}
 
-        # Special handling: if no YAML header and template is specified in attributes,
+        # Special handling: if no YAML header and with is specified in attributes,
         # treat entire content as inline data
-        if not text.startswith('---') and 'template' in attr_config:
+        if not text.startswith('---') and 'with' in attr_config:
             # Entire text is inline data
             data_part = text
             template_part = ''
@@ -366,7 +366,7 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
             SAVED_TEMPLATES[template_name] = template_part
 
         # Load saved template
-        template_ref = config.get('template')
+        template_ref = config.get('with')
         if template_ref:
             if template_ref not in SAVED_TEMPLATES:
                 raise ValueError(f"Template '{template_ref}' not found. Define it first with name='{template_ref}'")
