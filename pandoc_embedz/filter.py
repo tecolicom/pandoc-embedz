@@ -152,6 +152,42 @@ def guess_format_from_filename(filename: str) -> str:
             return 'sqlite'
     return 'csv'
 
+def _normalize_data_source(
+    value: Union[str, Dict[str, Any]],
+    table_name: str,
+    data_format: Optional[str] = None,
+    validate_path: bool = False
+) -> tuple:
+    """Normalize data source specification to (source, format) tuple
+
+    Args:
+        value: Data source specification - can be:
+               - dict with 'data' key: inline data with optional 'format'
+               - multi-line string: inline CSV data
+               - single-line string: file path
+        table_name: Name of the table (for error messages)
+        data_format: Global format override (optional)
+        validate_path: Whether to validate file paths
+
+    Returns:
+        tuple: (source, file_format) where source is StringIO or file path
+    """
+    if isinstance(value, dict):
+        # Dict with 'data' key → inline data with format
+        if 'data' not in value:
+            raise ValueError(
+                f"Inline data dict for table '{table_name}' must have 'data' key"
+            )
+        return StringIO(value['data']), value.get('format', 'csv')
+    elif isinstance(value, str) and '\n' in value:
+        # Multi-line string → inline CSV data (default format)
+        return StringIO(value), 'csv'
+    else:
+        # Single-line string → file path
+        file_format = data_format or guess_format_from_filename(value)
+        source = validate_file_path(value) if validate_path else value
+        return source, file_format
+
 def load_data(
     source: Union[str, StringIO],
     format: Optional[str] = None,
@@ -416,6 +452,137 @@ def validate_config(config: Dict[str, Any]) -> None:
     if 'global' in config and not isinstance(config['global'], dict):
         raise TypeError("'global' must be a mapping of variable names to values")
 
+def _load_multi_table_with_query(
+    data_file: Dict[str, Any],
+    data_format: Optional[str],
+    has_header: bool,
+    query: str
+) -> List[Dict[str, Any]]:
+    """Load multiple tables and execute SQL query
+
+    Args:
+        data_file: Dictionary of table_name -> data source
+        data_format: Global format override
+        has_header: Whether CSV/TSV has header
+        query: SQL query to execute
+
+    Returns:
+        List of query result rows
+    """
+    tables = {}
+    for table_name, value in data_file.items():
+        # Normalize value to determine source and format
+        source, file_format = _normalize_data_source(
+            value, table_name, data_format, validate_path=True
+        )
+
+        # For SQL queries, we only support formats that can be converted to DataFrame
+        if file_format not in ('csv', 'tsv', 'ssv', 'spaces'):
+            raise ValueError(
+                f"Multi-table SQL queries only support CSV, TSV, and SSV formats. "
+                f"Got '{file_format}' for table '{table_name}'"
+            )
+
+        # Load into DataFrame based on format, respecting has_header
+        if file_format == 'tsv':
+            df = pd.read_csv(source, sep='\t', header=0 if has_header else None)
+        elif file_format in ('ssv', 'spaces'):
+            df = pd.read_csv(source, sep=r'\s+', engine='python', header=0 if has_header else None)
+        else:  # csv
+            df = pd.read_csv(source, header=0 if has_header else None)
+
+        tables[table_name] = df
+
+    # Apply SQL query to multiple tables
+    return _apply_sql_query_multi(tables, query)
+
+def _load_multi_table_direct(
+    data_file: Dict[str, Any],
+    data_format: Optional[str],
+    has_header: bool,
+    load_kwargs: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Load multiple tables for direct access (no SQL)
+
+    Args:
+        data_file: Dictionary of table_name -> data source
+        data_format: Global format override
+        has_header: Whether CSV/TSV has header
+        load_kwargs: Additional kwargs for load_data
+
+    Returns:
+        Dictionary of table_name -> loaded data
+    """
+    datasets = {}
+    for table_name, value in data_file.items():
+        # Normalize value to determine source and format
+        source, file_format = _normalize_data_source(
+            value, table_name, data_format, validate_path=False
+        )
+
+        # Load data from source
+        datasets[table_name] = load_data(
+            source,
+            format=file_format,
+            has_header=has_header,
+            **load_kwargs
+        )
+    return datasets
+
+def _load_embedz_data(
+    data_file: Optional[Union[str, Dict[str, Any]]],
+    data_part: Optional[str],
+    config: Dict[str, Any],
+    data_format: Optional[str],
+    has_header: bool,
+    load_kwargs: Dict[str, Any]
+) -> Union[List[Any], Dict[str, Any]]:
+    """Load data from file(s), inline data, or multi-table sources
+
+    Args:
+        data_file: File path (str), multi-table dict, or None
+        data_part: Inline data string or None
+        config: Configuration dictionary
+        data_format: Global format override
+        has_header: Whether CSV/TSV has header
+        load_kwargs: Additional kwargs for load_data
+
+    Returns:
+        Loaded data (list or dict)
+
+    Raises:
+        ValueError: If both data_file and data_part are specified
+    """
+    # Ensure data_file and data_part are mutually exclusive
+    if data_file and data_part:
+        raise ValueError(
+            "Cannot specify both 'data' attribute and inline data. "
+            "Use either 'data: filename.csv' or provide inline data after '---', not both."
+        )
+
+    # Load from data_file (file path or multi-table)
+    if data_file:
+        if isinstance(data_file, dict):
+            # Multi-table mode
+            if config.get('query'):
+                return _load_multi_table_with_query(
+                    data_file, data_format, has_header, config['query']
+                )
+            else:
+                return _load_multi_table_direct(
+                    data_file, data_format, has_header, load_kwargs
+                )
+        else:
+            # Single-file mode
+            return load_data(data_file, format=data_format, has_header=has_header, **load_kwargs)
+
+    # Load from inline data_part
+    if data_part:
+        return load_data(StringIO(data_part), format=data_format or 'csv', has_header=has_header, **load_kwargs)
+
+    # No data
+    return []
+
 def print_error_info(
     e: Exception,
     template_part: str,
@@ -509,10 +676,6 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         # Merge configurations: YAML takes precedence over attributes
         config = {**attr_config, **yaml_config}
 
-        # Warn if both data attribute and inline data are specified
-        if 'data' in attr_config and data_part:
-            sys.stderr.write(f"Warning: Both data attribute ('{attr_config['data']}') and inline data specified. Using data from attribute.\n")
-
         # Validate configuration
         validate_config(config)
 
@@ -542,63 +705,10 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         if 'query' in config:
             load_kwargs['query'] = config['query']
 
-        if data_file:
-            # Check if data is a dict (multi-table) or string (single file)
-            if isinstance(data_file, dict):
-                # Multi-table mode: load multiple files
-                if config.get('query'):
-                    # With query: combine files using SQL
-                    # Load each file into a DataFrame
-                    tables = {}
-                    for table_name, file_path in data_file.items():
-                        # Determine format for this file
-                        file_format = data_format or guess_format_from_filename(file_path)
-
-                        # For SQL queries, we only support formats that can be converted to DataFrame
-                        # CSV, TSV, SSV are supported
-                        if file_format not in ('csv', 'tsv', 'ssv', 'spaces'):
-                            raise ValueError(
-                                f"Multi-table SQL queries only support CSV, TSV, and SSV formats. "
-                                f"Got '{file_format}' for table '{table_name}'"
-                            )
-
-                        # Validate file path
-                        validated_path = validate_file_path(file_path)
-
-                        # Load into DataFrame based on format, respecting has_header
-                        if file_format == 'tsv':
-                            df = pd.read_csv(validated_path, sep='\t', header=0 if has_header else None)
-                        elif file_format in ('ssv', 'spaces'):
-                            df = pd.read_csv(validated_path, sep=r'\s+', engine='python', header=0 if has_header else None)
-                        else:  # csv
-                            df = pd.read_csv(validated_path, header=0 if has_header else None)
-
-                        tables[table_name] = df
-
-                    # Apply SQL query to multiple tables
-                    data = _apply_sql_query_multi(tables, config['query'])
-                else:
-                    # Without query: load files as a dict for direct access
-                    datasets = {}
-                    for table_name, file_path in data_file.items():
-                        # Load each file using load_data (supports all formats)
-                        file_format = data_format or guess_format_from_filename(file_path)
-                        datasets[table_name] = load_data(
-                            file_path,
-                            format=file_format,
-                            has_header=has_header,
-                            **load_kwargs
-                        )
-                    # Return dict of datasets for template access via data.table_name
-                    data = datasets
-            else:
-                # Single-file mode (backward compatible)
-                data = load_data(data_file, format=data_format, has_header=has_header, **load_kwargs)
-        elif data_part:
-            # For inline data, default to 'csv' if format not specified
-            data = load_data(StringIO(data_part), format=data_format or 'csv', has_header=has_header, **load_kwargs)
-        else:
-            data = []
+        # Load data from file(s), inline, or multi-table sources
+        data = _load_embedz_data(
+            data_file, data_part, config, data_format, has_header, load_kwargs
+        )
 
         # Prepare variables
         with_vars: Dict[str, Any] = {}

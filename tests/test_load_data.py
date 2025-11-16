@@ -503,3 +503,174 @@ By {{ data.config.author }} (v{{ data.config.version }})
         assert 'John Doe' in markdown
         assert 'v1.0' in markdown
         assert 'Sale #101' in markdown
+
+    def test_multi_table_inline_csv(self):
+        """Multi-table with inline CSV data"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block with inline CSV data
+        code = '''---
+data:
+  products: |
+    product_id,product_name,price
+    1,Widget,1280
+    2,Gadget,2480
+  sales: |
+    sale_id,product_id,quantity
+    101,1,5
+    102,2,3
+---
+## Products
+{% for p in data.products %}
+- {{ p.product_name }}: ¥{{ "{:,}".format(p.price|int) }}
+{% endfor %}
+
+## Sales
+{% for s in data.sales %}
+- Sale #{{ s.sale_id }}: {{ s.quantity }} units
+{% endfor %}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        result = process_embedz(elem, doc)
+
+        # Convert result to markdown
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        # Verify output contains data from inline sources
+        assert 'Products' in markdown
+        assert 'Widget: ¥1,280' in markdown
+        assert 'Gadget: ¥2,480' in markdown
+        assert 'Sale #101: 5 units' in markdown
+        assert 'Sale #102: 3 units' in markdown
+
+    def test_multi_table_inline_yaml(self):
+        """Multi-table with inline YAML config and CSV data"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block with mixed inline data
+        code = '''---
+data:
+  config:
+    format: yaml
+    data: |
+      title: "Test Report"
+      year: 2024
+  sales: |
+    date,amount
+    2024-01-01,100
+    2024-01-02,200
+---
+# {{ data.config.title }} ({{ data.config.year }})
+
+{% for s in data.sales %}
+- {{ s.date }}: ${{ s.amount }}
+{% endfor %}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        result = process_embedz(elem, doc)
+
+        # Convert result to markdown
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        # Verify output contains both config and data
+        assert 'Test Report (2024)' in markdown
+        assert '2024-01-01: \\$100' in markdown or '2024-01-01: $100' in markdown
+        assert '2024-01-02: \\$200' in markdown or '2024-01-02: $200' in markdown
+
+    def test_multi_table_mixed_inline_and_file(self):
+        """Multi-table with both inline data and file paths"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block mixing inline and file data
+        code = '''---
+data:
+  config:
+    format: yaml
+    data: |
+      title: "Mixed Source Report"
+  products: tests/fixtures/products.csv
+  sales: |
+    sale_id,product_id,quantity
+    999,1,10
+---
+# {{ data.config.title }}
+
+## Products from file
+{% for p in data.products[:2] %}
+- {{ p.product_name }}
+{% endfor %}
+
+## Sales from inline
+{% for s in data.sales %}
+- Sale #{{ s.sale_id }}: {{ s.quantity }} units
+{% endfor %}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        result = process_embedz(elem, doc)
+
+        # Convert result to markdown
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        # Verify output contains data from both sources
+        assert 'Mixed Source Report' in markdown
+        assert 'Widget' in markdown  # From file
+        assert 'Sale #999: 10 units' in markdown  # From inline
+
+    def test_data_file_and_data_part_mutually_exclusive(self):
+        """Error should be raised if both data attribute and inline data are specified"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block with both data attribute and inline data
+        code = '''---
+data: tests/fixtures/products.csv
+---
+{% for p in data %}
+- {{ p.product_name }}
+{% endfor %}
+---
+product_id,product_name,price
+1,Widget,1280
+2,Gadget,2480'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        # Should raise ValueError
+        import pytest
+        with pytest.raises(ValueError, match="Cannot specify both 'data' attribute and inline data"):
+            process_embedz(elem, doc)

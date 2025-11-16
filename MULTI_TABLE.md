@@ -81,6 +81,76 @@ By John Doe
 - 2024-01-16: ¥2,480 (Gadget)
 ```
 
+### Inline Data Support
+
+Instead of external files, you can embed data directly in the markdown document.
+
+**Syntax for inline data:**
+
+```yaml
+data:
+  # Inline CSV (multi-line string)
+  sales: |
+    date,amount,product
+    2024-01-15,1280,Widget
+    2024-01-16,2480,Gadget
+
+  # Inline YAML (dict with format + data)
+  config:
+    format: yaml
+    data: |
+      title: "2024 Sales Report"
+      author: "John Doe"
+
+  # External file (single-line string)
+  products: products.csv
+```
+
+**Rules:**
+- **Multi-line string (`|`)**: Treated as inline CSV data
+- **Dict with `data` key**: Inline data with explicit format (YAML, JSON, etc.)
+- **Single-line string**: Treated as file path
+
+**Example with inline data:**
+
+````markdown
+```embedz
+---
+data:
+  config:
+    format: yaml
+    data: |
+      title: "Sales Report"
+      subtitle: "Q1 2024"
+  sales: |
+    date,amount
+    2024-01-15,1280
+    2024-01-16,2480
+---
+# {{ data.config.title }}
+## {{ data.config.subtitle }}
+
+{% for row in data.sales %}
+- {{ row.date }}: ¥{{ "{:,}".format(row.amount|int) }}
+{% endfor %}
+```
+````
+
+**Output:**
+```
+# Sales Report
+## Q1 2024
+
+- 2024-01-15: ¥1,280
+- 2024-01-16: ¥2,480
+```
+
+**Benefits:**
+- No need to create separate files for small datasets
+- Self-contained documents
+- Easier to share and version control
+- Great for examples and prototypes
+
 ## Mode 2: SQL Query (With SQL)
 
 Combine CSV/TSV files using SQL JOIN operations for complex data processing.
@@ -101,6 +171,7 @@ query: |
 - Specify `data:` as a dictionary where keys are table names for SQL
 - A `query:` parameter enables SQL mode
 - **Supported formats for SQL mode:** CSV, TSV, and SSV only (tabular data)
+- **Inline data supported:** You can use inline CSV data with SQL queries (see examples below)
 
 ## Understanding Data Flow
 
@@ -310,6 +381,61 @@ query: |
 {% endfor %}
 ```
 ````
+
+## Example 4b: Using Inline Data with SQL
+
+You can use inline CSV data directly in SQL queries, which is great for self-contained examples or small datasets.
+
+````markdown
+```embedz
+---
+data:
+  products: |
+    product_id,product_name,price
+    1,Widget,1280
+    2,Gadget,2480
+    3,Doohickey,1850
+  sales: |
+    sale_id,product_id,quantity,date
+    101,1,5,2024-01-15
+    102,2,3,2024-01-15
+    103,3,10,2024-01-16
+query: |
+  SELECT
+    p.product_name,
+    SUM(s.quantity) as total_sold,
+    SUM(s.quantity * p.price) as revenue
+  FROM sales s
+  JOIN products p ON s.product_id = p.product_id
+  GROUP BY p.product_id
+  ORDER BY revenue DESC
+---
+## Product Revenue (Inline Data)
+
+| Product | Units Sold | Revenue |
+|---------|----------:|--------:|
+{% for row in data -%}
+| {{ row.product_name }} | {{ row.total_sold }} | ¥{{ "{:,}".format(row.revenue|int) }} |
+{% endfor -%}
+```
+````
+
+**Output:**
+```
+## Product Revenue (Inline Data)
+
+| Product | Units Sold | Revenue |
+|---------|----------:|--------:|
+| Doohickey |         10 |  ¥18,500 |
+| Widget    |          5 |   ¥6,400 |
+| Gadget    |          3 |   ¥7,440 |
+```
+
+**Benefits of inline data with SQL:**
+- Self-contained examples - no external files needed
+- Easy to share and reproduce
+- Perfect for documentation and tutorials
+- Can mix inline data with file paths as needed
 
 ## Example 5: Three-Table Join (Customers + Orders + Products)
 
