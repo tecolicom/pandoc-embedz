@@ -504,18 +504,18 @@ data: vulnerabilities.csv
 
 ### Supported Formats
 
-| Format | Extension | Description |
-|--------|-----------|-------------|
-| CSV | `.csv` | Comma-separated values (header support) |
-| TSV | `.tsv` | Tab-separated values (header support) |
-| SSV/Spaces | - | Space/whitespace-separated values (via `format: ssv` or `format: spaces`) |
-| Lines | `.txt` | One item per line (plain text) |
-| JSON | `.json` | Structured data (lists and objects) |
-| YAML | `.yaml`, `.yml` | Structured data with hierarchies |
+| Format     | Extension                 | Description                                                              |
+|------------|---------------------------|--------------------------------------------------------------------------|
+| CSV        | `.csv`                    | Comma-separated values (header support)                                  |
+| TSV        | `.tsv`                    | Tab-separated values (header support)                                    |
+| SSV/Spaces | -                         | Space/whitespace-separated values (via `format: ssv` or `format: spaces`)|
+| Lines      | `.txt`                    | One item per line (plain text)                                           |
+| JSON       | `.json`                   | Structured data (lists and objects)                                      |
+| YAML       | `.yaml`, `.yml`           | Structured data with hierarchies                                         |
+| TOML       | `.toml`                   | Structured data (similar to YAML/JSON)                                   |
+| SQLite     | `.db`, `.sqlite`          | Database files (also `.sqlite3`; requires `table` or `query` parameter)  |
 
 **Note**: SSV (Space-Separated Values) treats consecutive spaces and tabs as a single delimiter, making it ideal for manually aligned data. Both `ssv` and `spaces` can be used interchangeably.
-
-TOML (`.toml`) and SQLite (`.db`, `.sqlite`, `.sqlite3`) are also supported. See [Advanced Features](#advanced-features) for database usage.
 
 ### Code Block Syntax
 
