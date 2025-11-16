@@ -268,53 +268,7 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 ```
 ````
 
-### SQL Queries on CSV/TSV Data
-
-You can also use SQL queries on CSV, TSV, and SSV files for powerful filtering and aggregation:
-
-````markdown
-```embedz
----
-data: transactions.csv
-query: SELECT * FROM data WHERE date BETWEEN '2024-01-01' AND '2024-03-31' ORDER BY amount DESC
----
-## Q1 2024 Transactions
-
-{% for row in data %}
-- {{ row.date }}: ${{ row.amount }} - {{ row.description }}
-{% endfor %}
-```
-````
-
-Aggregation example for quarterly reports:
-
-````markdown
-```embedz
----
-data: sales.csv
-query: |
-  SELECT
-    product,
-    SUM(quantity) as total_quantity,
-    SUM(amount) as total_sales
-  FROM data
-  WHERE date >= '2024-01-01' AND date <= '2024-03-31'
-  GROUP BY product
-  ORDER BY total_sales DESC
----
-## Q1 2024 Sales Report
-
-| Product | Quantity | Sales |
-|---------|----------|-------|
-{% for row in data -%}
-| {{ row.product }} | {{ row.total_quantity }} | ${{ row.total_sales }} |
-{% endfor -%}
-```
-````
-
-**Note**: When using `query` with CSV/TSV/SSV, the table name is always `data`. The data is loaded into an in-memory SQLite database for querying.
-
-### Attribute Syntax
+### Template Macros
 
 Code block attributes provide a concise way to specify configuration:
 
@@ -377,50 +331,7 @@ In this case, `data` will be a list of lists instead of a list of dictionaries.
 
 **Note**: YAML configuration takes precedence over attributes. If both are specified, YAML values override attribute values.
 
-### Conditionals
-
-````markdown
-```embedz
----
-data: incidents.csv
----
-{% for row in data %}
-{% if row.severity == 'high' %}
-- ⚠️ **URGENT**: {{ row.title }} ({{ row.count }} cases)
-{% elif row.severity == 'medium' %}
-- ⚡ {{ row.title }} - {{ row.count }} reported
-{% else %}
-- {{ row.title }}
-{% endif %}
-{% endfor %}
-```
-````
-
-### Template Reuse
-
-Name a block with `name` so you can treat it as a reusable template. Provide the default dataset inside the same block or leave it empty and supply fresh data when you reuse it.
-
-````markdown
-# Define template
-```embedz
----
-name: incident-list
-data: january.csv
----
-{% for row in data %}
-- {{ row.date }}: {{ row.title }}
-{% endfor %}
-```
-
-# Reuse template with new data
-```embedz
----
-as: incident-list
-data: february.csv
----
-```
-````
-### Template Inclusion (Nested Templates)
+### Template Inclusion
 
 Break complex layouts into smaller fragments and stitch them together with `{% include %}`. Define each fragment with `name` and reuse it inside loops so formatting stays centralized.
 
