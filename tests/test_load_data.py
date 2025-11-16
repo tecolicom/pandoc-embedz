@@ -418,8 +418,8 @@ query: |
         assert 'Gadget' in markdown
         assert 'Doohickey' in markdown
 
-    def test_multi_table_requires_query(self):
-        """Multi-table data requires a query parameter"""
+    def test_multi_table_without_query(self):
+        """Multi-table data without query allows direct access via data.table_name"""
         from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
         import panflute as pf
 
@@ -427,18 +427,79 @@ query: |
         SAVED_TEMPLATES.clear()
         GLOBAL_VARS.clear()
 
-        # Create embedz code block without query
+        # Create embedz code block without query - accessing via data.table_name
         code = '''---
 data:
   products: tests/fixtures/products.csv
   sales: tests/fixtures/sales.csv
 ---
-{% for row in data %}
-- {{ row }}
+## Products
+{% for p in data.products %}
+- {{ p.product_name }}: ¥{{ p.price }}
+{% endfor %}
+
+## Sales
+{% for s in data.sales %}
+- Sale #{{ s.sale_id }}: {{ s.quantity }} units
 {% endfor %}'''
 
         elem = pf.CodeBlock(code, classes=['embedz'])
         doc = pf.Doc()
 
-        with pytest.raises(ValueError, match="Multi-table data requires a 'query' parameter"):
-            process_embedz(elem, doc)
+        result = process_embedz(elem, doc)
+
+        # Convert result to markdown
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        # Verify output contains data from both files
+        assert 'Products' in markdown
+        assert 'Sales' in markdown
+        assert 'Widget' in markdown
+        assert 'Gadget' in markdown
+        assert 'Sale #101' in markdown
+        assert 'Sale #102' in markdown
+
+    def test_multi_table_mixed_formats(self):
+        """Multi-table can combine different formats (YAML + CSV)"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block combining YAML config and CSV data
+        code = '''---
+data:
+  config: tests/fixtures/config.yaml
+  sales: tests/fixtures/sales.csv
+---
+# {{ data.config.title }}
+## {{ data.config.subtitle }}
+
+By {{ data.config.author }} (v{{ data.config.version }})
+
+{% for sale in data.sales[:3] %}
+- Sale #{{ sale.sale_id }}: {{ sale.quantity }} units
+{% endfor %}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        result = process_embedz(elem, doc)
+
+        # Convert result to markdown
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        # Verify output contains both config and data
+        assert '2024 Sales Report' in markdown
+        assert 'Q1 Results' in markdown
+        assert 'John Doe' in markdown
+        assert 'v1.0' in markdown
+        assert 'Sale #101' in markdown

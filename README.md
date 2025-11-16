@@ -268,65 +268,45 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 ```
 ````
 
-### Multi-Table SQL Queries
+### Multi-Table Data
 
-Combine data from multiple CSV/TSV files using SQL JOIN operations. Perfect for generating reports that need to correlate data across multiple sources:
+Load multiple data files and access them directly or combine with SQL:
 
+**Direct access (no SQL):**
 ````markdown
 ```embedz
 ---
 data:
-  products: products.csv
+  config: config.yaml
   sales: sales.csv
-query: |
-  SELECT
-    p.product_name,
-    SUM(s.quantity) as total_quantity,
-    SUM(s.quantity * p.price) as total_revenue
-  FROM sales s
-  JOIN products p ON s.product_id = p.product_id
-  GROUP BY p.product_name
-  ORDER BY total_revenue DESC
 ---
-## Sales Report
-
-| Product | Quantity | Revenue |
-|---------|----------|---------|
-{% for row in data -%}
-| {{ row.product_name }} | {{ row.total_quantity }} | ${{ "%.2f" | format(row.total_revenue) }} |
-{% endfor -%}
-```
-````
-
-Basic JOIN example:
-
-````markdown
-```embedz
----
-data:
-  customers: customers.csv
-  orders: orders.csv
-query: |
-  SELECT
-    c.customer_name,
-    o.order_date,
-    o.amount
-  FROM orders o
-  JOIN customers c ON o.customer_id = c.customer_id
-  WHERE o.order_date >= '2024-01-01'
-  ORDER BY o.order_date DESC
----
-## Recent Orders
-
-{% for row in data %}
-- **{{ row.customer_name }}**: ${{ row.amount }} on {{ row.order_date }}
+# {{ data.config.title }}
+{% for row in data.sales %}
+- {{ row.date }}: {{ row.amount }}
 {% endfor %}
 ```
 ````
 
-**Syntax**: Specify `data:` as a dictionary where keys are table names and values are file paths. A `query:` parameter is required to combine the tables.
+**SQL JOIN (with query):**
+````markdown
+```embedz
+---
+data:
+  products: products.csv  # Table name in SQL
+  sales: sales.csv        # Table name in SQL
+query: |
+  SELECT p.product_name, SUM(s.quantity) as total
+  FROM sales s            # Use table names here
+  JOIN products p ON s.product_id = p.product_id
+  GROUP BY p.product_name
+---
+{% for row in data %}     <!-- Result is in 'data' -->
+- {{ row.product_name }}: {{ row.total }}
+{% endfor %}
+```
+````
 
-**Supported formats**: CSV, TSV, and SSV only (formats that can be loaded as DataFrames).
+**See [MULTI_TABLE.md](MULTI_TABLE.md) for comprehensive examples and documentation.**
 
 ### Template Macros
 
@@ -676,6 +656,7 @@ See [COMPARISON.md](COMPARISON.md) for detailed comparison.
 ## Documentation
 
 For complete documentation, see:
+- [MULTI_TABLE.md](MULTI_TABLE.md) - Multi-table SQL queries (advanced)
 - [COMPARISON.md](COMPARISON.md) - Comparison with alternatives
 - [examples/](examples/) - Usage examples
 

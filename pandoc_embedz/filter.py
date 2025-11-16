@@ -562,39 +562,52 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         if data_file:
             # Check if data is a dict (multi-table) or string (single file)
             if isinstance(data_file, dict):
-                # Multi-table mode: load multiple files and combine with SQL
-                if not config.get('query'):
-                    raise ValueError("Multi-table data requires a 'query' parameter to specify how to combine the tables")
+                # Multi-table mode: load multiple files
+                if config.get('query'):
+                    # With query: combine files using SQL
+                    # Load each file into a DataFrame
+                    tables = {}
+                    for table_name, file_path in data_file.items():
+                        # Determine format for this file
+                        file_format = data_format or guess_format_from_filename(file_path)
 
-                # Load each file into a DataFrame
-                tables = {}
-                for table_name, file_path in data_file.items():
-                    # Determine format for this file
-                    file_format = data_format or guess_format_from_filename(file_path)
+                        # For SQL queries, we only support formats that can be converted to DataFrame
+                        # CSV, TSV, SSV are supported
+                        if file_format not in ('csv', 'tsv', 'ssv', 'spaces'):
+                            raise ValueError(
+                                f"Multi-table SQL queries only support CSV, TSV, and SSV formats. "
+                                f"Got '{file_format}' for table '{table_name}'"
+                            )
 
-                    # For multi-table, we only support formats that can be converted to DataFrame
-                    # CSV, TSV, SSV are supported
-                    if file_format not in ('csv', 'tsv', 'ssv', 'spaces'):
-                        raise ValueError(
-                            f"Multi-table mode only supports CSV, TSV, and SSV formats. "
-                            f"Got '{file_format}' for table '{table_name}'"
+                        # Validate file path
+                        validated_path = validate_file_path(file_path)
+
+                        # Load into DataFrame based on format
+                        if file_format == 'tsv':
+                            df = pd.read_csv(validated_path, sep='\t')
+                        elif file_format in ('ssv', 'spaces'):
+                            df = pd.read_csv(validated_path, sep=r'\s+', engine='python')
+                        else:  # csv
+                            df = pd.read_csv(validated_path)
+
+                        tables[table_name] = df
+
+                    # Apply SQL query to multiple tables
+                    data = _apply_sql_query_multi(tables, config['query'])
+                else:
+                    # Without query: load files as a dict for direct access
+                    datasets = {}
+                    for table_name, file_path in data_file.items():
+                        # Load each file using load_data (supports all formats)
+                        file_format = data_format or guess_format_from_filename(file_path)
+                        datasets[table_name] = load_data(
+                            file_path,
+                            format=file_format,
+                            has_header=has_header,
+                            **load_kwargs
                         )
-
-                    # Validate file path
-                    validated_path = validate_file_path(file_path)
-
-                    # Load into DataFrame based on format
-                    if file_format == 'tsv':
-                        df = pd.read_csv(validated_path, sep='\t')
-                    elif file_format in ('ssv', 'spaces'):
-                        df = pd.read_csv(validated_path, sep=r'\s+', engine='python')
-                    else:  # csv
-                        df = pd.read_csv(validated_path)
-
-                    tables[table_name] = df
-
-                # Apply SQL query to multiple tables
-                data = _apply_sql_query_multi(tables, config['query'])
+                    # Return dict of datasets for template access via data.table_name
+                    data = datasets
             else:
                 # Single-file mode (backward compatible)
                 data = load_data(data_file, format=data_format, has_header=has_header, **load_kwargs)
