@@ -91,25 +91,8 @@ def _apply_sql_query(df: pd.DataFrame, query: str, table_name: str = 'data') -> 
     Raises:
         sqlite3.Error: If SQL query fails
     """
-    # Create in-memory SQLite database
-    conn = sqlite3.connect(':memory:')
-    conn.row_factory = sqlite3.Row
-
-    try:
-        # Load DataFrame into SQLite table
-        df.to_sql(table_name, conn, index=False, if_exists='replace')
-
-        # Execute query
-        cursor = conn.cursor()
-        cursor.execute(query)
-
-        # Fetch results and convert to list of dicts
-        rows = cursor.fetchall()
-        result = [dict(row) for row in rows]
-
-        return result
-    finally:
-        conn.close()
+    # Delegate to multi-table version with single table
+    return _apply_sql_query_multi({table_name: df}, query)
 
 def _apply_sql_query_multi(tables: Dict[str, pd.DataFrame], query: str) -> List[Dict[str, Any]]:
     """Apply SQL query to multiple pandas DataFrames using in-memory SQLite
@@ -582,13 +565,13 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
                         # Validate file path
                         validated_path = validate_file_path(file_path)
 
-                        # Load into DataFrame based on format
+                        # Load into DataFrame based on format, respecting has_header
                         if file_format == 'tsv':
-                            df = pd.read_csv(validated_path, sep='\t')
+                            df = pd.read_csv(validated_path, sep='\t', header=0 if has_header else None)
                         elif file_format in ('ssv', 'spaces'):
-                            df = pd.read_csv(validated_path, sep=r'\s+', engine='python')
+                            df = pd.read_csv(validated_path, sep=r'\s+', engine='python', header=0 if has_header else None)
                         else:  # csv
-                            df = pd.read_csv(validated_path)
+                            df = pd.read_csv(validated_path, header=0 if has_header else None)
 
                         tables[table_name] = df
 
