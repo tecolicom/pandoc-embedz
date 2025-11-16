@@ -183,8 +183,8 @@ query: |
 ---
 ## Daily Sales
 
-| Date | Transactions | Items | Revenue |
-|------|--------------|-------|---------|
+| Date       | Transactions | Items | Revenue  |
+|------------|-------------:|------:|---------:|
 {% for row in data -%}
 | {{ row.date }} | {{ row.transaction_count }} | {{ row.total_items }} | ¥{{ "{:,}".format(row.daily_revenue|int) }} |
 {% endfor -%}
@@ -193,11 +193,11 @@ query: |
 
 **Output:**
 ```
-| Date | Transactions | Items | Revenue |
-|------|--------------|-------|---------|
-| 2024-01-15 | 3 | 10 | ¥16,400 |
-| 2024-01-16 | 2 | 13 | ¥22,340 |
-| 2024-01-17 | 3 | 10 | ¥16,110 |
+| Date       | Transactions | Items | Revenue  |
+|------------|-------------:|------:|---------:|
+| 2024-01-15 |            3 |    10 |  ¥16,400 |
+| 2024-01-16 |            2 |    13 |  ¥22,340 |
+| 2024-01-17 |            3 |    10 |  ¥16,110 |
 ```
 
 ## Example 2: Product Sales Ranking
@@ -223,8 +223,8 @@ query: |
 ---
 ## Product Performance
 
-| Rank | Product | Price | Orders | Units Sold | Avg Qty | Revenue |
-|------|---------|-------|--------|------------|---------|---------|
+| Rank | Product   |  Price | Orders | Units Sold | Avg Qty |  Revenue |
+|-----:|-----------|-------:|-------:|-----------:|--------:|---------:|
 {% for row in data -%}
 | {{ loop.index }} | {{ row.product_name }} | ¥{{ "{:,}".format(row.price|int) }} | {{ row.times_ordered }} | {{ row.total_quantity }} | {{ row.avg_quantity }} | ¥{{ "{:,}".format(row.total_revenue|int) }} |
 {% endfor -%}
@@ -233,11 +233,11 @@ query: |
 
 **Output:**
 ```
-| Rank | Product | Price | Orders | Units Sold | Avg Qty | Revenue |
-|------|---------|-------|--------|------------|---------|---------|
-| 1 | Doohickey | ¥1,850 | 2 | 15 | 7.5 | ¥27,750 |
-| 2 | Widget | ¥1,280 | 4 | 14 | 3.5 | ¥17,920 |
-| 3 | Gadget | ¥2,480 | 2 | 4 | 2.0 | ¥9,920 |
+| Rank | Product   |  Price | Orders | Units Sold | Avg Qty |  Revenue |
+|-----:|-----------|-------:|-------:|-----------:|--------:|---------:|
+|    1 | Doohickey | ¥1,850 |      2 |         15 |     7.5 |  ¥27,750 |
+|    2 | Widget    | ¥1,280 |      4 |         14 |     3.5 |  ¥17,920 |
+|    3 | Gadget    | ¥2,480 |      2 |          4 |     2.0 |   ¥9,920 |
 ```
 
 ## Example 3: Product-by-Date Breakdown
