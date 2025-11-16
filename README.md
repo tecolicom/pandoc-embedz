@@ -256,7 +256,7 @@ query: |
 
 ### SQLite Database
 
-Query SQLite database files directly:
+Query SQLite database files directly. Use the `table` parameter to specify which table to read from the database:
 
 ````markdown
 ```embedz
@@ -270,7 +270,7 @@ table: users
 ```
 ````
 
-With custom SQL query:
+Or use a custom SQL query (the `query` parameter overrides `table`):
 
 ````markdown
 ```embedz
