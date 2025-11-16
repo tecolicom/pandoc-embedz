@@ -1,0 +1,14 @@
+[[items]]
+name = "Arthur"
+value = 42
+category = "A"
+
+[[items]]
+name = "Ford"
+value = 100
+category = "B"
+
+[[items]]
+name = "Zaphod"
+value = 99
+category = "A"

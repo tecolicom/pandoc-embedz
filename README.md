@@ -10,7 +10,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 ## Features
 
 - 🔄 **Full [Jinja2](https://jinja.palletsprojects.com/) Support**: Loops, conditionals, filters, macros, and all template features
-- 📊 **6 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML
+- 📊 **7 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML, TOML
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
 - ⚡ **Flexible Syntax**: YAML headers and code block attributes
@@ -584,7 +584,7 @@ global:
 | Key | Description | Example |
 |-----|-------------|---------|
 | `data` | Data source file path | `data: stats.csv` |
-| `format` | Data format (auto-detected from extension) | `format: json` |
+| `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `lines` (auto-detected from extension) | `format: json` |
 | `name` | Template name (for definition) | `name: report-template` |
 | `as` | Template to use | `as: report-template` |
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
@@ -644,7 +644,7 @@ For detailed Jinja2 template syntax and features, see the [Jinja2 documentation]
 
 pandoc-embedz fills a unique niche:
 - ✅ Full Jinja2 templating (loops, conditionals, filters)
-- ✅ Multiple data formats (CSV, JSON, YAML, etc.)
+- ✅ Multiple data formats (CSV, JSON, YAML, TOML, etc.)
 - ✅ Code block level processing (not document-wide)
 - ✅ Lightweight - no heavy dependencies
 - ✅ Works with existing Pandoc workflow

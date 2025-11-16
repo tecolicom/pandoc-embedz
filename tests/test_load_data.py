@@ -23,6 +23,9 @@ class TestGuessFormat:
         assert guess_format_from_filename('data.yaml') == 'yaml'
         assert guess_format_from_filename('data.yml') == 'yaml'
 
+    def test_toml_extension(self):
+        assert guess_format_from_filename('data.toml') == 'toml'
+
     def test_txt_extension(self):
         assert guess_format_from_filename('data.txt') == 'lines'
 
@@ -161,6 +164,24 @@ class TestLoadYAML:
         assert data[0]['name'] == 'Arthur'
 
 
+class TestLoadTOML:
+    """Tests for TOML data loading"""
+
+    def test_load_toml_file(self):
+        data = load_data(str(FIXTURES_DIR / 'sample.toml'), format='toml')
+        assert 'items' in data
+        assert len(data['items']) == 3
+        assert data['items'][0]['name'] == 'Arthur'
+        assert data['items'][0]['value'] == 42
+
+    def test_load_toml_inline(self):
+        toml_data = StringIO('[items]\nname = "Arthur"\nvalue = 42\n\n[config]\ntitle = "Test"')
+        data = load_data(toml_data, format='toml')
+        assert data['items']['name'] == 'Arthur'
+        assert data['items']['value'] == 42
+        assert data['config']['title'] == 'Test'
+
+
 class TestLoadLines:
     """Tests for lines format data loading"""
 
@@ -200,6 +221,12 @@ class TestAutoDetection:
         data = load_data(str(FIXTURES_DIR / 'sample.yaml'))
         assert len(data) == 3
         assert data[0]['name'] == 'Arthur'
+
+    def test_toml_auto_detect(self):
+        data = load_data(str(FIXTURES_DIR / 'sample.toml'))
+        assert 'items' in data
+        assert len(data['items']) == 3
+        assert data['items'][0]['name'] == 'Arthur'
 
     def test_txt_auto_detect(self):
         data = load_data(str(FIXTURES_DIR / 'sample.txt'))

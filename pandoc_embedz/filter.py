@@ -16,6 +16,15 @@ from pathlib import Path
 import sys
 import os
 
+# TOML support: Python 3.11+ has tomllib, older versions need tomli
+try:
+    import tomllib
+except ImportError:
+    try:
+        import tomli as tomllib
+    except ImportError:
+        tomllib = None
+
 # Store templates and global variables
 SAVED_TEMPLATES: Dict[str, str] = {}
 GLOBAL_VARS: Dict[str, Any] = {}
@@ -74,7 +83,7 @@ def guess_format_from_filename(filename: str) -> str:
         filename: File name or path
 
     Returns:
-        str: Guessed format ('csv', 'tsv', 'json', 'yaml', 'lines')
+        str: Guessed format ('csv', 'tsv', 'json', 'yaml', 'toml', 'lines')
     """
     if isinstance(filename, str):
         if filename.endswith('.txt'):
@@ -85,6 +94,8 @@ def guess_format_from_filename(filename: str) -> str:
             return 'json'
         elif filename.endswith('.yaml') or filename.endswith('.yml'):
             return 'yaml'
+        elif filename.endswith('.toml'):
+            return 'toml'
     return 'csv'
 
 def load_data(
@@ -96,9 +107,9 @@ def load_data(
 
     Args:
         source: File path or StringIO object
-        format: Data format ('csv', 'tsv', 'ssv'/'spaces', 'json', 'yaml', 'lines')
+        format: Data format ('csv', 'tsv', 'ssv'/'spaces', 'json', 'yaml', 'toml', 'lines')
                If None, auto-detect from filename
-        has_header: Whether CSV/TSV/SSV has header row (ignored for json/yaml/lines)
+        has_header: Whether CSV/TSV/SSV has header row (ignored for json/yaml/toml/lines)
 
     Returns:
         list or dict: Data (structure preserved)
@@ -133,6 +144,20 @@ def load_data(
         else:
             with open(source, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f)
+
+    elif format == 'toml':
+        # TOML format (dict)
+        if tomllib is None:
+            raise ImportError(
+                "TOML support requires 'tomli' package for Python < 3.11. "
+                "Install with: pip install tomli"
+            )
+        if isinstance(source, StringIO):
+            # TOML requires binary mode, so encode string to bytes
+            return tomllib.loads(source.getvalue())
+        else:
+            with open(source, 'rb') as f:  # TOML requires binary mode
+                return tomllib.load(f)
 
     elif format == 'lines':
         # Plain text: one item per line
@@ -275,7 +300,7 @@ def validate_config(config: Dict[str, Any]) -> None:
 
     # Validate format
     if 'format' in config:
-        valid_formats = {'csv', 'tsv', 'ssv', 'spaces', 'json', 'yaml', 'lines'}
+        valid_formats = {'csv', 'tsv', 'ssv', 'spaces', 'json', 'yaml', 'toml', 'lines'}
         if config['format'] not in valid_formats:
             raise ValueError(
                 f"Invalid format: {config['format']}. "
