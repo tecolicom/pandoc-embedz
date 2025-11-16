@@ -27,7 +27,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 pip install git+https://github.com/tecolicom/pandoc-embedz.git
 ```
 
-**Use it:**
+**Basic usage:**
 ````markdown
 ```embedz
 ---
@@ -39,12 +39,27 @@ data: data.csv
 ```
 ````
 
+**With template reuse:**
+````markdown
+```{.embedz name=item-list}
+## {{ title }}
+{% for item in data %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}
+```
+
+```{.embedz data=products.csv as=item-list}
+with:
+  title: Product List
+```
+````
+
 **Render:**
 ```bash
 pandoc report.md --filter pandoc-embedz -o output.pdf
 ```
 
-That's it! Works with CSV, JSON, YAML, and more. Start with [Basic Usage](#basic-usage), then explore [Advanced Features](#advanced-features) for SQL queries and database access.
+Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usage) to get started, or jump to [Advanced Features](#advanced-features) for SQL queries and database access.
 
 ## Table of Contents
 
@@ -127,9 +142,101 @@ format: json
 ```
 ````
 
+### Conditionals
+
+Use Jinja2 `if`/`elif`/`else` to show different content based on data values:
+
+````markdown
+```embedz
+---
+data: alerts.csv
+---
+{% for row in data %}
+{% if row.severity == 'high' %}
+- ⚠️ **URGENT**: {{ row.title }} ({{ row.count }} cases)
+{% elif row.severity == 'medium' %}
+- ⚡ {{ row.title }} - {{ row.count }} reported
+{% else %}
+- {{ row.title }}
+{% endif %}
+{% endfor %}
+```
+````
+
+### Template Reuse
+
+Define templates once with `name`, then reuse them with `as`. Perfect for consistent formatting across multiple data sources:
+
+````markdown
+```{.embedz name=item-list}
+## {{ title }}
+{% for item in data %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}
+```
+
+```{.embedz data=products.csv as=item-list}
+with:
+  title: Product List
+```
+
+```{.embedz data=services.csv as=item-list}
+with:
+  title: Service List
+```
+````
+
+## Advanced Features
+
+These features enable powerful data processing, database access, and complex document generation workflows.
+
+### SQL Queries on CSV/TSV
+
+Filter, aggregate, and transform CSV/TSV data using SQL. Perfect for quarterly reports, data analysis, and working with large datasets:
+
+````markdown
+```embedz
+---
+data: transactions.csv
+query: SELECT * FROM data WHERE date BETWEEN '2024-01-01' AND '2024-03-31' ORDER BY amount DESC
+---
+## Q1 2024 Transactions
+
+{% for row in data %}
+- {{ row.date }}: ${{ row.amount }} - {{ row.description }}
+{% endfor %}
+```
+````
+
+Aggregation example for reports:
+
+````markdown
+```embedz
+---
+data: sales.csv
+query: |
+  SELECT
+    product,
+    SUM(quantity) as total_quantity,
+    SUM(amount) as total_sales
+  FROM data
+  WHERE date >= '2024-01-01' AND date <= '2024-03-31'
+  GROUP BY product
+  ORDER BY total_sales DESC
+---
+| Product | Quantity | Sales |
+|---------|----------|-------|
+{% for row in data -%}
+| {{ row.product }} | {{ row.total_quantity }} | ${{ row.total_sales }} |
+{% endfor -%}
+```
+````
+
+**Note**: Table name is always `data`. CSV/TSV data is loaded into an in-memory SQLite database for querying.
+
 ### SQLite Database
 
-Query data from SQLite databases:
+Query SQLite database files directly:
 
 ````markdown
 ```embedz
