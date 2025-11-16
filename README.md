@@ -270,66 +270,90 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 
 ### Template Macros
 
-Code block attributes provide a concise way to specify configuration:
+Create reusable template functions with parameters using Jinja2 macros. More flexible than `{% include %}` for complex formatting:
 
 ````markdown
-```{.embedz data=data.csv}
-{% for row in data %}
-- {{ row.name }}: {{ row.value }}
-{% endfor %}
+# Define macros
+```embedz
+---
+name: formatters
+---
+{% macro format_item(title, date) -%}
+**{{ title }}** ({{ date }})
+{%- endmacro %}
+
+{% macro severity_badge(level) -%}
+{% if level == "high" %}🔴 High{% elif level == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
+{%- endmacro %}
 ```
-````
 
-#### Elegant Syntax: Combining Attributes with YAML
+# Use macros with import
+```embedz
+---
+data: vulnerabilities.csv
+---
+{% from 'formatters' import format_item, severity_badge %}
 
-Attributes and YAML work together naturally. When you use `data` and `as` attributes, you can write YAML configuration without `---` delimiters:
-
-````markdown
-# Define template
-```{.embedz name=product-list}
-## {{ title }}
+## Vulnerability Report
 {% for item in data %}
-{% set tax_included = (item.price * (1 + tax_rate)) | round(2) %}
-- {{ item.product }}: ${{ item.price }} (with tax: ${{ tax_included }})
+- {{ format_item(item.title, item.date) -}}
+  {{- " - " -}}
+  {{- severity_badge(item.severity) }}
 {% endfor %}
 ```
+````
 
-# Use template with parameters - no --- delimiters needed
-```{.embedz data=products.csv as=product-list}
+**Macro vs Include**:
+- **Macros**: Accept parameters, more flexible, explicit imports required
+- **Include**: Simpler, uses current context automatically, no parameters
+
+### Variable Scoping
+
+Control variable visibility with `with` (local) and `global` (document-wide):
+
+````markdown
+# Set global variables
+```embedz
+---
+global:
+  author: John Doe
+  version: 1.0
+---
+```
+
+# Use in any subsequent block
+```embedz
+---
+data: report.csv
+---
+# Report by {{ global.author }}
+Version {{ global.version }}
+
+{% for row in data %}
+- {{ row.item }}
+{% endfor %}
+```
+````
+
+**Local variables** with `with` are block-scoped:
+
+````markdown
+```embedz
+---
+data: products.csv
 with:
-  title: Product List
   tax_rate: 0.08
+  currency: USD
+---
+{% for item in data %}
+- {{ item.name }}: {{ currency }} {{ (item.price * (1 + tax_rate)) | round(2) }}
+{% endfor %}
 ```
 ````
 
-This reads naturally: "use products.csv as product-list template, with these parameters"
+## Reference
 
-**Note**: For simple scalar values, you can also use dot notation in attributes (e.g., `with.title="Report"` or `global.author="John"`), though YAML is generally more readable for complex configurations.
-
-#### Using Templates with Inline Data
-
-````markdown
-# Use template with inline CSV data
-```{.embedz as=product-list format=csv}
-product,price
-Widget,19.99
-Gadget,29.99
-```
-````
-
-Using `header=false` for data without header row:
-
-````markdown
-```{.embedz as=product-list format=csv header=false}
-Widget,19.99
-Gadget,29.99
-Tool,39.99
-```
-````
-
-In this case, `data` will be a list of lists instead of a list of dictionaries.
-
-**Note**: YAML configuration takes precedence over attributes. If both are specified, YAML values override attribute values.
+Technical specifications and syntax details.
 
 ### Template Inclusion
 
@@ -384,70 +408,8 @@ data: vulnerabilities.csv
 {% endfor %}
 ```
 ````
-### Template Macros (Advanced)
 
-Jinja2 macros allow you to define reusable template functions with parameters, providing even more flexibility than `{% include %}` when you need parameterized helpers.
-
-````markdown
-# Define macros
-```embedz
----
-name: formatters
----
-{% macro format_item(title, date) -%}
-**{{ title }}** ({{ date }})
-{%- endmacro %}
-
-{% macro severity_badge(level) -%}
-{% if level == "high" %}🔴 High{% elif level == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
-{%- endmacro %}
-```
-
-# Use macros with import
-```embedz
----
-data: vulnerabilities.csv
----
-{% from 'formatters' import format_item, severity_badge %}
-
-## Vulnerability Report
-{% for item in data %}
-- {{ format_item(item.title, item.date) -}}
-  {{- " - " -}}
-  {{- severity_badge(item.severity) }}
-{% endfor %}
-```
-````
-
-**Macro vs Include**:
-- **Macros**: Accept parameters, more flexible, explicit imports required
-- **Include**: Simpler, uses current context automatically, no parameters
-
-## Template Whitespace Handling
-
-Templates preserve leading whitespace but remove trailing newlines, similar to shell `$(...)` behavior. The example below shows how an indented snippet keeps its spacing without accumulating extra blank lines.
-
-````markdown
-```embedz
----
-name: indented-code
----
-    def hello():
-        print("Hello")
-```
-````
-
-**Template storage** (used with `{% include %}` and macros):
-- ✅ Leading whitespace preserved (indentation maintained)
-- ✅ Internal newlines preserved (blank lines kept)
-- ✅ Trailing newlines removed (enables inline composition)
-
-**Output rendering** (top-level code blocks):
-- ✅ Always ends with a newline (prevents concatenation with next paragraph)
-
-This design allows clean template composition (`{% include %}` works inline) while ensuring document-level output is properly separated.
-
-## Supported Formats
+### Supported Formats
 
 | Format | Extension | Description |
 |--------|-----------|-------------|
@@ -460,56 +422,11 @@ This design allows clean template composition (`{% include %}` works inline) whi
 
 **Note**: SSV (Space-Separated Values) treats consecutive spaces and tabs as a single delimiter, making it ideal for manually aligned data. Both `ssv` and `spaces` can be used interchangeably.
 
-## Variable Scoping
+TOML (`.toml`) and SQLite (`.db`, `.sqlite`, `.sqlite3`) are also supported. See [Advanced Features](#advanced-features) for database usage.
 
-Use `with` to scope variables to a single embed block and `global` to share values across the document. The examples show block-limited and document-wide variables respectively.
+### Code Block Syntax
 
-### Local Variables (Block-scoped)
-
-Put block-specific values under `with:` so subsequent content in the same code block can rely on them without leaking to other blocks.
-
-````markdown
-```embedz
----
-data: data.csv
-with:
-  threshold: 100
-  label: High
----
-{% for row in data %}
-{% if row.count > threshold %}
-- {{ label }}: {{ row.name }}
-{% endif %}
-{% endfor %}
-```
-````
-
-### Global Variables (Document-scoped)
-
-Values under `global:` stay available to every embed block that follows a definition, enabling document-wide configuration.
-
-````markdown
-```embedz
----
-global:
-  threshold: 100
----
-```
-
-# Later blocks can use 'threshold'
-```embedz
----
-data: data.csv
----
-{% for row in data if row.count > threshold %}
-- {{ row.name }}
-{% endfor %}
-```
-````
-
-## Code Block Syntax
-
-### Basic Structure
+#### Basic Structure
 
 An embedz code block consists of up to three parts:
 
@@ -532,7 +449,7 @@ Jinja2 template
 ```
 ````
 
-### Block Interpretation
+#### Block Interpretation
 
 How a code block is processed depends on its configuration:
 
