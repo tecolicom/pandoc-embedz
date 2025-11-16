@@ -21,7 +21,7 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 - 🌐 **Variable Scoping**: Local (`with:`) and global (`global:`) variable management
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 
-## TL;DR
+## tl;dr
 
 **Install:**
 ```bash
@@ -70,7 +70,10 @@ format: json
 - {{ user.name }} ({{ user.role }})
 {% endfor %}
 ---
-[{"name": "Alice", "role": "Admin"}, {"name": "Bob", "role": "User"}]
+[
+  {"name": "Alice", "role": "Admin"},
+  {"name": "Bob", "role": "User"}
+]
 ```
 ````
 
@@ -84,7 +87,7 @@ Full Jinja2 support: loops, conditionals, filters, macros, includes. See [Usage 
 ## Table of Contents
 
 - [Features](#features)
-- [TL;DR](#tldr)
+- [tl;dr](#tldr)
 - [Installation](#installation)
 - [Usage Examples](#usage-examples)
   - [CSV File (Auto-detected)](#csv-file-auto-detected)
@@ -650,9 +653,7 @@ For complete documentation, see:
 
 MIT License
 
-Copyright © 2025 Office TECOLI, LLC
-
-Copyright © 2025 Kazumasa Utashiro
+Copyright © 2025 Office TECOLI, LLC and Kazumasa Utashiro
 
 See [LICENSE](LICENSE) file for details.
 
