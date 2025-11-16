@@ -404,11 +404,11 @@ class TestYAMLWithoutDelimiters:
         assert 'Count: 3' in output
 
     def test_data_with_invalid_yaml_treated_as_data(self):
-        """Test that invalid YAML is treated as inline data"""
+        """Test that specifying both data attribute and inline data raises error"""
         # Define template
         SAVED_TEMPLATES['test'] = 'Count: {{ data | length }}'
 
-        # Invalid YAML (should be treated as CSV data, but data attribute takes precedence)
+        # Both data attribute and inline data (should raise error)
         code_block = pf.CodeBlock(
             text="""Alice,100
 Bob,200""",
@@ -416,12 +416,9 @@ Bob,200""",
             attributes={'data': 'tests/fixtures/sample.csv', 'as': 'test', 'format': 'csv'}
         )
 
-        # Should use data from attribute and warn
-        result = process_embedz(code_block, pf.Doc())
-        output = stringify_result(result)
-
-        # Data from attribute (sample.csv has 3 rows)
-        assert 'Count: 3' in output
+        # Should raise ValueError for mutual exclusivity
+        with pytest.raises(ValueError, match="Cannot specify both 'data' attribute and inline data"):
+            process_embedz(code_block, pf.Doc())
 
     def test_yaml_with_format_specification(self):
         """Test YAML content with format specification"""

@@ -20,10 +20,11 @@
 
 ## Testing Guidelines
 - Tests live under `tests/` with `Test*` classes and `test_*` functions; name fixtures clearly and store shared data in `tests/fixtures/`.
-- Run `python -m pytest tests` to pick up all suites; rerun failed files individually during troubleshooting.
+- **IMPORTANT: Always run `python -m pytest tests/` (全テスト) before committing.** Running individual test files may miss failures in other test suites.
 - Add coverage-sensitive scenarios (e.g., format detection, dot-notation parsing) as the filter evolves, and document the commands you used to validate them.
 
 ## Commit & Pull Request Guidelines
+- **Before committing: Run `python -m pytest tests/` to ensure all tests pass.** This catches failures across all test suites.
 - Follow the current git log style: start with a capitalized verb phrase, optionally separate a short summary from extra detail with a colon, and avoid terminal periods.
 - PRs should target `main`, include a summary, list the commands you ran (tests, build, manual Pandoc runs), and link any related issues or examples.
 - Mention manual verification steps (example Markdown, Pandoc output, etc.) so reviewers know what was exercised.
