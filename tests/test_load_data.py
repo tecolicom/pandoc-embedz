@@ -322,3 +322,123 @@ class TestAutoDetection:
         data = load_data(str(FIXTURES_DIR / 'sample.txt'))
         assert len(data) == 3
         assert data[0] == 'Arthur'
+
+
+class TestMultiTableSQL:
+    """Tests for multi-table SQL queries (integration test via process_embedz)"""
+
+    def test_multi_table_join(self):
+        """Test joining two CSV files with SQL"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block with multi-table data
+        code = '''---
+data:
+  products: tests/fixtures/products.csv
+  sales: tests/fixtures/sales.csv
+query: |
+  SELECT
+    p.product_name,
+    s.quantity,
+    s.date
+  FROM sales s
+  JOIN products p ON s.product_id = p.product_id
+  ORDER BY s.date
+---
+{% for row in data %}
+- {{ row.product_name }}: {{ row.quantity }} units on {{ row.date }}
+{% endfor %}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        result = process_embedz(elem, doc)
+
+        # Convert result to markdown
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        # Verify output contains joined data
+        assert 'Widget' in markdown
+        assert 'Gadget' in markdown
+        assert 'Doohickey' in markdown
+        assert '5 units' in markdown
+        assert '2024-01-15' in markdown
+
+    def test_multi_table_aggregation(self):
+        """Test aggregating data from multiple tables"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block with aggregation
+        code = '''---
+data:
+  products: tests/fixtures/products.csv
+  sales: tests/fixtures/sales.csv
+query: |
+  SELECT
+    p.product_name,
+    SUM(s.quantity) as total_quantity,
+    SUM(s.quantity * p.price) as total_revenue
+  FROM sales s
+  JOIN products p ON s.product_id = p.product_id
+  GROUP BY p.product_name
+  ORDER BY total_revenue DESC
+---
+| Product | Quantity | Revenue |
+|---------|----------|---------|
+{% for row in data -%}
+| {{ row.product_name }} | {{ row.total_quantity }} | ${{ "%.2f" | format(row.total_revenue) }} |
+{% endfor -%}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        result = process_embedz(elem, doc)
+
+        # Convert result to markdown
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        # Verify output contains aggregated data
+        assert 'Widget' in markdown
+        assert 'Gadget' in markdown
+        assert 'Doohickey' in markdown
+
+    def test_multi_table_requires_query(self):
+        """Multi-table data requires a query parameter"""
+        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        import panflute as pf
+
+        # Clear state
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        # Create embedz code block without query
+        code = '''---
+data:
+  products: tests/fixtures/products.csv
+  sales: tests/fixtures/sales.csv
+---
+{% for row in data %}
+- {{ row }}
+{% endfor %}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="Multi-table data requires a 'query' parameter"):
+            process_embedz(elem, doc)

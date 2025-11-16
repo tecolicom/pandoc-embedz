@@ -77,12 +77,13 @@ def load_template_from_saved(name: str) -> Tuple[str, None, Callable[[], bool]]:
     # Return (source, filename, uptodate_func) tuple
     return SAVED_TEMPLATES[name], None, lambda: True
 
-def _apply_sql_query(df: pd.DataFrame, query: str) -> List[Dict[str, Any]]:
+def _apply_sql_query(df: pd.DataFrame, query: str, table_name: str = 'data') -> List[Dict[str, Any]]:
     """Apply SQL query to pandas DataFrame using in-memory SQLite
 
     Args:
         df: Pandas DataFrame
-        query: SQL query string (use 'data' as table name)
+        query: SQL query string
+        table_name: Name of the table to create in SQLite (default: 'data')
 
     Returns:
         list: Query results as list of dictionaries
@@ -95,8 +96,42 @@ def _apply_sql_query(df: pd.DataFrame, query: str) -> List[Dict[str, Any]]:
     conn.row_factory = sqlite3.Row
 
     try:
-        # Load DataFrame into SQLite table named 'data'
-        df.to_sql('data', conn, index=False, if_exists='replace')
+        # Load DataFrame into SQLite table
+        df.to_sql(table_name, conn, index=False, if_exists='replace')
+
+        # Execute query
+        cursor = conn.cursor()
+        cursor.execute(query)
+
+        # Fetch results and convert to list of dicts
+        rows = cursor.fetchall()
+        result = [dict(row) for row in rows]
+
+        return result
+    finally:
+        conn.close()
+
+def _apply_sql_query_multi(tables: Dict[str, pd.DataFrame], query: str) -> List[Dict[str, Any]]:
+    """Apply SQL query to multiple pandas DataFrames using in-memory SQLite
+
+    Args:
+        tables: Dictionary mapping table names to DataFrames
+        query: SQL query string
+
+    Returns:
+        list: Query results as list of dictionaries
+
+    Raises:
+        sqlite3.Error: If SQL query fails
+    """
+    # Create in-memory SQLite database
+    conn = sqlite3.connect(':memory:')
+    conn.row_factory = sqlite3.Row
+
+    try:
+        # Load all DataFrames into SQLite tables
+        for table_name, df in tables.items():
+            df.to_sql(table_name, conn, index=False, if_exists='replace')
 
         # Execute query
         cursor = conn.cursor()
@@ -525,7 +560,44 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
             load_kwargs['query'] = config['query']
 
         if data_file:
-            data = load_data(data_file, format=data_format, has_header=has_header, **load_kwargs)
+            # Check if data is a dict (multi-table) or string (single file)
+            if isinstance(data_file, dict):
+                # Multi-table mode: load multiple files and combine with SQL
+                if not config.get('query'):
+                    raise ValueError("Multi-table data requires a 'query' parameter to specify how to combine the tables")
+
+                # Load each file into a DataFrame
+                tables = {}
+                for table_name, file_path in data_file.items():
+                    # Determine format for this file
+                    file_format = data_format or guess_format_from_filename(file_path)
+
+                    # For multi-table, we only support formats that can be converted to DataFrame
+                    # CSV, TSV, SSV are supported
+                    if file_format not in ('csv', 'tsv', 'ssv', 'spaces'):
+                        raise ValueError(
+                            f"Multi-table mode only supports CSV, TSV, and SSV formats. "
+                            f"Got '{file_format}' for table '{table_name}'"
+                        )
+
+                    # Validate file path
+                    validated_path = validate_file_path(file_path)
+
+                    # Load into DataFrame based on format
+                    if file_format == 'tsv':
+                        df = pd.read_csv(validated_path, sep='\t')
+                    elif file_format in ('ssv', 'spaces'):
+                        df = pd.read_csv(validated_path, sep=r'\s+', engine='python')
+                    else:  # csv
+                        df = pd.read_csv(validated_path)
+
+                    tables[table_name] = df
+
+                # Apply SQL query to multiple tables
+                data = _apply_sql_query_multi(tables, config['query'])
+            else:
+                # Single-file mode (backward compatible)
+                data = load_data(data_file, format=data_format, has_header=has_header, **load_kwargs)
         elif data_part:
             # For inline data, default to 'csv' if format not specified
             data = load_data(StringIO(data_part), format=data_format or 'csv', has_header=has_header, **load_kwargs)

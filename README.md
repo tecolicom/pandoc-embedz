@@ -268,6 +268,66 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 ```
 ````
 
+### Multi-Table SQL Queries
+
+Combine data from multiple CSV/TSV files using SQL JOIN operations. Perfect for generating reports that need to correlate data across multiple sources:
+
+````markdown
+```embedz
+---
+data:
+  products: products.csv
+  sales: sales.csv
+query: |
+  SELECT
+    p.product_name,
+    SUM(s.quantity) as total_quantity,
+    SUM(s.quantity * p.price) as total_revenue
+  FROM sales s
+  JOIN products p ON s.product_id = p.product_id
+  GROUP BY p.product_name
+  ORDER BY total_revenue DESC
+---
+## Sales Report
+
+| Product | Quantity | Revenue |
+|---------|----------|---------|
+{% for row in data -%}
+| {{ row.product_name }} | {{ row.total_quantity }} | ${{ "%.2f" | format(row.total_revenue) }} |
+{% endfor -%}
+```
+````
+
+Basic JOIN example:
+
+````markdown
+```embedz
+---
+data:
+  customers: customers.csv
+  orders: orders.csv
+query: |
+  SELECT
+    c.customer_name,
+    o.order_date,
+    o.amount
+  FROM orders o
+  JOIN customers c ON o.customer_id = c.customer_id
+  WHERE o.order_date >= '2024-01-01'
+  ORDER BY o.order_date DESC
+---
+## Recent Orders
+
+{% for row in data %}
+- **{{ row.customer_name }}**: ${{ row.amount }} on {{ row.order_date }}
+{% endfor %}
+```
+````
+
+**Syntax**: Specify `data:` as a dictionary where keys are table names and values are file paths. A `query:` parameter is required to combine the tables.
+
+**Supported formats**: CSV, TSV, and SSV only (formats that can be loaded as DataFrames).
+
 ### Template Macros
 
 Create reusable template functions with parameters using Jinja2 macros. More flexible than `{% include %}` for complex formatting:
@@ -543,7 +603,7 @@ global:
 
 | Key | Description | Example |
 |-----|-------------|---------|
-| `data` | Data source file path | `data: stats.csv` |
+| `data` | Data source file path (string) or multiple files (dict for multi-table SQL) | `data: stats.csv` or `data: {t1: a.csv, t2: b.csv}` |
 | `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `lines` (auto-detected from extension) | `format: json` |
 | `name` | Template name (for definition) | `name: report-template` |
 | `as` | Template to use | `as: report-template` |
@@ -551,7 +611,7 @@ global:
 | `global` | Global variables (document-scoped) | `global: {author: "John"}` |
 | `header` | CSV/TSV has header row (default: true) | `header: false` |
 | `table` | SQLite table name (required for sqlite format) | `table: users` |
-| `query` | Custom SQL query (overrides table for sqlite) | `query: SELECT * FROM users WHERE active=1` |
+| `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
 
 #### Attribute Syntax
 
