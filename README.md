@@ -27,7 +27,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 pip install git+https://github.com/tecolicom/pandoc-embedz.git
 ```
 
-**Basic usage:**
+**Use it:**
 ````markdown
 ```embedz
 ---
@@ -39,77 +39,22 @@ data: data.csv
 ```
 ````
 
-**With template reuse and variables:**
-````markdown
-```{.embedz name=item-list}
-## {{ title }}
-{% for item in data %}
-- {{ item.name }}: {{ item.value }}
-{% endfor %}
-```
-
-```{.embedz data=products.csv as=item-list}
-with:
-  title: Product List
-```
-
-```{.embedz data=services.csv as=item-list}
-with:
-  title: Service List
-```
-````
-
-**Inline data (JSON/YAML/CSV):**
-````markdown
-```embedz
----
-format: json
----
-{% for user in data %}
-- {{ user.name }} ({{ user.role }})
-{% endfor %}
----
-[
-  {"name": "Alice", "role": "Admin"},
-  {"name": "Bob", "role": "User"}
-]
-```
-````
-
 **Render:**
 ```bash
 pandoc report.md --filter pandoc-embedz -o output.pdf
 ```
 
-Full Jinja2 support: loops, conditionals, filters, macros, includes. See [Usage Examples](#usage-examples) for more.
+That's it! Works with CSV, JSON, YAML, and more. Start with [Basic Usage](#basic-usage), then explore [Advanced Features](#advanced-features) for SQL queries and database access.
 
 ## Table of Contents
 
-- [Features](#features)
 - [tl;dr](#tldr)
 - [Installation](#installation)
-- [Usage Examples](#usage-examples)
-  - [CSV File (Auto-detected)](#csv-file-auto-detected)
-  - [JSON Structure](#json-structure)
-  - [Inline Data](#inline-data)
-  - [SQLite Database](#sqlite-database)
-  - [SQL Queries on CSV/TSV Data](#sql-queries-on-csvtsv-data)
-  - [Attribute Syntax](#attribute-syntax)
-  - [Conditionals](#conditionals)
-  - [Template Reuse](#template-reuse)
-  - [Template Inclusion (Nested Templates)](#template-inclusion-nested-templates)
-  - [Template Macros (Advanced)](#template-macros-advanced)
-- [Template Whitespace Handling](#template-whitespace-handling)
-- [Supported Formats](#supported-formats)
-- [Variable Scoping](#variable-scoping)
-  - [Local Variables (Block-scoped)](#local-variables-block-scoped)
-  - [Global Variables (Document-scoped)](#global-variables-document-scoped)
-- [Code Block Syntax](#code-block-syntax)
+- [Basic Usage](#basic-usage) - Simple examples to get started
+- [Advanced Features](#advanced-features) - SQL queries, databases, macros
+- [Reference](#reference) - Technical details and syntax
 - [Related Tools](#related-tools)
-- [Documentation](#documentation)
 - [License](#license)
-- [Author](#author)
-- [Contributing](#contributing)
 
 ## Installation
 
@@ -129,11 +74,9 @@ Dependencies: `panflute`, `jinja2`, `pandas`, `pyyaml`
 
 **Note**: Requires [Pandoc](https://pandoc.org/installing.html) to be installed separately. See [Pandoc documentation](https://pandoc.org/MANUAL.html) for usage.
 
-## Usage Examples
+## Basic Usage
 
-The following examples demonstrate common use cases and patterns. Each embedz code block can load data from files or inline sources, apply Jinja2 templates for formatting, and output rendered content.
-
-For comprehensive syntax details and configuration options, see [Code Block Syntax](#code-block-syntax).
+These examples cover the most common use cases. Start here to learn the basics.
 
 ### CSV File (Auto-detected)
 
