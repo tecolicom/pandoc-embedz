@@ -93,6 +93,7 @@ Full Jinja2 support: loops, conditionals, filters, macros, includes. See [Usage 
   - [JSON Structure](#json-structure)
   - [Inline Data](#inline-data)
   - [SQLite Database](#sqlite-database)
+  - [SQL Queries on CSV/TSV Data](#sql-queries-on-csvtsv-data)
   - [Attribute Syntax](#attribute-syntax)
   - [Conditionals](#conditionals)
   - [Template Reuse](#template-reuse)
@@ -216,6 +217,52 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 {% endfor -%}
 ```
 ````
+
+### SQL Queries on CSV/TSV Data
+
+You can also use SQL queries on CSV, TSV, and SSV files for powerful filtering and aggregation:
+
+````markdown
+```embedz
+---
+data: transactions.csv
+query: SELECT * FROM data WHERE date BETWEEN '2024-01-01' AND '2024-03-31' ORDER BY amount DESC
+---
+## Q1 2024 Transactions
+
+{% for row in data %}
+- {{ row.date }}: ${{ row.amount }} - {{ row.description }}
+{% endfor %}
+```
+````
+
+Aggregation example for quarterly reports:
+
+````markdown
+```embedz
+---
+data: sales.csv
+query: |
+  SELECT
+    product,
+    SUM(quantity) as total_quantity,
+    SUM(amount) as total_sales
+  FROM data
+  WHERE date >= '2024-01-01' AND date <= '2024-03-31'
+  GROUP BY product
+  ORDER BY total_sales DESC
+---
+## Q1 2024 Sales Report
+
+| Product | Quantity | Sales |
+|---------|----------|-------|
+{% for row in data -%}
+| {{ row.product }} | {{ row.total_quantity }} | ${{ row.total_sales }} |
+{% endfor -%}
+```
+````
+
+**Note**: When using `query` with CSV/TSV/SSV, the table name is always `data`. The data is loaded into an in-memory SQLite database for querying.
 
 ### Attribute Syntax
 

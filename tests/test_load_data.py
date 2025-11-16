@@ -59,6 +59,43 @@ class TestLoadCSV:
         assert len(data) == 2
         assert data[0]['name'] == 'Arthur'
 
+    def test_load_csv_with_query(self):
+        """Test CSV with SQL query filter"""
+        data = load_data(
+            str(FIXTURES_DIR / 'sample.csv'),
+            format='csv',
+            query='SELECT * FROM data WHERE category = "A"'
+        )
+        assert len(data) == 2
+        assert data[0]['name'] == 'Arthur'
+        assert data[1]['name'] == 'Zaphod'
+
+    def test_load_csv_with_aggregation_query(self):
+        """Test CSV with SQL aggregation"""
+        data = load_data(
+            str(FIXTURES_DIR / 'sample.csv'),
+            format='csv',
+            query='SELECT category, COUNT(*) as count, AVG(value) as avg_value FROM data GROUP BY category'
+        )
+        assert len(data) == 2
+        # Category A has 2 items (Arthur:42, Zaphod:99), avg = 70.5
+        # Category B has 1 item (Ford:100), avg = 100
+        cat_a = [row for row in data if row['category'] == 'A'][0]
+        assert cat_a['count'] == 2
+        assert cat_a['avg_value'] == 70.5
+
+    def test_load_csv_with_order_by_query(self):
+        """Test CSV with SQL ORDER BY"""
+        data = load_data(
+            str(FIXTURES_DIR / 'sample.csv'),
+            format='csv',
+            query='SELECT * FROM data ORDER BY value DESC'
+        )
+        assert len(data) == 3
+        assert data[0]['name'] == 'Ford'  # value = 100
+        assert data[1]['name'] == 'Zaphod'  # value = 99
+        assert data[2]['name'] == 'Arthur'  # value = 42
+
 
 class TestLoadTSV:
     """Tests for TSV data loading"""

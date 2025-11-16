@@ -77,6 +77,39 @@ def load_template_from_saved(name: str) -> Tuple[str, None, Callable[[], bool]]:
     # Return (source, filename, uptodate_func) tuple
     return SAVED_TEMPLATES[name], None, lambda: True
 
+def _apply_sql_query(df: pd.DataFrame, query: str) -> List[Dict[str, Any]]:
+    """Apply SQL query to pandas DataFrame using in-memory SQLite
+
+    Args:
+        df: Pandas DataFrame
+        query: SQL query string (use 'data' as table name)
+
+    Returns:
+        list: Query results as list of dictionaries
+
+    Raises:
+        sqlite3.Error: If SQL query fails
+    """
+    # Create in-memory SQLite database
+    conn = sqlite3.connect(':memory:')
+    conn.row_factory = sqlite3.Row
+
+    try:
+        # Load DataFrame into SQLite table named 'data'
+        df.to_sql('data', conn, index=False, if_exists='replace')
+
+        # Execute query
+        cursor = conn.cursor()
+        cursor.execute(query)
+
+        # Fetch results and convert to list of dicts
+        rows = cursor.fetchall()
+        result = [dict(row) for row in rows]
+
+        return result
+    finally:
+        conn.close()
+
 def guess_format_from_filename(filename: str) -> str:
     """Guess data format from filename extension
 
@@ -211,6 +244,9 @@ def load_data(
         # TSV format
         if has_header:
             df = pd.read_csv(source, sep='\t')
+            # Apply SQL query if provided
+            if 'query' in kwargs:
+                return _apply_sql_query(df, kwargs['query'])
             return df.to_dict('records')
         else:
             df = pd.read_csv(source, sep='\t', header=None)
@@ -220,6 +256,9 @@ def load_data(
         # SSV format (space-separated, consecutive spaces treated as one)
         if has_header:
             df = pd.read_csv(source, sep=r'\s+', engine='python')
+            # Apply SQL query if provided
+            if 'query' in kwargs:
+                return _apply_sql_query(df, kwargs['query'])
             return df.to_dict('records')
         else:
             df = pd.read_csv(source, sep=r'\s+', engine='python', header=None)
@@ -229,6 +268,9 @@ def load_data(
         # CSV format
         if has_header:
             df = pd.read_csv(source)
+            # Apply SQL query if provided
+            if 'query' in kwargs:
+                return _apply_sql_query(df, kwargs['query'])
             return df.to_dict('records')
         else:
             df = pd.read_csv(source, header=None)
