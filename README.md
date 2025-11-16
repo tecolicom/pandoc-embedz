@@ -7,6 +7,32 @@
 
 A powerful Pandoc filter for embedding data-driven content in Markdown documents using Jinja2 templates. Transform your data into beautiful documents with minimal setup.
 
+## Table of Contents
+
+- [Features](#features)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage Examples](#usage-examples)
+  - [CSV File (Auto-detected)](#csv-file-auto-detected)
+  - [JSON Structure](#json-structure)
+  - [Inline Data](#inline-data)
+  - [Attribute Syntax](#attribute-syntax)
+  - [Conditionals](#conditionals)
+  - [Template Reuse](#template-reuse)
+  - [Template Inclusion (Nested Templates)](#template-inclusion-nested-templates)
+  - [Template Macros (Advanced)](#template-macros-advanced)
+- [Template Whitespace Handling](#template-whitespace-handling)
+- [Supported Formats](#supported-formats)
+- [Variable Scoping](#variable-scoping)
+  - [Local Variables (Block-scoped)](#local-variables-block-scoped)
+  - [Global Variables (Document-scoped)](#global-variables-document-scoped)
+- [Code Block Syntax](#code-block-syntax)
+- [Related Tools](#related-tools)
+- [Documentation](#documentation)
+- [License](#license)
+- [Author](#author)
+- [Contributing](#contributing)
+
 ## Features
 
 - 🔄 **Full Jinja2 Support**: Loops, conditionals, filters, macros, and all template features
@@ -63,6 +89,10 @@ pandoc report.md --filter pandoc-embedz -o report.pdf
 ```
 
 ## Usage Examples
+
+The following examples demonstrate common use cases and patterns. Each embedz code block can load data from files or inline sources, apply Jinja2 templates for formatting, and output rendered content.
+
+For comprehensive syntax details and configuration options, see [Code Block Syntax](#code-block-syntax).
 
 ### CSV File (Auto-detected)
 
@@ -132,8 +162,10 @@ Attributes and YAML work together naturally. When you use `data` and `as` attrib
 ````markdown
 # Define template
 ```{.embedz name=product-list}
+## {{ title }}
 {% for item in data %}
-- {{ item.product }}: ${{ item.price }}
+{% set tax_included = (item.price * (1 + tax_rate)) | round(2) %}
+- {{ item.product }}: ${{ item.price }} (with tax: ${{ tax_included }})
 {% endfor %}
 ```
 
@@ -241,7 +273,9 @@ name: title-format
 data: incidents.csv
 ---
 {% for item in data %}
-- {% include 'date-format' with context %} {% include 'title-format' with context %}
+- {% include 'date-format' with context -%}
+  {{- " " -}}
+  {%- include 'title-format' with context %}
 {% endfor %}
 ```
 ````
@@ -294,7 +328,9 @@ data: vulnerabilities.csv
 
 ## Vulnerability Report
 {% for item in data %}
-- {{ format_item(item.title, item.date) }} - {{ severity_badge(item.severity) }}
+- {{ format_item(item.title, item.date) -}}
+  {{- " - " -}}
+  {{- severity_badge(item.severity) }}
 {% endfor %}
 ```
 ````
@@ -387,6 +423,161 @@ data: data.csv
 ```
 ````
 
+## Code Block Syntax
+
+### Basic Structure
+
+An embedz code block consists of up to three parts:
+
+````markdown
+```embedz
+---
+YAML configuration (optional)
+---
+Jinja2 template
+---
+Inline data (optional)
+```
+````
+
+Or using attribute syntax:
+
+````markdown
+```{.embedz attribute=value ...}
+Jinja2 template
+```
+````
+
+### Block Interpretation
+
+How a code block is processed depends on its configuration:
+
+#### 1. Data Processing Block (most common)
+
+Loads data and renders it with a template:
+
+````markdown
+```embedz
+---
+data: file.csv
+---
+{% for row in data %}
+- {{ row.name }}
+{% endfor %}
+```
+````
+
+**Processing**: Loads `file.csv` → makes it available as `data` → renders template → outputs result
+
+#### 2. Template Definition
+
+Defines a reusable template with `name:`:
+
+````markdown
+```{.embedz name=my-template}
+{% for item in data %}
+- {{ item.value }}
+{% endfor %}
+```
+````
+
+**Processing**: Stores template as "my-template" → no output
+
+#### 3. Template Usage
+
+Uses a previously defined template with `as:`:
+
+````markdown
+```embedz
+---
+data: file.csv
+as: my-template
+---
+```
+````
+
+**Processing**: Loads `file.csv` → applies "my-template" → outputs result
+
+#### 4. Inline Data
+
+Data embedded directly in the block:
+
+````markdown
+```embedz
+---
+format: json
+---
+{% for item in data %}
+- {{ item.name }}
+{% endfor %}
+---
+[{"name": "Alice"}, {"name": "Bob"}]
+```
+````
+
+**Processing**: Parses inline JSON → makes it available as `data` → renders template → outputs result
+
+#### 5. Variable Definition
+
+Sets global variables without output:
+
+````markdown
+```embedz
+---
+global:
+  author: John Doe
+  version: 1.0
+---
+```
+````
+
+**Processing**: Sets global variables → no output
+
+### Configuration Options
+
+#### YAML Header
+
+| Key | Description | Example |
+|-----|-------------|---------|
+| `data` | Data source file path | `data: stats.csv` |
+| `format` | Data format (auto-detected from extension) | `format: json` |
+| `name` | Template name (for definition) | `name: report-template` |
+| `as` | Template to use | `as: report-template` |
+| `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
+| `global` | Global variables (document-scoped) | `global: {author: "John"}` |
+| `header` | CSV/TSV has header row (default: true) | `header: false` |
+
+#### Attribute Syntax
+
+Attributes can be used instead of or in combination with YAML:
+
+```markdown
+{.embedz data=file.csv as=template}
+{.embedz name=template}
+{.embedz global.author="John"}
+```
+
+**Precedence**: YAML configuration overrides attribute values when both are specified.
+
+### Data Variable
+
+Template content can access:
+
+- `data`: The loaded dataset (from file or inline)
+- Variables from `with:` (local scope)
+- Variables from `global:` (document scope)
+
+### Template Content
+
+Uses Jinja2 syntax with full feature support:
+
+- Variables: `{{ variable }}`
+- Loops: `{% for item in data %} ... {% endfor %}`
+- Conditionals: `{% if condition %} ... {% endif %}`
+- Filters: `{{ value | filter }}`
+- Macros: `{% macro name(args) %} ... {% endmacro %}`
+- Include: `{% include 'template-name' %}`
+
 ## Related Tools
 
 ### Similar Pandoc Filters (on PyPI)
@@ -413,10 +604,6 @@ pandoc-embedz fills a unique niche:
 - ✅ Works with existing Pandoc workflow
 
 See [COMPARISON.md](COMPARISON.md) for detailed comparison.
-
-## Code Block Class Name
-
-The filter recognizes code blocks with the `.embedz` class.
 
 ## Documentation
 
