@@ -7,11 +7,85 @@
 
 A powerful Pandoc filter for embedding data-driven content in Markdown documents using Jinja2 templates. Transform your data into beautiful documents with minimal setup.
 
+## Features
+
+- 🔄 **Full Jinja2 Support**: Loops, conditionals, filters, macros, and all template features
+- 📊 **6 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML
+- 🎯 **Auto-Detection**: Automatically detects format from file extension
+- 📝 **Inline & External Data**: Support both inline data blocks and external files
+- ⚡ **Flexible Syntax**: YAML headers and code block attributes
+- ✨ **Elegant Syntax**: `{.embedz data=file.csv as=template}` with optional YAML delimiters
+- 🔁 **Template Reuse**: Define templates once, use them multiple times
+- 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
+- 🎨 **Jinja2 Macros**: Create parameterized template functions
+- 🌐 **Variable Scoping**: Local (`with:`) and global (`global:`) variable management
+- 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
+
+## TL;DR
+
+**Install:**
+```bash
+pip install git+https://github.com/tecolicom/pandoc-embedz.git
+```
+
+**Basic usage:**
+````markdown
+```embedz
+---
+data: data.csv
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+**With template reuse and variables:**
+````markdown
+```{.embedz name=item-list}
+## {{ title }}
+{% for item in data %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}
+```
+
+```{.embedz data=products.csv as=item-list}
+with:
+  title: Product List
+```
+
+```{.embedz data=services.csv as=item-list}
+with:
+  title: Service List
+```
+````
+
+**Inline data (JSON/YAML/CSV):**
+````markdown
+```embedz
+---
+format: json
+---
+{% for user in data %}
+- {{ user.name }} ({{ user.role }})
+{% endfor %}
+---
+[{"name": "Alice", "role": "Admin"}, {"name": "Bob", "role": "User"}]
+```
+````
+
+**Render:**
+```bash
+pandoc report.md --filter pandoc-embedz -o output.pdf
+```
+
+Full Jinja2 support: loops, conditionals, filters, macros, includes. See [Usage Examples](#usage-examples) for more.
+
 ## Table of Contents
 
 - [Features](#features)
+- [TL;DR](#tldr)
 - [Installation](#installation)
-- [Quick Start](#quick-start)
 - [Usage Examples](#usage-examples)
   - [CSV File (Auto-detected)](#csv-file-auto-detected)
   - [JSON Structure](#json-structure)
@@ -33,20 +107,6 @@ A powerful Pandoc filter for embedding data-driven content in Markdown documents
 - [Author](#author)
 - [Contributing](#contributing)
 
-## Features
-
-- 🔄 **Full Jinja2 Support**: Loops, conditionals, filters, macros, and all template features
-- 📊 **6 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML
-- 🎯 **Auto-Detection**: Automatically detects format from file extension
-- 📝 **Inline & External Data**: Support both inline data blocks and external files
-- ⚡ **Flexible Syntax**: YAML headers and code block attributes
-- ✨ **Elegant Syntax**: `{.embedz data=file.csv as=template}` with optional YAML delimiters
-- 🔁 **Template Reuse**: Define templates once, use them multiple times
-- 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
-- 🎨 **Jinja2 Macros**: Create parameterized template functions
-- 🌐 **Variable Scoping**: Local (`with:`) and global (`global:`) variable management
-- 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
-
 ## Installation
 
 From GitHub (recommended for now):
@@ -62,31 +122,6 @@ pip install pandoc-embedz
 ```
 
 Dependencies: `panflute`, `jinja2`, `pandas`, `pyyaml`
-
-## Quick Start
-
-Create a markdown file with a data block:
-
-````markdown
-# Monthly Report
-
-```embedz
----
-data: stats.csv
----
-| Month           |           Count |
-|:----------------|----------------:|
-{% for row in data %}
-| {{ row.month }} | {{ row.count }} |
-{% endfor %}
-```
-````
-
-Convert with Pandoc:
-
-```bash
-pandoc report.md --filter pandoc-embedz -o report.pdf
-```
 
 ## Usage Examples
 
