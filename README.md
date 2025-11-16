@@ -5,16 +5,15 @@
 [![Python Versions](https://img.shields.io/pypi/pyversions/pandoc-embedz.svg)](https://pypi.org/project/pandoc-embedz/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A powerful Pandoc filter for embedding data-driven content in Markdown documents using Jinja2 templates. Transform your data into beautiful documents with minimal setup.
+A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven content in Markdown documents using Jinja2 templates. Transform your data into beautiful documents with minimal setup.
 
 ## Features
 
-- 🔄 **Full Jinja2 Support**: Loops, conditionals, filters, macros, and all template features
+- 🔄 **Full [Jinja2](https://jinja.palletsprojects.com/) Support**: Loops, conditionals, filters, macros, and all template features
 - 📊 **6 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
 - ⚡ **Flexible Syntax**: YAML headers and code block attributes
-- ✨ **Elegant Syntax**: `{.embedz data=file.csv as=template}` with optional YAML delimiters
 - 🔁 **Template Reuse**: Define templates once, use them multiple times
 - 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
@@ -125,6 +124,8 @@ pip install pandoc-embedz
 ```
 
 Dependencies: `panflute`, `jinja2`, `pandas`, `pyyaml`
+
+**Note**: Requires [Pandoc](https://pandoc.org/installing.html) to be installed separately. See [Pandoc documentation](https://pandoc.org/MANUAL.html) for usage.
 
 ## Usage Examples
 
@@ -253,9 +254,11 @@ data: incidents.csv
 ---
 {% for row in data %}
 {% if row.severity == 'high' %}
-- ⚠️ **{{ row.title }}**: {{ row.count }} incidents
+- ⚠️ **URGENT**: {{ row.title }} ({{ row.count }} cases)
+{% elif row.severity == 'medium' %}
+- ⚡ {{ row.title }} - {{ row.count }} reported
 {% else %}
-- {{ row.title }}: {{ row.count }} incidents
+- {{ row.title }}
 {% endif %}
 {% endfor %}
 ```
@@ -549,7 +552,10 @@ format: json
 - {{ item.name }}
 {% endfor %}
 ---
-[{"name": "Alice"}, {"name": "Bob"}]
+[
+  {"name": "Alice"},
+  {"name": "Bob"}
+]
 ```
 ````
 
@@ -616,6 +622,8 @@ Uses Jinja2 syntax with full feature support:
 - Macros: `{% macro name(args) %} ... {% endmacro %}`
 - Include: `{% include 'template-name' %}`
 
+For detailed Jinja2 template syntax and features, see the [Jinja2 documentation](https://jinja.palletsprojects.com/).
+
 ## Related Tools
 
 ### Similar Pandoc Filters (on PyPI)
@@ -629,8 +637,8 @@ Uses Jinja2 syntax with full feature support:
 
 - **[pandoc-csv2table](https://github.com/baig/pandoc-csv2table)** (Haskell) - CSV to table conversion only
 - **[Quarto](https://quarto.org/)** - Comprehensive publishing system based on Pandoc. Excellent for data science and technical documents, but requires dedicated environment and workflow
-- **R Markdown** - Similar to Quarto, requires R environment
-- **Lua Filters** - Requires custom Lua scripting for each use case
+- **[R Markdown](https://rmarkdown.rstudio.com/)** - Similar to Quarto, requires R environment
+- **[Lua Filters](https://pandoc.org/lua-filters.html)** - Requires custom Lua scripting for each use case
 
 ### Why pandoc-embedz?
 
