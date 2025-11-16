@@ -323,7 +323,13 @@ name: formatters
 {%- endmacro %}
 
 {% macro severity_badge(level) -%}
-{% if level == "high" %}🔴 High{% elif level == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
+  {% if level == "high" -%}
+    🔴 High
+  {%- elif level == "medium" -%}
+    🟡 Medium
+  {%- else -%}
+    🟢 Low
+  {%- endif %}
 {%- endmacro %}
 ```
 
@@ -435,7 +441,13 @@ The `with context` clause forwards the current loop variables so included templa
 ---
 name: severity-badge
 ---
-{% if item.severity == "high" %}🔴{% elif item.severity == "medium" %}🟡{% else %}🟢{% endif %}
+{% if item.severity == "high" -%}
+  🔴
+{%- elif item.severity == "medium" -%}
+  🟡
+{%- else -%}
+  🟢
+{%- endif %}
 ```
 
 ```embedz
