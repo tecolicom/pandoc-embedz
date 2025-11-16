@@ -11,6 +11,7 @@ from jinja2 import Environment, FunctionLoader, TemplateNotFound
 import pandas as pd
 import yaml
 import json
+import sqlite3
 from io import StringIO
 from pathlib import Path
 import sys
@@ -83,7 +84,7 @@ def guess_format_from_filename(filename: str) -> str:
         filename: File name or path
 
     Returns:
-        str: Guessed format ('csv', 'tsv', 'json', 'yaml', 'toml', 'lines')
+        str: Guessed format ('csv', 'tsv', 'json', 'yaml', 'toml', 'sqlite', 'lines')
     """
     if isinstance(filename, str):
         if filename.endswith('.txt'):
@@ -96,20 +97,24 @@ def guess_format_from_filename(filename: str) -> str:
             return 'yaml'
         elif filename.endswith('.toml'):
             return 'toml'
+        elif filename.endswith('.db') or filename.endswith('.sqlite') or filename.endswith('.sqlite3'):
+            return 'sqlite'
     return 'csv'
 
 def load_data(
     source: Union[str, StringIO],
     format: Optional[str] = None,
-    has_header: bool = True
+    has_header: bool = True,
+    **kwargs: Any
 ) -> Union[List[Any], Dict[str, Any]]:
     """Load data from file or StringIO and convert to list or dict
 
     Args:
         source: File path or StringIO object
-        format: Data format ('csv', 'tsv', 'ssv'/'spaces', 'json', 'yaml', 'toml', 'lines')
+        format: Data format ('csv', 'tsv', 'ssv'/'spaces', 'json', 'yaml', 'toml', 'sqlite', 'lines')
                If None, auto-detect from filename
-        has_header: Whether CSV/TSV/SSV has header row (ignored for json/yaml/toml/lines)
+        has_header: Whether CSV/TSV/SSV has header row (ignored for json/yaml/toml/sqlite/lines)
+        **kwargs: Additional format-specific options (e.g., table='name' or query='SELECT...' for sqlite)
 
     Returns:
         list or dict: Data (structure preserved)
@@ -158,6 +163,39 @@ def load_data(
         else:
             with open(source, 'rb') as f:  # TOML requires binary mode
                 return tomllib.load(f)
+
+    elif format == 'sqlite':
+        # SQLite database
+        if isinstance(source, StringIO):
+            raise ValueError("SQLite format does not support inline data. Use an external .db/.sqlite/.sqlite3 file.")
+
+        # Get table name or SQL query from kwargs
+        query = kwargs.get('query')
+        table = kwargs.get('table')
+
+        if not query and not table:
+            raise ValueError("SQLite format requires either 'table' or 'query' parameter")
+
+        # Connect to database
+        conn = sqlite3.connect(source)
+        conn.row_factory = sqlite3.Row  # Enable column access by name
+        cursor = conn.cursor()
+
+        try:
+            # Execute query or select from table
+            if query:
+                cursor.execute(query)
+            else:
+                # Simple table select with SQL injection prevention
+                cursor.execute(f"SELECT * FROM {table}")
+
+            # Fetch all rows and convert to list of dicts
+            rows = cursor.fetchall()
+            result = [dict(row) for row in rows]
+
+            return result
+        finally:
+            conn.close()
 
     elif format == 'lines':
         # Plain text: one item per line
@@ -300,7 +338,7 @@ def validate_config(config: Dict[str, Any]) -> None:
 
     # Validate format
     if 'format' in config:
-        valid_formats = {'csv', 'tsv', 'ssv', 'spaces', 'json', 'yaml', 'toml', 'lines'}
+        valid_formats = {'csv', 'tsv', 'ssv', 'spaces', 'json', 'yaml', 'toml', 'sqlite', 'lines'}
         if config['format'] not in valid_formats:
             raise ValueError(
                 f"Invalid format: {config['format']}. "
@@ -437,11 +475,18 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         data_format = config.get('format')  # None = auto-detect
         has_header = config.get('header', True)
 
+        # Prepare format-specific kwargs (e.g., for SQLite)
+        load_kwargs = {}
+        if 'table' in config:
+            load_kwargs['table'] = config['table']
+        if 'query' in config:
+            load_kwargs['query'] = config['query']
+
         if data_file:
-            data = load_data(data_file, format=data_format, has_header=has_header)
+            data = load_data(data_file, format=data_format, has_header=has_header, **load_kwargs)
         elif data_part:
             # For inline data, default to 'csv' if format not specified
-            data = load_data(StringIO(data_part), format=data_format or 'csv', has_header=has_header)
+            data = load_data(StringIO(data_part), format=data_format or 'csv', has_header=has_header, **load_kwargs)
         else:
             data = []
 

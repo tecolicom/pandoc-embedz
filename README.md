@@ -10,7 +10,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 ## Features
 
 - 🔄 **Full [Jinja2](https://jinja.palletsprojects.com/) Support**: Loops, conditionals, filters, macros, and all template features
-- 📊 **7 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML, TOML
+- 📊 **8 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML, TOML, SQLite
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
 - ⚡ **Flexible Syntax**: YAML headers and code block attributes
@@ -92,6 +92,7 @@ Full Jinja2 support: loops, conditionals, filters, macros, includes. See [Usage 
   - [CSV File (Auto-detected)](#csv-file-auto-detected)
   - [JSON Structure](#json-structure)
   - [Inline Data](#inline-data)
+  - [SQLite Database](#sqlite-database)
   - [Attribute Syntax](#attribute-syntax)
   - [Conditionals](#conditionals)
   - [Template Reuse](#template-reuse)
@@ -179,6 +180,40 @@ format: json
   {"name": "Apple", "count": 10},
   {"name": "Banana", "count": 5}
 ]
+```
+````
+
+### SQLite Database
+
+Query data from SQLite databases:
+
+````markdown
+```embedz
+---
+data: users.db
+table: users
+---
+{% for user in data %}
+- {{ user.name }} ({{ user.email }})
+{% endfor %}
+```
+````
+
+With custom SQL query:
+
+````markdown
+```embedz
+---
+data: analytics.db
+query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01' GROUP BY category
+---
+## Event Statistics
+
+| Category | Count |
+|----------|-------|
+{% for row in data -%}
+| {{ row.category }} | {{ row.count }} |
+{% endfor -%}
 ```
 ````
 
@@ -584,12 +619,14 @@ global:
 | Key | Description | Example |
 |-----|-------------|---------|
 | `data` | Data source file path | `data: stats.csv` |
-| `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `lines` (auto-detected from extension) | `format: json` |
+| `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `lines` (auto-detected from extension) | `format: json` |
 | `name` | Template name (for definition) | `name: report-template` |
 | `as` | Template to use | `as: report-template` |
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
 | `global` | Global variables (document-scoped) | `global: {author: "John"}` |
 | `header` | CSV/TSV has header row (default: true) | `header: false` |
+| `table` | SQLite table name (required for sqlite format) | `table: users` |
+| `query` | Custom SQL query (overrides table for sqlite) | `query: SELECT * FROM users WHERE active=1` |
 
 #### Attribute Syntax
 
@@ -644,7 +681,7 @@ For detailed Jinja2 template syntax and features, see the [Jinja2 documentation]
 
 pandoc-embedz fills a unique niche:
 - ✅ Full Jinja2 templating (loops, conditionals, filters)
-- ✅ Multiple data formats (CSV, JSON, YAML, TOML, etc.)
+- ✅ Multiple data formats (CSV, JSON, YAML, TOML, SQLite, etc.)
 - ✅ Code block level processing (not document-wide)
 - ✅ Lightweight - no heavy dependencies
 - ✅ Works with existing Pandoc workflow

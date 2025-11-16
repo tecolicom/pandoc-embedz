@@ -26,6 +26,11 @@ class TestGuessFormat:
     def test_toml_extension(self):
         assert guess_format_from_filename('data.toml') == 'toml'
 
+    def test_sqlite_extensions(self):
+        assert guess_format_from_filename('data.db') == 'sqlite'
+        assert guess_format_from_filename('data.sqlite') == 'sqlite'
+        assert guess_format_from_filename('data.sqlite3') == 'sqlite'
+
     def test_txt_extension(self):
         assert guess_format_from_filename('data.txt') == 'lines'
 
@@ -182,6 +187,48 @@ class TestLoadTOML:
         assert data['config']['title'] == 'Test'
 
 
+class TestLoadSQLite:
+    """Tests for SQLite database loading"""
+
+    def test_load_sqlite_with_table(self):
+        data = load_data(str(FIXTURES_DIR / 'sample.db'), format='sqlite', table='items')
+        assert len(data) == 3
+        assert data[0]['name'] == 'Arthur'
+        assert data[0]['value'] == 42
+        assert data[0]['category'] == 'A'
+
+    def test_load_sqlite_with_query(self):
+        data = load_data(
+            str(FIXTURES_DIR / 'sample.db'),
+            format='sqlite',
+            query='SELECT * FROM items WHERE category = "A"'
+        )
+        assert len(data) == 2
+        assert data[0]['name'] == 'Arthur'
+        assert data[1]['name'] == 'Zaphod'
+
+    def test_load_sqlite_query_overrides_table(self):
+        """When both query and table are specified, query takes precedence"""
+        data = load_data(
+            str(FIXTURES_DIR / 'sample.db'),
+            format='sqlite',
+            table='items',
+            query='SELECT * FROM metadata'
+        )
+        assert len(data) == 2
+        assert data[0]['key'] == 'author'
+
+    def test_load_sqlite_requires_table_or_query(self):
+        """SQLite format requires either table or query parameter"""
+        with pytest.raises(ValueError, match="requires either 'table' or 'query'"):
+            load_data(str(FIXTURES_DIR / 'sample.db'), format='sqlite')
+
+    def test_load_sqlite_no_inline_support(self):
+        """SQLite does not support inline data"""
+        with pytest.raises(ValueError, match="does not support inline data"):
+            load_data(StringIO("dummy"), format='sqlite', table='items')
+
+
 class TestLoadLines:
     """Tests for lines format data loading"""
 
@@ -227,6 +274,12 @@ class TestAutoDetection:
         assert 'items' in data
         assert len(data['items']) == 3
         assert data['items'][0]['name'] == 'Arthur'
+
+    def test_sqlite_auto_detect(self):
+        """SQLite auto-detects format but still requires table parameter"""
+        data = load_data(str(FIXTURES_DIR / 'sample.db'), table='items')
+        assert len(data) == 3
+        assert data[0]['name'] == 'Arthur'
 
     def test_txt_auto_detect(self):
         data = load_data(str(FIXTURES_DIR / 'sample.txt'))
