@@ -412,8 +412,8 @@ query: |
 ---
 ## Product Revenue (Inline Data)
 
-| Product | Units Sold | Revenue |
-|---------|----------:|--------:|
+| Product   | Units Sold | Revenue |
+|-----------|-----------:|--------:|
 {% for row in data -%}
 | {{ row.product_name }} | {{ row.total_sold }} | ¥{{ "{:,}".format(row.revenue|int) }} |
 {% endfor -%}
@@ -424,11 +424,11 @@ query: |
 ```
 ## Product Revenue (Inline Data)
 
-| Product | Units Sold | Revenue |
-|---------|----------:|--------:|
-| Doohickey |         10 |  ¥18,500 |
-| Widget    |          5 |   ¥6,400 |
-| Gadget    |          3 |   ¥7,440 |
+| Product   | Units Sold | Revenue |
+|-----------|-----------:|--------:|
+| Doohickey |         10 | ¥18,500 |
+| Gadget    |          3 |  ¥7,440 |
+| Widget    |          5 |  ¥6,400 |
 ```
 
 **Benefits of inline data with SQL:**

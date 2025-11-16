@@ -13,6 +13,9 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 📊 **8 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML, TOML, SQLite
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
+- 🗄️ **SQL Queries**: Filter, aggregate, and transform CSV/TSV data using SQL
+- 🔗 **Multi-Table SQL**: Load multiple files and combine with JOIN operations
+- 📦 **Multi-Table Direct Access**: Load multiple datasets and access each independently
 - ⚡ **Flexible Syntax**: YAML headers and code block attributes
 - 🔁 **Template Reuse**: Define templates once, use them multiple times
 - 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
@@ -59,16 +62,33 @@ with:
 pandoc report.md --filter pandoc-embedz -o output.pdf
 ```
 
-Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usage) to get started, or jump to [Advanced Features](#advanced-features) for SQL queries and database access.
+Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usage) to get started, or jump to [Advanced Features](#advanced-features) for SQL queries, multi-table operations, and database access.
 
 ## Table of Contents
 
 - [tl;dr](#tldr)
 - [Installation](#installation)
-- [Basic Usage](#basic-usage) - Simple examples to get started
-- [Advanced Features](#advanced-features) - SQL queries, databases, macros
-- [Reference](#reference) - Technical details and syntax
+- [Basic Usage](#basic-usage)
+  - [CSV File (Auto-detected)](#csv-file-auto-detected)
+  - [JSON Structure](#json-structure)
+  - [Inline Data](#inline-data)
+  - [Conditionals](#conditionals)
+  - [Template Reuse](#template-reuse)
+- [Advanced Features](#advanced-features)
+  - [SQL Queries on CSV/TSV](#sql-queries-on-csvtsv)
+  - [SQLite Database](#sqlite-database)
+  - [Multi-Table Data](#multi-table-data)
+  - [Template Macros](#template-macros)
+  - [Variable Scoping](#variable-scoping)
+- [Reference](#reference)
+  - [Template Inclusion](#template-inclusion)
+  - [Supported Formats](#supported-formats)
+  - [Code Block Syntax](#code-block-syntax)
+  - [Configuration Options](#configuration-options)
+  - [Data Variable](#data-variable)
+  - [Template Content](#template-content)
 - [Related Tools](#related-tools)
+- [Documentation](#documentation)
 - [License](#license)
 
 ## Installation
@@ -302,6 +322,27 @@ query: |
 ---
 {% for row in data %}     <!-- Result is in 'data' -->
 - {{ row.product_name }}: {{ row.total }}
+{% endfor %}
+```
+````
+
+**Inline data (no external files):**
+````markdown
+```embedz
+---
+data:
+  config:
+    format: yaml
+    data: |
+      title: "Sales Report"
+  sales: |              # Multi-line string = inline CSV
+    product,amount
+    Widget,1280
+    Gadget,2480
+---
+# {{ data.config.title }}
+{% for row in data.sales %}
+- {{ row.product }}: ¥{{ "{:,}".format(row.amount|int) }}
 {% endfor %}
 ```
 ````
@@ -595,7 +636,7 @@ global:
 
 | Key | Description | Example |
 |-----|-------------|---------|
-| `data` | Data source file path (string) or multiple files (dict for multi-table SQL) | `data: stats.csv` or `data: {t1: a.csv, t2: b.csv}` |
+| `data` | Data source: file path (string), multiple files (dict), or inline data (multi-line string or dict with `data` key) | `data: stats.csv` or `data: {sales: sales.csv}` or `data: \|<br>  name,value<br>  ...` |
 | `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `lines` (auto-detected from extension) | `format: json` |
 | `name` | Template name (for definition) | `name: report-template` |
 | `as` | Template to use | `as: report-template` |
@@ -622,6 +663,9 @@ Attributes can be used instead of or in combination with YAML:
 Template content can access:
 
 - `data`: The loaded dataset (from file or inline)
+  - Single file: `data` is a list of rows (or dict for JSON/YAML)
+  - Multi-table without query: `data` is a dict, access via `data.table_name`
+  - Multi-table with query: `data` is a list of SQL query results
 - Variables from `with:` (local scope)
 - Variables from `global:` (document scope)
 
