@@ -209,3 +209,142 @@ format: json
         result = process_embedz(elem, doc)
 
         assert isinstance(result, list)
+
+
+class TestQueryTemplateExpansion:
+    """Tests for query template variable expansion"""
+
+    def test_query_with_global_variable_interpolation(self):
+        """Test SQL query with global variable interpolation"""
+        # Define global variables
+        setup_code = """---
+global:
+  start_date: '2024-01-01'
+  end_date: '2024-12-31'
+---
+"""
+        elem1 = pf.CodeBlock(setup_code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Use global variables in query
+        query_code = """---
+format: csv
+query: SELECT * FROM data WHERE date >= '{{ global.start_date }}' AND date <= '{{ global.end_date }}'
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,date,value
+Alice,2024-06-15,100
+Bob,2023-12-01,80
+Charlie,2024-03-20,90
+David,2025-01-01,70"""
+
+        elem2 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        # Should only include rows within the date range
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        # Convert to string and check
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # 2024-06-15 is within range
+        assert 'Charlie: 90' in output  # 2024-03-20 is within range
+        assert 'Bob' not in output  # 2023-12-01 is outside range
+        assert 'David' not in output  # 2025-01-01 is outside range
+
+    def test_query_as_complete_global_variable(self):
+        """Test using complete SQL query from global variable"""
+        # Define query as global variable
+        setup_code = """---
+global:
+  value_filter: SELECT * FROM data WHERE value > 50
+---
+"""
+        elem1 = pf.CodeBlock(setup_code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Use complete query from global
+        query_code = """---
+format: csv
+query: "{{ global.value_filter }}"
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,value
+Alice,100
+Bob,30
+Charlie,90"""
+
+        elem2 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        # Should only include rows where value > 50
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # value > 50
+        assert 'Charlie: 90' in output  # value > 50
+        assert 'Bob' not in output  # value = 30, not > 50
+
+    def test_query_with_with_variable(self):
+        """Test SQL query with with variable"""
+        query_code = """---
+format: csv
+with:
+  min_value: 60
+query: SELECT * FROM data WHERE value >= {{ min_value }}
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,value
+Alice,100
+Bob,50
+Charlie,90"""
+
+        elem = pf.CodeBlock(query_code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        # Should only include rows where value >= 60
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # value >= 60
+        assert 'Charlie: 90' in output  # value >= 60
+        assert 'Bob' not in output  # value = 50, not >= 60
+
+    def test_query_without_template_unchanged(self):
+        """Test that queries without template syntax are not processed"""
+        query_code = """---
+format: csv
+query: SELECT * FROM data WHERE value > 50
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,value
+Alice,100
+Bob,30"""
+
+        elem = pf.CodeBlock(query_code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        # Should work normally
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output

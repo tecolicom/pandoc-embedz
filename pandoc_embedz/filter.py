@@ -693,6 +693,14 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
                 raise ValueError(f"Template '{template_ref}' not found. Define it first with name='{template_ref}'")
             template_part = SAVED_TEMPLATES[template_ref]
 
+        # Prepare variables first (needed for query template expansion)
+        with_vars: Dict[str, Any] = {}
+        if 'with' in config:
+            with_vars.update(config['with'])
+        if 'global' in config:
+            # Store global variables persistently
+            GLOBAL_VARS.update(config['global'])
+
         # Load data
         data_file = config.get('data')
         data_format = config.get('format')  # None = auto-detect
@@ -703,20 +711,23 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         if 'table' in config:
             load_kwargs['table'] = config['table']
         if 'query' in config:
-            load_kwargs['query'] = config['query']
+            query_template = config['query']
+            # Expand Jinja2 template variables in query if present
+            if '{{' in query_template or '{%' in query_template:
+                from jinja2 import Template
+                template = Template(query_template)
+                query_value = template.render(
+                    **{'global': GLOBAL_VARS},  # global is a reserved word
+                    **with_vars  # Make with.xxx directly accessible
+                )
+                load_kwargs['query'] = query_value
+            else:
+                load_kwargs['query'] = query_template
 
         # Load data from file(s), inline, or multi-table sources
         data = _load_embedz_data(
             data_file, data_part, config, data_format, has_header, load_kwargs
         )
-
-        # Prepare variables
-        with_vars: Dict[str, Any] = {}
-        if 'with' in config:
-            with_vars.update(config['with'])
-        if 'global' in config:
-            # Store global variables persistently
-            GLOBAL_VARS.update(config['global'])
 
         # If no data, only save template (no output)
         if not data:

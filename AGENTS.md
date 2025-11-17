@@ -32,3 +32,88 @@
 ## Security & Configuration Tips
 - Keep configuration tight: reuse `load_template_from_saved`/`validate_file_path` when reading external data so path traversal checks stay centralized.
 - Store any new template snippets or CSV fixtures near the tests that validate them to make review easier.
+
+## Filter Chaining & Code Block Generation
+
+### Generating Code Blocks for Other Filters
+embedz can generate code blocks (e.g., ```` ```{.table} ````) that are processed by subsequent filters like pantable:
+
+- **How it works**: `pf.convert_text(result, input_format='markdown')` in `filter.py:743` parses the rendered template output and converts it to Pandoc AST elements, including CodeBlocks
+- **Filter order**: Use `--filter pandoc-embedz --filter pantable` to chain filters; embedz runs first and generates code blocks, then pantable processes them
+- **Requirements**: The embedz block must have data; blocks without data return empty list `[]` (see `filter.py:722-723`)
+
+### Writing Triple Backticks in Templates
+
+Use four backticks for the outer fence:
+`````markdown
+````{.embedz format=csv}
+---
+---
+```{.table}
+{% for row in data -%}
+{{ row.product }},{{ row.sales }}
+{% endfor -%}
+```
+---
+product,sales
+Widget,100
+````
+`````
+
+- Use four backticks for the outer fence to write three backticks inside
+- Empty YAML header `---` `---` is required (otherwise the inner `---` won't be recognized as data separator)
+- This is standard Markdown syntax, no special handling needed
+
+### Data Requirements
+- **Inline data must come after the third `---`** (template/data separator)
+- **Data in `with:` section is NOT treated as `data`**; it's only available as template variables
+- If `data` is empty or `[]`, the filter returns `[]` with no output (by design; templates without data are considered "definitions")
+- To iterate over data, use `{% for row in data %}`, not `{% for row in with.products %}`
+
+### Query Template Expansion
+
+SQL queries support Jinja2 template variable expansion, allowing you to share query logic across multiple embedz blocks:
+
+**Define global variables:**
+```markdown
+```{.embedz}
+---
+global:
+  start_date: '2024-01-01'
+  end_date: '2024-12-31'
+---
+```
+```
+
+**Use in queries - Variable interpolation:**
+```markdown
+```{.embedz data=data.csv}
+---
+query: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
+---
+Template here
+```
+```
+
+**Use in queries - Complete query as variable:**
+```markdown
+```{.embedz}
+---
+global:
+  period_filter: SELECT * FROM data WHERE date BETWEEN '2024-01-01' AND '2024-12-31'
+---
+```
+
+```{.embedz data=sales.csv}
+---
+query: "{{ global.period_filter }}"
+---
+Template here
+```
+```
+
+**Key points:**
+- Template expansion occurs **before** data loading, so `global` and `with` variables are available
+- Queries containing `{{` or `{%` are automatically processed as Jinja2 templates
+- Use quotes around queries that start with `{{` to ensure valid YAML
+- Works with CSV, TSV, SSV formats (via pandas SQL) and SQLite databases

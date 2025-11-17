@@ -254,6 +254,66 @@ query: |
 
 **Note**: Table name is always `data`. CSV/TSV data is loaded into an in-memory SQLite database for querying.
 
+#### Query Template Variables
+
+Share SQL query logic across multiple embedz blocks using Jinja2 template variables. This is useful when you need to apply the same filter criteria to different datasets:
+
+**Define global variables for queries:**
+````markdown
+```{.embedz}
+---
+global:
+  start_date: '2024-01-01'
+  end_date: '2024-03-31'
+---
+```
+````
+
+**Use variables in queries:**
+````markdown
+```{.embedz data=sales.csv}
+---
+query: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
+---
+## Sales ({{ global.start_date }} to {{ global.end_date }})
+{% for row in data %}
+- {{ row.product }}: ${{ row.amount }}
+{% endfor %}
+```
+
+```{.embedz data=expenses.csv}
+---
+query: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
+---
+## Expenses ({{ global.start_date }} to {{ global.end_date }})
+{% for row in data %}
+- {{ row.category }}: ${{ row.amount }}
+{% endfor %}
+```
+````
+
+**Store complete queries as variables:**
+````markdown
+```{.embedz}
+---
+global:
+  high_value_filter: SELECT * FROM data WHERE amount > 1000 ORDER BY amount DESC
+---
+```
+
+```{.embedz data=transactions.csv}
+---
+query: "{{ global.high_value_filter }}"
+---
+## High-Value Transactions
+{% for row in data %}
+- {{ row.date }}: ${{ row.amount }}
+{% endfor %}
+```
+````
+
+Template expansion works with `global` and `with` variables, and supports all query features (CSV, TSV, SSV, and SQLite databases).
+
 ### SQLite Database
 
 Query SQLite database files directly. Use the `table` parameter to specify which table to read from the database:
