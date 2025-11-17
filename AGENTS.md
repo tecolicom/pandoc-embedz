@@ -112,8 +112,33 @@ Template here
 ```
 ```
 
+**Nested global variables:**
+
+Global variable values can reference other global variables, enabling complex query composition:
+
+```markdown
+```{.embedz}
+---
+global:
+  year: '2024'
+  start_date: '{{ global.year }}-01-01'
+  end_date: '{{ global.year }}-12-31'
+  period_filter: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
+---
+```
+```
+
+Variables are expanded in **definition order** during `GLOBAL_VARS.update()`:
+- Each value is checked for `{{` or `{%`
+- If found, it's rendered as a Jinja2 template using previously defined global variables
+- This allows multi-level nesting (e.g., `year` → `start_date` → `period_filter`)
+
 **Key points:**
 - Template expansion occurs **before** data loading, so `global` and `with` variables are available
 - Queries containing `{{` or `{%` are automatically processed as Jinja2 templates
+- Global variable **values** are also expanded if they contain template syntax
+- Variables are processed in definition order (later variables can reference earlier ones)
+- The `global.` prefix is optional: `{{ start_date }}` and `{{ global.start_date }}` both work
+- The `with.` prefix is also optional for local variables
 - Use quotes around queries that start with `{{` to ensure valid YAML
 - Works with CSV, TSV, SSV formats (via pandas SQL) and SQLite databases

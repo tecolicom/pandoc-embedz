@@ -698,8 +698,17 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         if 'with' in config:
             with_vars.update(config['with'])
         if 'global' in config:
-            # Store global variables persistently
-            GLOBAL_VARS.update(config['global'])
+            # Store global variables persistently with template expansion
+            from jinja2 import Template
+            for key, value in config['global'].items():
+                # Expand template variables in global value if present
+                if isinstance(value, str) and ('{{' in value or '{%' in value):
+                    template = Template(value)
+                    value = template.render(
+                        **GLOBAL_VARS,              # Variables accessible directly
+                        **{'global': GLOBAL_VARS}   # Also accessible as global.xxx
+                    )
+                GLOBAL_VARS[key] = value
 
         # Load data
         data_file = config.get('data')
@@ -717,8 +726,10 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
                 from jinja2 import Template
                 template = Template(query_template)
                 query_value = template.render(
-                    **{'global': GLOBAL_VARS},  # global is a reserved word
-                    **with_vars  # Make with.xxx directly accessible
+                    **GLOBAL_VARS,           # Expand global variables
+                    **with_vars,             # Expand with variables (override globals)
+                    **{'global': GLOBAL_VARS},  # Also accessible as global.xxx
+                    **{'with': with_vars}    # Also accessible as with.xxx
                 )
                 load_kwargs['query'] = query_value
             else:

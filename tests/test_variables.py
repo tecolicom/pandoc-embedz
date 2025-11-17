@@ -324,6 +324,44 @@ Charlie,90"""
         assert 'Charlie: 90' in output  # value >= 60
         assert 'Bob' not in output  # value = 50, not >= 60
 
+    def test_query_with_global_variable_without_prefix(self):
+        """Test SQL query with global variable without prefix"""
+        # Define global variables
+        setup_code = """---
+global:
+  min_value: 60
+---
+"""
+        elem1 = pf.CodeBlock(setup_code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Use global variable in query without prefix
+        query_code = """---
+format: csv
+query: SELECT * FROM data WHERE value >= {{ min_value }}
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,value
+Alice,100
+Bob,50
+Charlie,90"""
+
+        elem2 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        # Should only include rows where value >= 60
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # value >= 60
+        assert 'Charlie: 90' in output  # value >= 60
+        assert 'Bob' not in output  # value = 50, not >= 60
+
     def test_query_without_template_unchanged(self):
         """Test that queries without template syntax are not processed"""
         query_code = """---
@@ -348,3 +386,141 @@ Bob,30"""
 
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'Alice: 100' in output
+
+    def test_nested_global_variables(self):
+        """Test global variables that reference other global variables"""
+        # Define nested global variables
+        setup_code = """---
+global:
+  start_date: '2024-01-01'
+  end_date: '2024-12-31'
+  period_filter: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
+---
+"""
+        elem1 = pf.CodeBlock(setup_code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Use nested variable in query
+        query_code = """---
+format: csv
+query: "{{ global.period_filter }}"
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,date,value
+Alice,2024-06-15,100
+Bob,2023-12-01,80
+Charlie,2024-03-20,90
+David,2025-01-01,70"""
+
+        elem2 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        # Should only include rows within the date range
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # 2024
+        assert 'Charlie: 90' in output  # 2024
+        assert 'Bob' not in output  # 2023
+        assert 'David' not in output  # 2025
+
+    def test_multi_level_nested_global_variables(self):
+        """Test multiple levels of global variable nesting"""
+        # Define multi-level nested variables
+        setup_code = """---
+global:
+  year: '2024'
+  start_date: '{{ global.year }}-01-01'
+  end_date: '{{ global.year }}-12-31'
+  date_filter: date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
+  value_filter: value > 50
+  combined_query: SELECT * FROM data WHERE {{ global.date_filter }} AND {{ global.value_filter }}
+---
+"""
+        elem1 = pf.CodeBlock(setup_code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Use multi-level nested query
+        query_code = """---
+format: csv
+query: "{{ global.combined_query }}"
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,date,value
+Alice,2024-06-15,100
+Bob,2023-12-01,80
+Charlie,2024-03-20,90
+David,2025-01-01,70
+Eve,2024-08-10,30"""
+
+        elem2 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        # Should only include 2024 rows with value > 50
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # 2024, value > 50
+        assert 'Charlie: 90' in output  # 2024, value > 50
+        assert 'Bob' not in output  # 2023
+        assert 'David' not in output  # 2025
+        assert 'Eve' not in output  # 2024 but value = 30
+
+    def test_nested_global_variables_without_prefix(self):
+        """Test nested global variables can reference other variables without prefix"""
+        # Define nested global variables using variables without prefix
+        setup_code = """---
+global:
+  year: 2024
+  start_date: "{{ year }}-01-01"
+  end_date: "{{ year }}-12-31"
+  date_filter: date BETWEEN '{{ start_date }}' AND '{{ end_date }}'
+---
+"""
+        elem1 = pf.CodeBlock(setup_code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Verify variables were expanded correctly
+        assert GLOBAL_VARS['year'] == 2024
+        assert GLOBAL_VARS['start_date'] == '2024-01-01'
+        assert GLOBAL_VARS['end_date'] == '2024-12-31'
+        assert GLOBAL_VARS['date_filter'] == "date BETWEEN '2024-01-01' AND '2024-12-31'"
+
+        # Use nested variable in query without prefix
+        query_code = """---
+format: csv
+query: "SELECT * FROM data WHERE {{ date_filter }}"
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,date,value
+Alice,2024-06-15,100
+Bob,2023-12-01,80
+Charlie,2024-03-20,90
+David,2025-01-01,70"""
+
+        elem2 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        # Should only include rows within the date range
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # 2024
+        assert 'Charlie: 90' in output  # 2024
+        assert 'Bob' not in output  # 2023
+        assert 'David' not in output  # 2025

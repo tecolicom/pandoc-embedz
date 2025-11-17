@@ -263,8 +263,8 @@ Share SQL query logic across multiple embedz blocks using Jinja2 template variab
 ```{.embedz}
 ---
 global:
-  start_date: '2024-01-01'
-  end_date: '2024-03-31'
+  start_date: 2024-01-01
+  end_date: 2024-03-31
 ---
 ```
 ````
@@ -292,6 +292,8 @@ query: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ g
 ```
 ````
 
+> **Note:** The `global.` prefix is optional. You can use `{{ start_date }}` instead of `{{ global.start_date }}`. The prefix is available for clarity when you have both global and local variables.
+
 **Store complete queries as variables:**
 ````markdown
 ```{.embedz}
@@ -311,6 +313,34 @@ query: "{{ global.high_value_filter }}"
 {% endfor %}
 ```
 ````
+
+**Nested variable references:**
+
+Global variables can reference other global variables, allowing you to build complex queries from reusable components:
+
+````markdown
+```{.embedz}
+---
+global:
+  year: 2024
+  start_date: "{{ global.year }}-01-01"
+  end_date: "{{ global.year }}-12-31"
+  date_filter: date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
+---
+```
+
+```{.embedz data=sales.csv}
+---
+query: "SELECT * FROM data WHERE {{ global.date_filter }}"
+---
+## {{ global.year }} Sales Report
+{% for row in data %}
+- {{ row.date }}: ${{ row.amount }}
+{% endfor %}
+```
+````
+
+Variables are expanded in definition order, so later variables can reference earlier ones.
 
 Template expansion works with `global` and `with` variables, and supports all query features (CSV, TSV, SSV, and SQLite databases).
 
