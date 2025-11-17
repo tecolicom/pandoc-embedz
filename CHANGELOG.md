@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-11-17
+
+### Added
+- SQLite database support with `table` and `query` parameters
+- TOML format support
+- SQL query support for CSV, TSV, and SSV formats using pandas
+- Multi-table SQL support for joining multiple data sources
+- Inline data support for multi-table SQL queries
+- Query template variable expansion with Jinja2
+- Nested global variable references (variables can reference other variables)
+- Attribute-based configuration using dot notation (e.g., `with.title="Example"`)
+- Support for arbitrary attribute namespaces beyond `global` and `with`
+
+### Changed
+- Variable prefix (`global.`, `with.`) is now optional in templates and queries
+- Improved documentation structure with Basic/Advanced separation
+- Better error messages and examples throughout documentation
+
+### Fixed
+- Test suite now runs all tests before committing
+- Table alignment in multi-table documentation
+
 ## [0.1.0] - 2025-11-14
 
 ### Added
@@ -21,5 +43,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
-[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tecolicom/pandoc-embedz/releases/tag/v0.1.0
