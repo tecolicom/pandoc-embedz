@@ -142,3 +142,52 @@ Variables are expanded in **definition order** during `GLOBAL_VARS.update()`:
 - The `with.` prefix is also optional for local variables
 - Use quotes around queries that start with `{{` to ensure valid YAML
 - Works with CSV, TSV, SSV formats (via pandas SQL) and SQLite databases
+
+### Macro Sharing Across Global Variables
+
+Global variables support Jinja2 macro sharing using template inclusion. This enables defining reusable template functions once and using them across multiple variables.
+
+**Define macros in a named template:**
+```markdown
+```{.embedz name=sql-macros}
+{%- macro BETWEEN(start, end) -%}
+SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
+{%- endmacro -%}
+```
+```
+
+**Import and use macros in global variables:**
+```markdown
+```{.embedz}
+---
+global:
+  fiscal_year: 2024
+  start_date: "{{ fiscal_year }}-04-01"
+  end_date: "{{ fiscal_year + 1 }}-03-31"
+
+  # Import macros from named template
+  # Variable name can be anything; imports are recognized by {% from ... %} syntax
+  _import: "{% from 'sql-macros' import BETWEEN %}"
+
+  # Use imported macro
+  yearly_query: "{{ BETWEEN(start_date, end_date) }}"
+  quarterly_query: "{{ BETWEEN(quarter_start, quarter_end) }}"
+---
+```
+```
+
+**Implementation details:**
+- Control structures (`{% macro %}`, `{% from ... import %}`, `{% include %}`) are automatically recognized and collected
+- They are prepended to subsequent variable templates during rendering
+- Leading newlines from non-output-producing control structures are stripped with `lstrip('\n')`
+- Intentional leading/trailing spaces and tabs in variable values are preserved
+- The Environment uses `FunctionLoader(load_template_from_saved)` to resolve template names
+- Processing is sequential, so variables can reference earlier variables
+- Control structures don't become variables themselves (they only affect subsequent variables)
+
+**Use cases:**
+- SQL query builders: Define query macros once, compose complex queries
+- Date calculations: Macros for fiscal periods, quarters, date ranges
+- Complex transformations: Encapsulate multi-step logic in reusable functions
+
+**Note:** Macro sharing is only available in `global` variables, not `with` (local) variables. For block-specific formatting, define macros globally and reference them in templates.
