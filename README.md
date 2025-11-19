@@ -195,10 +195,16 @@ Define templates once with `name`, then reuse them with `as`. Perfect for consis
 {% endfor %}
 ```
 
-```{.embedz data=products.csv as=item-list}
+```embedz
+---
+data: products.csv
+as: item-list
 with:
   title: Product List
+---
 ```
+
+Or more concisely with attribute syntax:
 
 ```{.embedz data=services.csv as=item-list}
 with:
@@ -445,10 +451,7 @@ Create reusable template functions with parameters using Jinja2 macros. More fle
 
 ````markdown
 # Define macros
-```embedz
----
-name: formatters
----
+```{.embedz name=formatters}
 {% macro format_item(title, date) -%}
 **{{ title }}** ({{ date }})
 {%- endmacro %}
@@ -538,17 +541,11 @@ Break complex layouts into smaller fragments and stitch them together with `{% i
 
 ````markdown
 # Define formatting fragments
-```embedz
----
-name: date-format
----
-{{ item.date }}
+```{.embedz name=date-format}
+📅 {{ item.date }}
 ```
 
-```embedz
----
-name: title-format
----
+```{.embedz name=title-format}
 **{{ item.title }}**
 ```
 
@@ -568,10 +565,7 @@ data: incidents.csv
 The `with context` clause forwards the current loop variables so included templates can read `item`. You can also layer includes, for example:
 
 ````markdown
-```embedz
----
-name: severity-badge
----
+```{.embedz name=severity-badge}
 {% if item.severity == "high" -%}
   🔴
 {%- elif item.severity == "medium" -%}
@@ -677,6 +671,11 @@ Uses a previously defined template with `as:`:
 data: file.csv
 as: my-template
 ---
+```
+
+Or with attribute syntax:
+
+```{.embedz data=file.csv as=my-template}
 ```
 ````
 
