@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-11-19
+
+### Added
+- Macro sharing across global variables using `{% from 'template-name' import MACRO %}`
+- Template inclusion support in global variable processing via Jinja2 Environment
+- Automatic recognition of control structures (macros, imports, includes)
+- Smart leading newline removal from control structures while preserving intentional whitespace
+
+### Changed
+- Refactored global variable processing for better code organization
+- Improved documentation with macro sharing examples and use cases
+
+### Fixed
+- Leading newlines from non-output-producing control structures are now properly removed
+- Intentional leading/trailing spaces and tabs in template variables are now preserved
+
 ## [0.2.0] - 2025-11-17
 
 ### Added
@@ -43,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
-[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tecolicom/pandoc-embedz/releases/tag/v0.1.0
