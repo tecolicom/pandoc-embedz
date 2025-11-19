@@ -531,6 +531,49 @@ with:
 ```
 ````
 
+**Sharing macros** across variables within a `global` section:
+
+````markdown
+# Define macros in a named template
+```{.embedz name=sql-macros}
+{%- macro BETWEEN(start, end) -%}
+SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
+{%- endmacro -%}
+```
+
+# Import and use macros in global variables
+```embedz
+---
+global:
+  fiscal_year: 2024
+  start_date: "{{ fiscal_year }}-04-01"
+  end_date: "{{ fiscal_year + 1 }}-03-31"
+
+  # Import macros from named template
+  _import: "{% from 'sql-macros' import BETWEEN %}"
+
+  # Use imported macro
+  yearly_query: "{{ BETWEEN(start_date, end_date) }}"
+---
+```
+
+# Use the generated query
+```embedz
+---
+data: events.csv
+query: "{{ yearly_query }}"
+---
+{% for event in data %}
+- {{ event.name }}: {{ event.date }}
+{% endfor %}
+```
+````
+
+This pattern is useful for:
+- **Query builders**: Define SQL query macros once, use across multiple global variables
+- **Date calculations**: Create date range macros for fiscal periods, quarters, etc.
+- **Complex transformations**: Encapsulate multi-step logic in reusable macros
+
 ## Reference
 
 Technical specifications and syntax details.

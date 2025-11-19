@@ -524,3 +524,169 @@ David,2025-01-01,70"""
         assert 'Charlie: 90' in output  # 2024
         assert 'Bob' not in output  # 2023
         assert 'David' not in output  # 2025
+
+
+class TestMacroSharing:
+    """Tests for macro sharing across global variables using template imports"""
+
+    def test_import_macro_from_named_template(self):
+        """Test importing macro from named template into global variables"""
+        # Define macro in named template
+        macro_def = """{%- macro HELLO(name) -%}
+Hello, {{ name }}!
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'name': 'greetings'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Import and use macro in global variables
+        setup_code = """---
+global:
+  user_name: "World"
+  _import: "{% from 'greetings' import HELLO %}"
+  greeting: "{{ HELLO(user_name) }}"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Verify macro was executed and result stored
+        assert 'greeting' in GLOBAL_VARS
+        assert GLOBAL_VARS['greeting'].strip() == "Hello, World!"
+
+    def test_import_sql_macro_for_query_building(self):
+        """Test importing SQL macro for building queries"""
+        # Define SQL macro
+        sql_macro = """{%- macro BETWEEN(start, end) -%}
+SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'sql-macros'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Import and use macro to build queries
+        setup_code = """---
+global:
+  fiscal_year: 2024
+  start_date: "{{ fiscal_year }}-04-01"
+  end_date: "{{ fiscal_year + 1 }}-03-31"
+  _import: "{% from 'sql-macros' import BETWEEN %}"
+  yearly_query: "{{ BETWEEN(start_date, end_date) }}"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Verify query was generated correctly
+        assert 'yearly_query' in GLOBAL_VARS
+        expected_query = "SELECT * FROM data WHERE date BETWEEN '2024-04-01' AND '2025-03-31'"
+        assert GLOBAL_VARS['yearly_query'].strip() == expected_query
+
+    def test_import_multiple_macros(self):
+        """Test importing multiple macros from same template"""
+        # Define multiple macros
+        macros_def = """{%- macro ADD(a, b) -%}
+{{ a + b }}
+{%- endmacro -%}
+
+{%- macro MULTIPLY(a, b) -%}
+{{ a * b }}
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(macros_def, classes=['embedz'], attributes={'name': 'math'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Import and use multiple macros
+        setup_code = """---
+global:
+  x: 10
+  y: 5
+  _import: "{% from 'math' import ADD, MULTIPLY %}"
+  sum: "{{ ADD(x, y) }}"
+  product: "{{ MULTIPLY(x, y) }}"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Verify both macros worked
+        assert GLOBAL_VARS['sum'].strip() == "15"
+        assert GLOBAL_VARS['product'].strip() == "50"
+
+    def test_macro_with_nested_variables(self):
+        """Test macro using nested global variables"""
+        # Define macro
+        macro_def = """{%- macro RANGE(start, end) -%}
+{{ start }} to {{ end }}
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'name': 'formatters'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Use macro with nested variable references
+        setup_code = """---
+global:
+  year: 2024
+  q1_start: "{{ year }}-01-01"
+  q1_end: "{{ year }}-03-31"
+  _import: "{% from 'formatters' import RANGE %}"
+  q1_range: "{{ RANGE(q1_start, q1_end) }}"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Verify nested variables were resolved before macro execution
+        assert GLOBAL_VARS['q1_range'].strip() == "2024-01-01 to 2024-03-31"
+
+    def test_use_imported_macro_in_query(self):
+        """Test using imported macro in SQL query with actual data"""
+        # Define SQL macro
+        sql_macro = """{%- macro WHERE_GREATER(field, value) -%}
+{{ field }} > {{ value }}
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'sql-helpers'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Import macro and build query
+        setup_code = """---
+global:
+  threshold: 60
+  _import: "{% from 'sql-helpers' import WHERE_GREATER %}"
+  filter_condition: "{{ WHERE_GREATER('value', threshold) }}"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Use generated condition in actual query
+        query_code = """---
+format: csv
+query: SELECT * FROM data WHERE {{ filter_condition }}
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,value
+Alice,100
+Bob,50
+Charlie,90"""
+
+        elem3 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem3, doc)
+
+        # Verify query executed correctly
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # value > 60
+        assert 'Charlie: 90' in output  # value > 60
+        assert 'Bob' not in output  # value = 50, not > 60
