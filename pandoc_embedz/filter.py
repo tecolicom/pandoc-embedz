@@ -583,6 +583,247 @@ def _load_embedz_data(
     # No data
     return []
 
+# =============================================================================
+# Helper Functions for process_embedz
+# =============================================================================
+# These functions encapsulate the main processing steps:
+# 1. Utility functions (_create_jinja_env, _build_render_context)
+# 2. Configuration parsing (_parse_and_merge_config)
+# 3. Template management (_process_template_references)
+# 4. Variable preparation (_prepare_variables)
+# 5. Data loading (_prepare_data_loading)
+# 6. Template rendering (_render_embedz_template)
+# =============================================================================
+
+def _create_jinja_env() -> Environment:
+    """Create Jinja2 Environment with access to saved templates
+
+    Returns:
+        Environment: Configured Jinja2 Environment
+    """
+    return Environment(loader=FunctionLoader(load_template_from_saved))
+
+def _build_render_context(with_vars: Dict[str, Any], data: Optional[Any] = None) -> Dict[str, Any]:
+    """Build render context for Jinja2 template rendering
+
+    Args:
+        with_vars: Local variables from 'with' section
+        data: Optional data to include in context
+
+    Returns:
+        dict: Render context with global, with, and data variables
+    """
+    context = {
+        **GLOBAL_VARS,           # Expand global variables
+        **with_vars,             # Expand with variables (override globals)
+        'global': GLOBAL_VARS,   # Also accessible as global.xxx
+        'with': with_vars,       # Also accessible as with.xxx
+    }
+    if data is not None:
+        context['data'] = data
+    return context
+
+def _parse_and_merge_config(
+    elem: pf.CodeBlock,
+    text: str
+) -> Tuple[Dict[str, Any], str, Optional[str]]:
+    """Parse and merge configuration from attributes and YAML header
+
+    Args:
+        elem: Pandoc CodeBlock element
+        text: Code block text content
+
+    Returns:
+        tuple: (merged_config, template_part, data_part)
+    """
+    # Parse attributes from code block
+    attr_config = parse_attributes(elem)
+
+    # Parse code block content
+    yaml_config, template_part, data_part = parse_code_block(text)
+
+    # Special handling: if 'as' attribute without YAML header
+    if not text.startswith('---') and 'as' in attr_config:
+        # Try parsing content as YAML config (only when 'data' attribute present)
+        parsed_as_yaml = False
+        if 'data' in attr_config and text.strip():
+            try:
+                content_config = yaml.safe_load(text) or {}
+                if isinstance(content_config, dict):
+                    yaml_config = content_config
+                    data_part = None
+                    template_part = ''
+                    parsed_as_yaml = True
+            except yaml.YAMLError:
+                pass
+
+        # If not parsed as YAML, treat content as inline data
+        if not parsed_as_yaml:
+            data_part = text
+            template_part = ''
+
+    # Merge configurations: YAML takes precedence over attributes
+    config = {**attr_config, **yaml_config}
+
+    # Validate configuration
+    validate_config(config)
+
+    return config, template_part, data_part
+
+def _process_template_references(
+    config: Dict[str, Any],
+    template_part: str
+) -> str:
+    """Process template save/load operations
+
+    Args:
+        config: Configuration dictionary
+        template_part: Template content
+
+    Returns:
+        str: Updated template_part (from saved template if 'as' is specified)
+
+    Raises:
+        ValueError: If referenced template is not found
+    """
+    # Save named template
+    template_name = config.get('name')
+    if template_name:
+        if template_name in SAVED_TEMPLATES:
+            sys.stderr.write(f"Warning: Overwriting template '{template_name}'\n")
+        SAVED_TEMPLATES[template_name] = template_part
+
+    # Load saved template
+    template_ref = config.get('as')
+    if template_ref:
+        if template_ref not in SAVED_TEMPLATES:
+            raise ValueError(
+                f"Template '{template_ref}' not found. "
+                f"Define it first with name='{template_ref}'"
+            )
+        template_part = SAVED_TEMPLATES[template_ref]
+
+    return template_part
+
+def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Prepare local and global variables for rendering
+
+    Args:
+        config: Configuration dictionary containing 'with' and/or 'global' keys
+
+    Returns:
+        dict: Local variables (with_vars)
+
+    Side effects:
+        Updates GLOBAL_VARS dictionary if 'global' key is present
+    """
+    # Prepare local variables
+    with_vars: Dict[str, Any] = {}
+    if 'with' in config:
+        with_vars.update(config['with'])
+
+    # Process global variables if present
+    if 'global' in config:
+        env = _create_jinja_env()
+        control_structures = []
+
+        for key, value in config['global'].items():
+            # Check if value contains template syntax
+            if isinstance(value, str) and ('{{' in value or '{%' in value):
+                stripped = value.strip()
+                # Check if this is a control structure (macro, import, include)
+                if (stripped.startswith('{%') and
+                    not stripped.startswith('{{') and
+                    ('macro' in stripped or 'import' in stripped or 'include' in stripped)):
+                    # Control structure - collect for prepending, don't save as variable
+                    control_structures.append(value)
+                    continue
+
+                # Process template variable
+                # Prepend control structures if any exist
+                if control_structures:
+                    template_str = '\n'.join(control_structures) + '\n' + value
+                else:
+                    template_str = value
+
+                template = env.from_string(template_str)
+                rendered = template.render(
+                    **GLOBAL_VARS,
+                    **{'global': GLOBAL_VARS}
+                )
+
+                # Remove leading newlines from control structures that produce no output
+                value = rendered.lstrip('\n') if control_structures else rendered
+
+            GLOBAL_VARS[key] = value
+
+    return with_vars
+
+def _prepare_data_loading(
+    config: Dict[str, Any],
+    with_vars: Dict[str, Any]
+) -> Tuple[Optional[Union[str, Dict[str, Any]]], Optional[str], bool, Dict[str, Any]]:
+    """Prepare data loading parameters with query template expansion
+
+    Args:
+        config: Configuration dictionary
+        with_vars: Local variables from 'with' section
+
+    Returns:
+        tuple: (data_file, data_format, has_header, load_kwargs)
+    """
+    data_file = config.get('data')
+    data_format = config.get('format')  # None = auto-detect
+    has_header = config.get('header', True)
+
+    # Prepare format-specific kwargs (e.g., for SQLite)
+    load_kwargs = {}
+    if 'table' in config:
+        load_kwargs['table'] = config['table']
+
+    if 'query' in config:
+        query_template = config['query']
+        # Expand Jinja2 template variables in query if present
+        if '{{' in query_template or '{%' in query_template:
+            env = _create_jinja_env()
+            template = env.from_string(query_template)
+            context = _build_render_context(with_vars)
+            query_value = template.render(**context)
+            load_kwargs['query'] = query_value
+        else:
+            load_kwargs['query'] = query_template
+
+    return data_file, data_format, has_header, load_kwargs
+
+def _render_embedz_template(
+    template_part: str,
+    data: Union[List[Any], Dict[str, Any]],
+    with_vars: Dict[str, Any]
+) -> str:
+    """Render template with data and variables
+
+    Args:
+        template_part: Jinja2 template string
+        data: Loaded data (list or dict)
+        with_vars: Local variables from 'with' section
+
+    Returns:
+        str: Rendered template result
+    """
+    # Create Jinja2 Environment with access to saved templates
+    env = _create_jinja_env()
+
+    # Build render context and render template
+    context = _build_render_context(with_vars, data)
+    template = env.from_string(template_part)
+    result = template.render(**context)
+
+    # Ensure output ends with newline (prevents concatenation with next paragraph)
+    if result and not result.endswith('\n'):
+        result += '\n'
+
+    return result
+
 def print_error_info(
     e: Exception,
     template_part: str,
@@ -647,121 +888,21 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
     text = elem.text.strip()
 
     try:
-        # Parse attributes from code block
-        attr_config = parse_attributes(elem)
+        # Step 1: Parse and merge configuration
+        config, template_part, data_part = _parse_and_merge_config(elem, text)
 
-        # Parse code block content
-        yaml_config, template_part, data_part = parse_code_block(text)
+        # Step 2: Process template references (save/load)
+        template_part = _process_template_references(config, template_part)
 
-        # Special handling: if 'as' attribute without YAML header
-        if not text.startswith('---') and 'as' in attr_config:
-            # Try parsing content as YAML config (only when 'data' attribute present)
-            parsed_as_yaml = False
-            if 'data' in attr_config and text.strip():
-                try:
-                    content_config = yaml.safe_load(text) or {}
-                    if isinstance(content_config, dict):
-                        yaml_config = content_config
-                        data_part = None
-                        template_part = ''
-                        parsed_as_yaml = True
-                except yaml.YAMLError:
-                    pass
+        # Step 3: Prepare variables (with and global)
+        with_vars = _prepare_variables(config)
 
-            # If not parsed as YAML, treat content as inline data
-            if not parsed_as_yaml:
-                data_part = text
-                template_part = ''
+        # Step 4: Prepare data loading parameters
+        data_file, data_format, has_header, load_kwargs = _prepare_data_loading(
+            config, with_vars
+        )
 
-        # Merge configurations: YAML takes precedence over attributes
-        config = {**attr_config, **yaml_config}
-
-        # Validate configuration
-        validate_config(config)
-
-        # Save named template
-        template_name = config.get('name')
-        if template_name:
-            if template_name in SAVED_TEMPLATES:
-                sys.stderr.write(f"Warning: Overwriting template '{template_name}'\n")
-            SAVED_TEMPLATES[template_name] = template_part
-
-        # Load saved template
-        template_ref = config.get('as')
-        if template_ref:
-            if template_ref not in SAVED_TEMPLATES:
-                raise ValueError(f"Template '{template_ref}' not found. Define it first with name='{template_ref}'")
-            template_part = SAVED_TEMPLATES[template_ref]
-
-        # Prepare variables first (needed for query template expansion)
-        with_vars: Dict[str, Any] = {}
-        if 'with' in config:
-            with_vars.update(config['with'])
-        if 'global' in config:
-            # Store global variables persistently with template expansion
-            # Process all variables in a single Jinja2 context to allow macros
-            # Use Environment to support template inclusion
-            env = Environment(loader=FunctionLoader(load_template_from_saved))
-
-            # Collect control structures (macros) separately
-            control_structures = []
-
-            for key, value in config['global'].items():
-                # Check if value contains template syntax
-                if isinstance(value, str) and ('{{' in value or '{%' in value):
-                    stripped = value.strip()
-                    # Check if this is a control structure (macro, import, include)
-                    if (stripped.startswith('{%') and
-                        not stripped.startswith('{{') and
-                        ('macro' in stripped or 'import' in stripped or 'include' in stripped)):
-                        # Control structure - collect for prepending, don't save as variable
-                        control_structures.append(value)
-                        continue
-
-                    # Process template variable
-                    # Prepend control structures if any exist
-                    if control_structures:
-                        template_str = '\n'.join(control_structures) + '\n' + value
-                    else:
-                        template_str = value
-
-                    template = env.from_string(template_str)
-                    rendered = template.render(
-                        **GLOBAL_VARS,
-                        **{'global': GLOBAL_VARS}
-                    )
-
-                    # Remove leading newlines from control structures that produce no output
-                    value = rendered.lstrip('\n') if control_structures else rendered
-
-                GLOBAL_VARS[key] = value
-
-        # Load data
-        data_file = config.get('data')
-        data_format = config.get('format')  # None = auto-detect
-        has_header = config.get('header', True)
-
-        # Prepare format-specific kwargs (e.g., for SQLite)
-        load_kwargs = {}
-        if 'table' in config:
-            load_kwargs['table'] = config['table']
-        if 'query' in config:
-            query_template = config['query']
-            # Expand Jinja2 template variables in query if present
-            if '{{' in query_template or '{%' in query_template:
-                from jinja2 import Template
-                template = Template(query_template)
-                query_value = template.render(
-                    **GLOBAL_VARS,           # Expand global variables
-                    **with_vars,             # Expand with variables (override globals)
-                    **{'global': GLOBAL_VARS},  # Also accessible as global.xxx
-                    **{'with': with_vars}    # Also accessible as with.xxx
-                )
-                load_kwargs['query'] = query_value
-            else:
-                load_kwargs['query'] = query_template
-
-        # Load data from file(s), inline, or multi-table sources
+        # Step 5: Load data
         data = _load_embedz_data(
             data_file, data_part, config, data_format, has_header, load_kwargs
         )
@@ -770,23 +911,8 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         if not data:
             return []
 
-        # Create Jinja2 Environment with access to saved templates
-        env = Environment(loader=FunctionLoader(load_template_from_saved))
-
-        # Render with Jinja2
-        render_vars = {
-            **GLOBAL_VARS,           # Expand global variables
-            **with_vars,             # Expand with variables (override globals)
-            'global': GLOBAL_VARS,   # Also accessible as global.xxx
-            'with': with_vars,       # Also accessible as with.xxx
-            'data': data             # Data
-        }
-        template = env.from_string(template_part)
-        result = template.render(**render_vars)
-
-        # Ensure output ends with newline (prevents concatenation with next paragraph)
-        if result and not result.endswith('\n'):
-            result += '\n'
+        # Step 6: Render template
+        result = _render_embedz_template(template_part, data, with_vars)
 
         return pf.convert_text(result, input_format='markdown')
 
