@@ -699,15 +699,32 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
             with_vars.update(config['with'])
         if 'global' in config:
             # Store global variables persistently with template expansion
+            # Process all variables in a single Jinja2 context to allow macros
             from jinja2 import Template
+
+            # Collect control structures (macros) separately
+            control_structures = []
+
             for key, value in config['global'].items():
-                # Expand template variables in global value if present
                 if isinstance(value, str) and ('{{' in value or '{%' in value):
-                    template = Template(value)
+                    stripped = value.strip()
+                    if (stripped.startswith('{%') and
+                        not stripped.startswith('{{') and
+                        ('macro' in stripped or 'import' in stripped or 'include' in stripped)):
+                        # Control structure - collect for prepending
+                        control_structures.append(value)
+                        continue
+
+                # Process this variable (either literal or template)
+                if isinstance(value, str) and ('{{' in value or '{%' in value):
+                    # Build template with control structures + this variable
+                    template_str = '\n'.join(control_structures + [value])
+                    template = Template(template_str)
                     value = template.render(
-                        **GLOBAL_VARS,              # Variables accessible directly
-                        **{'global': GLOBAL_VARS}   # Also accessible as global.xxx
+                        **GLOBAL_VARS,
+                        **{'global': GLOBAL_VARS}
                     )
+
                 GLOBAL_VARS[key] = value
 
         # Load data
