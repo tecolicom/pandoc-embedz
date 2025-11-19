@@ -690,3 +690,49 @@ Charlie,90"""
         assert 'Alice: 100' in output  # value > 60
         assert 'Charlie: 90' in output  # value > 60
         assert 'Bob' not in output  # value = 50, not > 60
+
+    def test_preserve_intentional_whitespace(self):
+        """Test that intentional leading/trailing spaces are preserved"""
+        setup_code = """---
+global:
+  prefix: "  "
+  suffix: "  "
+  value: "{{ prefix }}Hello{{ suffix }}"
+---
+"""
+        elem = pf.CodeBlock(setup_code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem, doc)
+
+        # Verify intentional spaces are preserved
+        assert GLOBAL_VARS['prefix'] == '  '
+        assert GLOBAL_VARS['suffix'] == '  '
+        assert GLOBAL_VARS['value'] == '  Hello  '
+
+    def test_preserve_whitespace_with_macro_import(self):
+        """Test that intentional spaces are preserved even with macro imports"""
+        # Define macro
+        macro_def = """{%- macro WRAP(text) -%}
+[{{ text }}]
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'name': 'wrappers'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Use macro with intentional spaces
+        setup_code = """---
+global:
+  _import: "{% from 'wrappers' import WRAP %}"
+  prefix: "  "
+  value: "{{ prefix }}Hello"
+  wrapped: "{{ WRAP(value) }}"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Verify spaces are preserved
+        assert GLOBAL_VARS['prefix'] == '  '
+        assert GLOBAL_VARS['value'] == '  Hello'
+        assert GLOBAL_VARS['wrapped'] == '[  Hello]'

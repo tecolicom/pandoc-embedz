@@ -719,12 +719,19 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
                 # Process this variable (either literal or template)
                 if isinstance(value, str) and ('{{' in value or '{%' in value):
                     # Build template with control structures + this variable
-                    template_str = '\n'.join(control_structures + [value])
+                    # Control structures are joined with newlines, then value is appended directly
+                    if control_structures:
+                        template_str = '\n'.join(control_structures) + '\n' + value
+                    else:
+                        template_str = value
                     template = env.from_string(template_str)
-                    value = template.render(
+                    rendered = template.render(
                         **GLOBAL_VARS,
                         **{'global': GLOBAL_VARS}
                     )
+                    # Remove only leading newlines (from control structures that produce no output)
+                    # This preserves intentional spaces/tabs but removes unwanted newlines
+                    value = rendered.lstrip('\n')
 
                 GLOBAL_VARS[key] = value
 
