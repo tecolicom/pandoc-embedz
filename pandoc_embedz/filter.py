@@ -707,31 +707,32 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
             control_structures = []
 
             for key, value in config['global'].items():
+                # Check if value contains template syntax
                 if isinstance(value, str) and ('{{' in value or '{%' in value):
                     stripped = value.strip()
+                    # Check if this is a control structure (macro, import, include)
                     if (stripped.startswith('{%') and
                         not stripped.startswith('{{') and
                         ('macro' in stripped or 'import' in stripped or 'include' in stripped)):
-                        # Control structure - collect for prepending
+                        # Control structure - collect for prepending, don't save as variable
                         control_structures.append(value)
                         continue
 
-                # Process this variable (either literal or template)
-                if isinstance(value, str) and ('{{' in value or '{%' in value):
-                    # Build template with control structures + this variable
-                    # Control structures are joined with newlines, then value is appended directly
+                    # Process template variable
+                    # Prepend control structures if any exist
                     if control_structures:
                         template_str = '\n'.join(control_structures) + '\n' + value
                     else:
                         template_str = value
+
                     template = env.from_string(template_str)
                     rendered = template.render(
                         **GLOBAL_VARS,
                         **{'global': GLOBAL_VARS}
                     )
-                    # Remove only leading newlines (from control structures that produce no output)
-                    # This preserves intentional spaces/tabs but removes unwanted newlines
-                    value = rendered.lstrip('\n')
+
+                    # Remove leading newlines from control structures that produce no output
+                    value = rendered.lstrip('\n') if control_structures else rendered
 
                 GLOBAL_VARS[key] = value
 

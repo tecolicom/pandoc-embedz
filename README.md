@@ -550,6 +550,7 @@ global:
   end_date: "{{ fiscal_year + 1 }}-03-31"
 
   # Import macros from named template
+  # Variable name can be anything; imports are recognized by the {% from ... %} syntax
   _import: "{% from 'sql-macros' import BETWEEN %}"
 
   # Use imported macro
