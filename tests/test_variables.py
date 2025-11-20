@@ -1,7 +1,7 @@
 """Tests for variable scoping (local and global)"""
 import pytest
 import panflute as pf
-from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+from pandoc_embedz.filter import process_embedz, GLOBAL_VARS, CONTROL_STRUCTURES
 from pandoc_embedz.config import SAVED_TEMPLATES
 
 
@@ -10,9 +10,11 @@ def reset_globals():
     """Reset global state before each test"""
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
+    CONTROL_STRUCTURES.clear()
     yield
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
+    CONTROL_STRUCTURES.clear()
 
 
 class TestLocalVariables:
@@ -737,3 +739,108 @@ global:
         assert GLOBAL_VARS['prefix'] == '  '
         assert GLOBAL_VARS['value'] == '  Hello'
         assert GLOBAL_VARS['wrapped'] == '[  Hello]'
+
+    def test_use_macro_directly_in_query(self):
+        """Test using imported macro directly in query field without global variable"""
+        # Define SQL macro
+        sql_macro = """{%- macro BETWEEN(start, end) -%}
+SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'date-macros'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Import macro and define date variables
+        setup_code = """---
+global:
+  _import: "{% from 'date-macros' import BETWEEN %}"
+  year_start: "2024-01-01"
+  year_end: "2024-12-31"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Use macro directly in query without storing in global variable
+        query_code = """---
+format: csv
+query: "{{ BETWEEN(year_start, year_end) }}"
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,date,value
+Alice,2024-06-15,100
+Bob,2023-12-01,80
+Charlie,2024-03-20,90
+David,2025-01-01,70"""
+
+        elem3 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem3, doc)
+
+        # Should only include rows within the date range
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # 2024
+        assert 'Charlie: 90' in output  # 2024
+        assert 'Bob' not in output  # 2023
+        assert 'David' not in output  # 2025
+
+    def test_use_macro_without_explicit_import(self):
+        """Test using macro defined in named template without explicit import statement"""
+        # Define SQL macro in named template
+        sql_macro = """{%- macro BETWEEN(start, end) -%}
+SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
+{%- endmacro -%}"""
+
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'MACROS'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Define global variables WITHOUT explicit import
+        # Macro should be available automatically since it's in a named template
+        setup_code = """---
+global:
+  year_start: "2024-01-01"
+  year_end: "2024-12-31"
+  yearly: "{{ BETWEEN(year_start, year_end) }}"
+---
+"""
+        elem2 = pf.CodeBlock(setup_code, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Verify macro was executed in global variable
+        assert 'yearly' in GLOBAL_VARS
+        assert "SELECT * FROM data WHERE date BETWEEN '2024-01-01' AND '2024-12-31'" in GLOBAL_VARS['yearly']
+
+        # Use macro directly in query without import
+        query_code = """---
+format: csv
+query: "{{ BETWEEN(year_start, year_end) }}"
+---
+{% for row in data -%}
+{{ row.name }}: {{ row.value }}
+{% endfor %}
+---
+name,date,value
+Alice,2024-06-15,100
+Bob,2023-12-01,80
+Charlie,2024-03-20,90
+David,2025-01-01,70"""
+
+        elem3 = pf.CodeBlock(query_code, classes=['embedz'])
+        result = process_embedz(elem3, doc)
+
+        # Should only include rows within the date range
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output  # 2024
+        assert 'Charlie: 90' in output  # 2024
+        assert 'Bob' not in output  # 2023
+        assert 'David' not in output  # 2025

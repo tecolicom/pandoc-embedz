@@ -24,8 +24,9 @@ from .config import (
 )
 from .data_loader import _load_embedz_data
 
-# Store global variables
+# Store global variables and control structures
 GLOBAL_VARS: Dict[str, Any] = {}
+CONTROL_STRUCTURES: List[str] = []
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper Functions for process_embedz
@@ -126,6 +127,10 @@ def _process_template_references(
     Returns:
         str: Updated template_part (from saved template if 'as' is specified)
 
+    Side effects:
+        - Updates SAVED_TEMPLATES dictionary if 'name' is specified
+        - Updates CONTROL_STRUCTURES list if template contains macro definitions
+
     Raises:
         ValueError: If referenced template is not found
     """
@@ -135,6 +140,11 @@ def _process_template_references(
         if template_name in SAVED_TEMPLATES:
             sys.stderr.write(f"Warning: Overwriting template '{template_name}'\n")
         SAVED_TEMPLATES[template_name] = template_part
+
+        # If template contains macro definitions, add to CONTROL_STRUCTURES
+        # so macros are available globally without explicit import
+        if '{%' in template_part and 'macro' in template_part:
+            CONTROL_STRUCTURES.append(template_part)
 
     # Load saved template
     template_ref = config.get('as')
@@ -158,7 +168,7 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
         dict: Local variables (with_vars)
 
     Side effects:
-        Updates GLOBAL_VARS dictionary if 'global' key is present
+        Updates GLOBAL_VARS dictionary and CONTROL_STRUCTURES list if 'global' key is present
     """
     # Prepare local variables
     with_vars: Dict[str, Any] = {}
@@ -168,7 +178,6 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
     # Process global variables if present
     if 'global' in config:
         env = _create_jinja_env()
-        control_structures = []
 
         for key, value in config['global'].items():
             # Check if value contains template syntax
@@ -178,14 +187,14 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
                 if (stripped.startswith('{%') and
                     not stripped.startswith('{{') and
                     ('macro' in stripped or 'import' in stripped or 'include' in stripped)):
-                    # Control structure - collect for prepending, don't save as variable
-                    control_structures.append(value)
+                    # Control structure - collect globally for use in all template expansions
+                    CONTROL_STRUCTURES.append(value)
                     continue
 
                 # Process template variable
-                # Prepend control structures if any exist
-                if control_structures:
-                    template_str = '\n'.join(control_structures) + '\n' + value
+                # Prepend all control structures if any exist
+                if CONTROL_STRUCTURES:
+                    template_str = '\n'.join(CONTROL_STRUCTURES) + '\n' + value
                 else:
                     template_str = value
 
@@ -196,7 +205,7 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
                 )
 
                 # Remove leading newlines from control structures that produce no output
-                value = rendered.lstrip('\n') if control_structures else rendered
+                value = rendered.lstrip('\n') if CONTROL_STRUCTURES else rendered
 
             GLOBAL_VARS[key] = value
 
@@ -229,7 +238,12 @@ def _prepare_data_loading(
         # Expand Jinja2 template variables in query if present
         if '{{' in query_template or '{%' in query_template:
             env = _create_jinja_env()
-            template = env.from_string(query_template)
+            # Prepend control structures (macro imports) if any exist
+            if CONTROL_STRUCTURES:
+                template_str = '\n'.join(CONTROL_STRUCTURES) + '\n' + query_template
+            else:
+                template_str = query_template
+            template = env.from_string(template_str)
             context = _build_render_context(with_vars)
             query_value = template.render(**context)
             load_kwargs['query'] = query_value
@@ -258,7 +272,12 @@ def _render_embedz_template(
 
     # Build render context and render template
     context = _build_render_context(with_vars, data)
-    template = env.from_string(template_part)
+    # Prepend control structures (macro imports) if any exist
+    if CONTROL_STRUCTURES:
+        template_str = '\n'.join(CONTROL_STRUCTURES) + '\n' + template_part
+    else:
+        template_str = template_part
+    template = env.from_string(template_str)
     result = template.render(**context)
 
     # Ensure output ends with newline (prevents concatenation with next paragraph)
