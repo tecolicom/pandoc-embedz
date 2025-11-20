@@ -12,6 +12,10 @@ import pandas as pd
 import yaml
 import sys
 import os
+try:
+    from importlib.metadata import version
+except ImportError:
+    from importlib_metadata import version  # Python 3.7 compatibility
 
 # Import from local modules
 from .config import (
@@ -438,8 +442,74 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         sys.stderr.write(f"{'='*60}\n\n")
         raise
 
+def print_help() -> None:
+    """Print help message"""
+    help_text = """pandoc-embedz - Pandoc filter for embedding data-driven content
+
+USAGE:
+    pandoc input.md --filter pandoc-embedz -o output.pdf
+
+    Or as a standalone command (processes Pandoc JSON):
+    pandoc-embedz [OPTIONS]
+
+OPTIONS:
+    -h, --help       Show this help message
+    -v, --version    Show version information
+
+DESCRIPTION:
+    A Pandoc filter that embeds data from various formats (CSV, JSON, YAML,
+    TOML, SQLite) into Markdown documents using Jinja2 templates.
+
+    Supports:
+    - Multiple data formats with auto-detection
+    - SQL queries on CSV/TSV files
+    - Template reuse and macros
+    - Global and local variables
+    - Multi-table operations
+
+ENVIRONMENT:
+    PANDOC_EMBEDZ_DEBUG    Enable debug output (1, true, or yes)
+
+EXAMPLES:
+    # Basic usage
+    pandoc report.md --filter pandoc-embedz -o report.pdf
+
+    # With debug output
+    PANDOC_EMBEDZ_DEBUG=1 pandoc report.md --filter pandoc-embedz -o report.pdf
+
+DOCUMENTATION:
+    https://github.com/tecolicom/pandoc-embedz
+
+REPORT BUGS:
+    https://github.com/tecolicom/pandoc-embedz/issues
+"""
+    print(help_text)
+
+def print_version() -> None:
+    """Print version information"""
+    try:
+        pkg_version = version('pandoc-embedz')
+    except Exception:
+        pkg_version = 'unknown'
+    print(f"pandoc-embedz {pkg_version}")
+
 def main() -> None:
     """Entry point for pandoc filter"""
+    # Handle command-line arguments
+    if len(sys.argv) > 1:
+        arg = sys.argv[1]
+        if arg in ('-h', '--help'):
+            print_help()
+            sys.exit(0)
+        elif arg in ('-v', '--version'):
+            print_version()
+            sys.exit(0)
+        else:
+            sys.stderr.write(f"Error: Unknown option '{arg}'\n")
+            sys.stderr.write("Try 'pandoc-embedz --help' for more information.\n")
+            sys.exit(1)
+
+    # Run as Pandoc filter
     pf.run_filter(process_embedz)
 
 if __name__ == '__main__':
