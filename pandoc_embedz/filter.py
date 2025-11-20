@@ -23,6 +23,14 @@ from .config import (
 )
 from .data_loader import _load_embedz_data
 
+# Debug mode controlled by environment variable
+DEBUG = os.getenv('PANDOC_EMBEDZ_DEBUG', '').lower() in ('1', 'true', 'yes')
+
+def _debug(msg: str) -> None:
+    """Print debug message to stderr if DEBUG is enabled"""
+    if DEBUG:
+        sys.stderr.write(f"[DEBUG] {msg}\n")
+
 # Store global variables and control structures
 GLOBAL_VARS: Dict[str, Any] = {}
 GLOBAL_ENV: Optional[Environment] = None
@@ -100,9 +108,11 @@ def _parse_and_merge_config(
     """
     # Parse attributes from code block
     attr_config = parse_attributes(elem)
+    _debug(f"Attribute config: {attr_config}")
 
     # Parse code block content
     yaml_config, template_part, data_part = parse_code_block(text)
+    _debug(f"YAML config: {yaml_config}")
 
     # Special handling: if 'as' attribute without YAML header
     if not text.startswith('---') and 'as' in attr_config:
@@ -126,6 +136,7 @@ def _parse_and_merge_config(
 
     # Merge configurations: YAML takes precedence over attributes
     config = {**attr_config, **yaml_config}
+    _debug(f"Merged config: {config}")
 
     # Validate configuration
     validate_config(config)
@@ -160,11 +171,13 @@ def _process_template_references(
         if template_name in SAVED_TEMPLATES:
             sys.stderr.write(f"Warning: Overwriting template '{template_name}'\n")
         SAVED_TEMPLATES[template_name] = template_part
+        _debug(f"Saved template '{template_name}'")
 
         # If template contains macro definitions, add to CONTROL_STRUCTURES_STR
         # so macros are available globally without explicit import
         if '{%' in template_part and 'macro' in template_part:
             CONTROL_STRUCTURES_STR += template_part + '\n'
+            _debug(f"Added macros from template '{template_name}' to global control structures")
 
     # Load saved template
     template_ref = config.get('as')
@@ -175,6 +188,7 @@ def _process_template_references(
                 f"Define it first with name='{template_ref}'"
             )
         template_part = SAVED_TEMPLATES[template_ref]
+        _debug(f"Loaded template '{template_ref}'")
 
     return template_part
 
@@ -199,6 +213,7 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(preamble_content, str):
             if preamble_content.strip():  # Only add non-empty content
                 CONTROL_STRUCTURES_STR += preamble_content + '\n'
+                _debug(f"Added preamble to control structures")
         else:
             raise ValueError(
                 f"'preamble' must be a string, got {type(preamble_content).__name__}"
@@ -208,6 +223,7 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
     with_vars: Dict[str, Any] = {}
     if 'with' in config:
         with_vars.update(config['with'])
+        _debug(f"Local variables (with): {with_vars}")
 
     # Process global variables if present
     if 'global' in config:
@@ -219,8 +235,10 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
                 rendered = _render_template(value, context)
                 # Remove leading newlines that may be added by preamble
                 value = rendered.lstrip('\n')
+                _debug(f"Expanded global variable '{key}': {value}")
 
             GLOBAL_VARS[key] = value
+        _debug(f"Global variables: {GLOBAL_VARS}")
 
     return with_vars
 
@@ -241,10 +259,13 @@ def _prepare_data_loading(
     data_format = config.get('format')  # None = auto-detect
     has_header = config.get('header', True)
 
+    _debug(f"Data file: {data_file}, format: {data_format}, has_header: {has_header}")
+
     # Prepare format-specific kwargs (e.g., for SQLite)
     load_kwargs = {}
     if 'table' in config:
         load_kwargs['table'] = config['table']
+        _debug(f"SQLite table: {config['table']}")
 
     if 'query' in config:
         query_template = config['query']
@@ -253,8 +274,10 @@ def _prepare_data_loading(
             context = _build_render_context(with_vars)
             query_value = _render_template(query_template, context)
             load_kwargs['query'] = query_value
+            _debug(f"Expanded query: {query_value}")
         else:
             load_kwargs['query'] = query_template
+            _debug(f"Query: {query_template}")
 
     return data_file, data_format, has_header, load_kwargs
 
@@ -275,7 +298,10 @@ def _render_embedz_template(
     """
     # Build render context and render template using unified rendering
     context = _build_render_context(with_vars, data)
+    _debug(f"Rendering template with context keys: {list(context.keys())}")
+
     result = _render_template(template_part, context)
+    _debug(f"Rendered result length: {len(result)} characters")
 
     # Ensure output ends with newline (prevents concatenation with next paragraph)
     if result and not result.endswith('\n'):
@@ -345,34 +371,45 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         return elem
 
     text = elem.text.strip()
+    _debug("=" * 60)
+    _debug("Processing embedz code block")
 
     try:
         # Step 1: Parse and merge configuration
+        _debug("Step 1: Parsing configuration")
         config, template_part, data_part = _parse_and_merge_config(elem, text)
 
         # Step 2: Process template references (save/load)
+        _debug("Step 2: Processing template references")
         template_part = _process_template_references(config, template_part)
 
         # Step 3: Prepare variables (with and global)
+        _debug("Step 3: Preparing variables")
         with_vars = _prepare_variables(config)
 
         # Step 4: Prepare data loading parameters
+        _debug("Step 4: Preparing data loading")
         data_file, data_format, has_header, load_kwargs = _prepare_data_loading(
             config, with_vars
         )
 
         # Step 5: Load data
+        _debug("Step 5: Loading data")
         data = _load_embedz_data(
             data_file, data_part, config, data_format, has_header, load_kwargs
         )
 
         # If no data, only save template (no output)
         if not data:
+            _debug("No data loaded, returning empty output")
             return []
 
         # Step 6: Render template
+        _debug("Step 6: Rendering template")
         result = _render_embedz_template(template_part, data, with_vars)
 
+        _debug("Processing complete")
+        _debug("=" * 60)
         return pf.convert_text(result, input_format='markdown')
 
     except (FileNotFoundError, ValueError, TypeError, yaml.YAMLError,

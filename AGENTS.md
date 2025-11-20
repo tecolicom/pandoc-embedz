@@ -13,6 +13,25 @@
 - `python -m pytest` uses the project `pyproject.toml` config (`-v`, `--strict-markers`, `--tb=short`) and automatically targets `tests/test_*.py`.
 - `pandoc report.md --filter pandoc-embedz -o report.pdf` (or `pandoc-embedz` directly) exercises the filter in a realistic pipeline.
 
+## Debug Mode
+Enable detailed debug output by setting the `PANDOC_EMBEDZ_DEBUG` environment variable:
+
+```bash
+PANDOC_EMBEDZ_DEBUG=1 pandoc report.md --filter pandoc-embedz -o output.pdf
+```
+
+Accepted values: `1`, `true`, `yes` (case-insensitive)
+
+Debug output includes:
+- Configuration parsing (attributes and YAML)
+- Template save/load operations
+- Variable preparation (global and local)
+- Data loading parameters and queries
+- Template rendering context
+- Processing steps for each embedz block
+
+All debug messages are prefixed with `[DEBUG]` and written to stderr.
+
 ## Coding Style & Naming Conventions
 - Keep Python code PEP 8-compliant: 4-space indentation, short helper functions (`snake_case`), and module-level constants in `CONSTANT_CASE`.
 - Prefer explicit typing, docstrings, and config dictionaries similar to `parse_attributes` so intent stays clear.
