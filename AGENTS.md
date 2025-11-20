@@ -94,7 +94,7 @@ Widget,100
 SQL queries support Jinja2 template variable expansion, allowing you to share query logic across multiple embedz blocks:
 
 **Define global variables:**
-```markdown
+````markdown
 ```{.embedz}
 ---
 global:
@@ -102,20 +102,20 @@ global:
   end_date: '2024-12-31'
 ---
 ```
-```
+````
 
 **Use in queries - Variable interpolation:**
-```markdown
+````markdown
 ```{.embedz data=data.csv}
 ---
 query: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
 ---
 Template here
 ```
-```
+````
 
 **Use in queries - Complete query as variable:**
-```markdown
+````markdown
 ```{.embedz}
 ---
 global:
@@ -129,13 +129,13 @@ query: "{{ global.period_filter }}"
 ---
 Template here
 ```
-```
+````
 
 **Nested global variables:**
 
 Global variable values can reference other global variables, enabling complex query composition:
 
-```markdown
+````markdown
 ```{.embedz}
 ---
 global:
@@ -145,7 +145,7 @@ global:
   period_filter: SELECT * FROM data WHERE date BETWEEN '{{ global.start_date }}' AND '{{ global.end_date }}'
 ---
 ```
-```
+````
 
 Variables are expanded in **definition order** during `GLOBAL_VARS.update()`:
 - Each value is checked for `{{` or `{%`
@@ -167,7 +167,7 @@ Variables are expanded in **definition order** during `GLOBAL_VARS.update()`:
 The `preamble` section defines document-wide control structures (macros, `{% set %}`, imports) that are available throughout the entire document. All templates are evaluated in a single unified Jinja2 environment.
 
 **Define macros and variables in preamble:**
-```markdown
+````markdown
 ```{.embedz}
 ---
 preamble: |
@@ -177,10 +177,10 @@ preamble: |
   {%- endmacro %}
 ---
 ```
-```
+````
 
 **Use preamble definitions in global variables and queries:**
-```markdown
+````markdown
 ```{.embedz}
 ---
 global:
@@ -196,16 +196,16 @@ query: "{{ BETWEEN('2024-01-01', '2024-12-31') }}"
 ---
 Template here
 ```
-```
+````
 
 **Alternative: Macros in named templates (auto-shared):**
-```markdown
+````markdown
 ```{.embedz name=sql-macros}
 {%- macro BETWEEN(start, end) -%}
 SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 {%- endmacro -%}
 ```
-```
+````
 
 Macros defined in named templates are **automatically** added to the global control structures, so no explicit import needed.
 
