@@ -495,21 +495,18 @@ def print_version() -> None:
 
 def main() -> None:
     """Entry point for pandoc filter"""
-    # Handle command-line arguments
-    if len(sys.argv) > 1:
-        arg = sys.argv[1]
-        if arg in ('-h', '--help'):
+    # Handle help/version before panflute processes arguments
+    # Note: Pandoc passes format arguments to filters (e.g., 'markdown', 'json')
+    # so we only handle --help/-h and --version/-v explicitly
+    if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help', '-v', '--version'):
+        if sys.argv[1] in ('-h', '--help'):
             print_help()
             sys.exit(0)
-        elif arg in ('-v', '--version'):
+        elif sys.argv[1] in ('-v', '--version'):
             print_version()
             sys.exit(0)
-        else:
-            sys.stderr.write(f"Error: Unknown option '{arg}'\n")
-            sys.stderr.write("Try 'pandoc-embedz --help' for more information.\n")
-            sys.exit(1)
 
-    # Run as Pandoc filter
+    # Run as Pandoc filter (panflute handles format arguments)
     pf.run_filter(process_embedz)
 
 if __name__ == '__main__':
