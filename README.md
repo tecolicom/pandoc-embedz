@@ -28,7 +28,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 
 **Install:**
 ```bash
-pip install git+https://github.com/tecolicom/pandoc-embedz.git
+pip install pandoc-embedz
 ```
 
 **Basic usage:**
@@ -81,29 +81,34 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
   - [Multi-Table Data](#multi-table-data)
   - [Template Macros](#template-macros)
   - [Variable Scoping](#variable-scoping)
+  - [Preamble & Macro Sharing](#preamble--macro-sharing)
 - [Reference](#reference)
-  - [Template Inclusion](#template-inclusion)
-  - [Supported Formats](#supported-formats)
-  - [Code Block Syntax](#code-block-syntax)
-  - [Configuration Options](#configuration-options)
-  - [Data Variable](#data-variable)
-  - [Template Content](#template-content)
+  - [Usage Patterns](#usage-patterns)
+    - [Template Inclusion](#template-inclusion)
+  - [Tables & Options](#tables--options)
+    - [Supported Formats](#supported-formats)
+    - [Code Block Syntax](#code-block-syntax)
+    - [Configuration Options](#configuration-options)
+    - [Data Variable](#data-variable)
+    - [Template Content](#template-content)
 - [Related Tools](#related-tools)
 - [Documentation](#documentation)
 - [License](#license)
+- [Author](#author)
+- [Contributing](#contributing)
 
 ## Installation
 
-From GitHub (recommended for now):
-
-```bash
-pip install git+https://github.com/tecolicom/pandoc-embedz.git
-```
-
-Or from PyPI (once released):
+Install from PyPI (stable release):
 
 ```bash
 pip install pandoc-embedz
+```
+
+Or grab the latest main branch directly from GitHub:
+
+```bash
+pip install git+https://github.com/tecolicom/pandoc-embedz.git
 ```
 
 Dependencies: `panflute`, `jinja2`, `pandas`, `pyyaml`
@@ -538,25 +543,39 @@ with:
 ```embedz
 ---
 preamble: |
+  {% set fiscal_year = 2024 %}
   {% set title = 'Annual Report' %}
-  {% set year = 2024 %}
-  {% macro BETWEEN(start, end) %}
+  {% macro BETWEEN(start, end) -%}
   SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
-  {% endmacro %}
-
+  {%- endmacro %}
 global:
-  fiscal_year: 2024
-  year_start: "{{ fiscal_year }}-04-01"
-  heading: "# {{ title }} {{ year }}"
-  query: "{{ BETWEEN(year_start, year_end) }}"
+  start_date: "{{ fiscal_year }}-04-01"
+  end_date: "{{ fiscal_year + 1 }}-03-31"
+  heading: "{{ title }} (FY{{ fiscal_year }})"
+  yearly_query: "{{ BETWEEN(start_date, end_date) }}"
 ---
+```
+
+```embedz
+---
+data: sales.csv
+query: "{{ yearly_query }}"
+---
+## {{ heading }}
+{% for row in data %}
+- {{ row.date }}: {{ row.amount }}
+{% endfor %}
 ```
 ````
 
 The `preamble` section defines control structures that are available throughout the entire document:
 - **Macros**: Define once, use everywhere
-- **Variables** (`{% set %}`): Template-level variables shared across all blocks
+- **Variables** (`{% set %}`): Template-level variables shared across all blocks (and can feed `global`)
 - **Imports**: Import templates or macros for use in subsequent blocks
+
+### Preamble & Macro Sharing
+
+Use the `preamble` section and named templates to define reusable control structures that every embedz block can access.
 
 > **Note**: Variables defined in `preamble` with `{% set %}` are Jinja2 template variables, different from `global` variables which are stored as Python data. Use `preamble` for control flow and `global` for data storage.
 
@@ -608,7 +627,11 @@ This pattern is useful for:
 
 Technical specifications and syntax details.
 
-### Template Inclusion
+### Usage Patterns
+
+Focused guides for composing complex templates.
+
+#### Template Inclusion
 
 Break complex layouts into smaller fragments and stitch them together with `{% include %}`. Define each fragment with `name` and reuse it inside loops so formatting stays centralized.
 
@@ -659,7 +682,11 @@ data: vulnerabilities.csv
 ```
 ````
 
-### Supported Formats
+### Tables & Options
+
+Reference tables for formats, syntax, and configuration knobs.
+
+#### Supported Formats
 
 | Format     | Extension        | Description                                                               |
 |------------|------------------|---------------------------------------------------------------------------|
@@ -674,7 +701,7 @@ data: vulnerabilities.csv
 
 **Note**: SSV (Space-Separated Values) treats consecutive spaces and tabs as a single delimiter, making it ideal for manually aligned data. Both `ssv` and `spaces` can be used interchangeably.
 
-### Code Block Syntax
+#### Code Block Syntax
 
 #### Basic Structure
 
@@ -792,7 +819,7 @@ global:
 
 **Processing**: Sets global variables → no output
 
-### Configuration Options
+#### Configuration Options
 
 #### YAML Header
 
@@ -821,7 +848,7 @@ Attributes can be used instead of or in combination with YAML:
 
 **Precedence**: YAML configuration overrides attribute values when both are specified.
 
-### Data Variable
+#### Data Variable
 
 Template content can access:
 
@@ -832,7 +859,7 @@ Template content can access:
 - Variables from `with:` (local scope)
 - Variables from `global:` (document scope)
 
-### Template Content
+#### Template Content
 
 Uses Jinja2 syntax with full feature support:
 
