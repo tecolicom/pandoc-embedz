@@ -29,6 +29,18 @@
 - PRs should target `main`, include a summary, list the commands you ran (tests, build, manual Pandoc runs), and link any related issues or examples.
 - Mention manual verification steps (example Markdown, Pandoc output, etc.) so reviewers know what was exercised.
 
+## Release Process
+1. **Update version**: Edit `version` in `pyproject.toml` (e.g., `0.3.0` → `0.4.0`)
+2. **Update CHANGELOG.md**: Add new version section with Added/Changed/Fixed categories and update comparison links
+3. **Run tests**: `python -m pytest tests/` to ensure all 132+ tests pass
+4. **Commit changes**: `git commit -m "Release version X.Y.Z"`
+5. **Create tag**: `git tag -a vX.Y.Z -m "Release version X.Y.Z"`
+6. **Push**: `git push && git push --tags`
+7. **Create GitHub Release**: `gh release create vX.Y.Z --title "vX.Y.Z - Title" --notes "..." dist/*`
+   - **GitHub Actions automatically publishes to PyPI** when a release is created
+   - No need to manually run `twine upload`
+   - Check workflow status: `gh run list --limit 3`
+
 ## Security & Configuration Tips
 - Keep configuration tight: reuse `load_template_from_saved`/`validate_file_path` when reading external data so path traversal checks stay centralized.
 - Store any new template snippets or CSV fixtures near the tests that validate them to make review easier.
@@ -143,11 +155,43 @@ Variables are expanded in **definition order** during `GLOBAL_VARS.update()`:
 - Use quotes around queries that start with `{{` to ensure valid YAML
 - Works with CSV, TSV, SSV formats (via pandas SQL) and SQLite databases
 
-### Macro Sharing Across Global Variables
+### Preamble Section and Macro Sharing
 
-Global variables support Jinja2 macro sharing using template inclusion. This enables defining reusable template functions once and using them across multiple variables.
+The `preamble` section defines document-wide control structures (macros, `{% set %}`, imports) that are available throughout the entire document. All templates are evaluated in a single unified Jinja2 environment.
 
-**Define macros in a named template:**
+**Define macros and variables in preamble:**
+```markdown
+```{.embedz}
+---
+preamble: |
+  {% set fiscal_year = 2024 %}
+  {% macro BETWEEN(start, end) -%}
+  SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
+  {%- endmacro %}
+---
+```
+```
+
+**Use preamble definitions in global variables and queries:**
+```markdown
+```{.embedz}
+---
+global:
+  start_date: "{{ fiscal_year }}-04-01"
+  end_date: "{{ fiscal_year + 1 }}-03-31"
+  yearly_query: "{{ BETWEEN(start_date, end_date) }}"
+---
+```
+
+```{.embedz data=sales.csv}
+---
+query: "{{ BETWEEN('2024-01-01', '2024-12-31') }}"
+---
+Template here
+```
+```
+
+**Alternative: Macros in named templates (auto-shared):**
 ```markdown
 ```{.embedz name=sql-macros}
 {%- macro BETWEEN(start, end) -%}
@@ -156,38 +200,23 @@ SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 ```
 ```
 
-**Import and use macros in global variables:**
-```markdown
-```{.embedz}
----
-global:
-  fiscal_year: 2024
-  start_date: "{{ fiscal_year }}-04-01"
-  end_date: "{{ fiscal_year + 1 }}-03-31"
-
-  # Import macros from named template
-  # Variable name can be anything; imports are recognized by {% from ... %} syntax
-  _import: "{% from 'sql-macros' import BETWEEN %}"
-
-  # Use imported macro
-  yearly_query: "{{ BETWEEN(start_date, end_date) }}"
-  quarterly_query: "{{ BETWEEN(quarter_start, quarter_end) }}"
----
-```
-```
+Macros defined in named templates are **automatically** added to the global control structures, so no explicit import needed.
 
 **Implementation details:**
-- Control structures (`{% macro %}`, `{% from ... import %}`, `{% include %}`) are automatically recognized and collected
-- They are prepended to subsequent variable templates during rendering
-- Leading newlines from non-output-producing control structures are stripped with `lstrip('\n')`
-- Intentional leading/trailing spaces and tabs in variable values are preserved
+- All templates share a single global Jinja2 environment (GLOBAL_ENV)
+- `preamble` content is prepended to all template expansions via CONTROL_STRUCTURES_STR
+- Macros from named templates are auto-added to CONTROL_STRUCTURES_STR
+- Template variables in `global` values are expanded using the unified environment
+- Leading newlines from preamble are stripped with `lstrip('\n')`
 - The Environment uses `FunctionLoader(load_template_from_saved)` to resolve template names
-- Processing is sequential, so variables can reference earlier variables
-- Control structures don't become variables themselves (they only affect subsequent variables)
 
 **Use cases:**
 - SQL query builders: Define query macros once, compose complex queries
 - Date calculations: Macros for fiscal periods, quarters, date ranges
+- Document-wide settings: Title, year, author via `{% set %}`
 - Complex transformations: Encapsulate multi-step logic in reusable functions
 
-**Note:** Macro sharing is only available in `global` variables, not `with` (local) variables. For block-specific formatting, define macros globally and reference them in templates.
+**Key differences from old approach:**
+- Use `preamble` for control structures instead of mixing them in `global` variables
+- No need for explicit `{% from 'template' import macro %}` - macros are globally available
+- Cleaner separation: `preamble` for control, `global` for data
