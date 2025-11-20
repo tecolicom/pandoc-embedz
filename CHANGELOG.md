@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.1] - 2025-11-20
+
+### Added
+- Debug mode with `PANDOC_EMBEDZ_DEBUG` environment variable (accepts `1`, `true`, `yes`)
+- Detailed debug output for all processing steps (configuration, templates, variables, data, rendering)
+- `--help` / `-h` command-line option for comprehensive usage information
+- `--version` / `-v` command-line option for version display
+- Help message with examples, environment variables, and documentation links
+- Debug mode documentation in AGENTS.md
+
+### Changed
+- Improved README structure with Usage Patterns and Tables & Options subsections
+- Enhanced preamble section examples with practical fiscal year scenarios
+- Changed installation priority to PyPI (stable) over GitHub (development)
+- Updated argument handling to allow Pandoc's internal format arguments
+
+### Fixed
+- Code block nesting in AGENTS.md (changed outer blocks from ``` to ```` for proper nesting)
+- Argument handling to prevent errors when Pandoc passes format arguments to filter
+
 ## [0.4.0] - 2025-11-20
 
 ### Added
@@ -80,7 +100,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
-[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.1.0...v0.2.0
