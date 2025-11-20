@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2025-11-20
+
+### Added
+- `preamble` section for document-wide control structures (macros, `{% set %}`, imports)
+- Unified template environment: all templates evaluated in single global Jinja2 environment
+- Direct macro usage in queries and global variables without explicit import
+- `_get_jinja_env()` function for global environment management
+- `_render_template()` function for unified template rendering
+
+### Changed
+- Refactored template evaluation to use single shared environment (GLOBAL_ENV)
+- Simplified `_prepare_variables()`: reduced from ~35 to ~20 lines (40% reduction)
+- Changed CONTROL_STRUCTURES from List[str] to CONTROL_STRUCTURES_STR (str)
+- All template expansions now use unified `_render_template()` function
+- Removed keyword-based control structure detection from global variables (use `preamble` instead)
+- Macros defined in named templates are automatically added to global control structures
+- Improved documentation with preamble section explanation and examples
+
+### Fixed
+- Empty preamble strings no longer add unnecessary newlines
+
 ## [0.3.0] - 2025-11-19
 
 ### Added
@@ -59,7 +80,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
-[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/tecolicom/pandoc-embedz/releases/tag/v0.1.0
