@@ -1,7 +1,8 @@
 """Tests for attribute-based configuration"""
 import pytest
 import panflute as pf
-from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+from pandoc_embedz.config import SAVED_TEMPLATES
 
 
 def stringify_result(result):
@@ -366,7 +367,8 @@ format: json
 """Test YAML content without --- delimiters when data + with attributes"""
 import pytest
 import panflute as pf
-from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+from pandoc_embedz.config import SAVED_TEMPLATES
 from io import StringIO
 
 
@@ -566,7 +568,7 @@ class TestWithDotNotation:
             attributes={'custom.field': 'value'}
         )
 
-        from pandoc_embedz.filter import parse_attributes
+        from pandoc_embedz.config import parse_attributes
         config = parse_attributes(code_block)
 
         assert 'custom' in config

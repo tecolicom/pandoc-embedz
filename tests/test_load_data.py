@@ -2,7 +2,7 @@
 import pytest
 from pathlib import Path
 from io import StringIO
-from pandoc_embedz.filter import load_data, guess_format_from_filename
+from pandoc_embedz.data_loader import load_data, guess_format_from_filename
 
 FIXTURES_DIR = Path(__file__).parent / 'fixtures'
 
@@ -329,7 +329,8 @@ class TestMultiTableSQL:
 
     def test_multi_table_join(self):
         """Test joining two CSV files with SQL"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
@@ -374,7 +375,8 @@ query: |
 
     def test_multi_table_aggregation(self):
         """Test aggregating data from multiple tables"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
@@ -420,7 +422,8 @@ query: |
 
     def test_multi_table_without_query(self):
         """Multi-table data without query allows direct access via data.table_name"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
@@ -464,7 +467,8 @@ data:
 
     def test_multi_table_mixed_formats(self):
         """Multi-table can combine different formats (YAML + CSV)"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
@@ -506,7 +510,8 @@ By {{ data.config.author }} (v{{ data.config.version }})
 
     def test_multi_table_inline_csv(self):
         """Multi-table with inline CSV data"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
@@ -555,7 +560,8 @@ data:
 
     def test_multi_table_inline_yaml(self):
         """Multi-table with inline YAML config and CSV data"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
@@ -599,7 +605,8 @@ data:
 
     def test_multi_table_mixed_inline_and_file(self):
         """Multi-table with both inline data and file paths"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
@@ -648,7 +655,8 @@ data:
 
     def test_data_file_and_data_part_mutually_exclusive(self):
         """Error should be raised if both data attribute and inline data are specified"""
-        from pandoc_embedz.filter import process_embedz, SAVED_TEMPLATES, GLOBAL_VARS
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
 
         # Clear state
