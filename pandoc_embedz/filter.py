@@ -15,7 +15,6 @@ import os
 
 # Import from local modules
 from .config import (
-    validate_file_path,
     load_template_from_saved,
     parse_attributes,
     parse_code_block,
@@ -26,26 +25,45 @@ from .data_loader import _load_embedz_data
 
 # Store global variables and control structures
 GLOBAL_VARS: Dict[str, Any] = {}
-CONTROL_STRUCTURES: List[str] = []
+GLOBAL_ENV: Optional[Environment] = None
+CONTROL_STRUCTURES_STR: str = ""
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper Functions for process_embedz
 #
 # These functions encapsulate the main processing steps:
-# 1. Utility functions (_create_jinja_env, _build_render_context)
+# 1. Utility functions (_get_jinja_env, _render_template, _build_render_context)
 # 2. Configuration parsing (_parse_and_merge_config)
 # 3. Template management (_process_template_references)
 # 4. Variable preparation (_prepare_variables)
 # 5. Data loading (_prepare_data_loading)
 # 6. Template rendering (_render_embedz_template)
 
-def _create_jinja_env() -> Environment:
-    """Create Jinja2 Environment with access to saved templates
+def _get_jinja_env() -> Environment:
+    """Get or create global Jinja2 Environment with access to saved templates
 
     Returns:
-        Environment: Configured Jinja2 Environment
+        Environment: Shared Jinja2 Environment instance
     """
-    return Environment(loader=FunctionLoader(load_template_from_saved))
+    global GLOBAL_ENV
+    if GLOBAL_ENV is None:
+        GLOBAL_ENV = Environment(loader=FunctionLoader(load_template_from_saved))
+    return GLOBAL_ENV
+
+def _render_template(template_str: str, context: Dict[str, Any]) -> str:
+    """Unified template rendering with control structures prepended
+
+    Args:
+        template_str: Jinja2 template string
+        context: Template rendering context
+
+    Returns:
+        str: Rendered template result
+    """
+    env = _get_jinja_env()
+    full_template = CONTROL_STRUCTURES_STR + template_str
+    template = env.from_string(full_template)
+    return template.render(**context)
 
 def _build_render_context(with_vars: Dict[str, Any], data: Optional[Any] = None) -> Dict[str, Any]:
     """Build render context for Jinja2 template rendering
@@ -129,11 +147,13 @@ def _process_template_references(
 
     Side effects:
         - Updates SAVED_TEMPLATES dictionary if 'name' is specified
-        - Updates CONTROL_STRUCTURES list if template contains macro definitions
+        - Updates CONTROL_STRUCTURES_STR if template contains macro definitions
 
     Raises:
         ValueError: If referenced template is not found
     """
+    global CONTROL_STRUCTURES_STR
+
     # Save named template
     template_name = config.get('name')
     if template_name:
@@ -141,10 +161,10 @@ def _process_template_references(
             sys.stderr.write(f"Warning: Overwriting template '{template_name}'\n")
         SAVED_TEMPLATES[template_name] = template_part
 
-        # If template contains macro definitions, add to CONTROL_STRUCTURES
+        # If template contains macro definitions, add to CONTROL_STRUCTURES_STR
         # so macros are available globally without explicit import
         if '{%' in template_part and 'macro' in template_part:
-            CONTROL_STRUCTURES.append(template_part)
+            CONTROL_STRUCTURES_STR += template_part + '\n'
 
     # Load saved template
     template_ref = config.get('as')
@@ -162,14 +182,28 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
     """Prepare local and global variables for rendering
 
     Args:
-        config: Configuration dictionary containing 'with' and/or 'global' keys
+        config: Configuration dictionary containing 'with', 'global', and/or 'preamble' keys
 
     Returns:
         dict: Local variables (with_vars)
 
     Side effects:
-        Updates GLOBAL_VARS dictionary and CONTROL_STRUCTURES list if 'global' key is present
+        Updates GLOBAL_VARS dictionary if 'global' key is present
+        Updates CONTROL_STRUCTURES_STR if 'preamble' key is present
     """
+    global CONTROL_STRUCTURES_STR
+
+    # Process preamble (control structures for entire document)
+    if 'preamble' in config:
+        preamble_content = config['preamble']
+        if isinstance(preamble_content, str):
+            if preamble_content.strip():  # Only add non-empty content
+                CONTROL_STRUCTURES_STR += preamble_content + '\n'
+        else:
+            raise ValueError(
+                f"'preamble' must be a string, got {type(preamble_content).__name__}"
+            )
+
     # Prepare local variables
     with_vars: Dict[str, Any] = {}
     if 'with' in config:
@@ -177,35 +211,14 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
 
     # Process global variables if present
     if 'global' in config:
-        env = _create_jinja_env()
-
         for key, value in config['global'].items():
             # Check if value contains template syntax
             if isinstance(value, str) and ('{{' in value or '{%' in value):
-                stripped = value.strip()
-                # Check if this is a control structure (macro, import, include)
-                if (stripped.startswith('{%') and
-                    not stripped.startswith('{{') and
-                    ('macro' in stripped or 'import' in stripped or 'include' in stripped)):
-                    # Control structure - collect globally for use in all template expansions
-                    CONTROL_STRUCTURES.append(value)
-                    continue
-
-                # Process template variable
-                # Prepend all control structures if any exist
-                if CONTROL_STRUCTURES:
-                    template_str = '\n'.join(CONTROL_STRUCTURES) + '\n' + value
-                else:
-                    template_str = value
-
-                template = env.from_string(template_str)
-                rendered = template.render(
-                    **GLOBAL_VARS,
-                    **{'global': GLOBAL_VARS}
-                )
-
-                # Remove leading newlines from control structures that produce no output
-                value = rendered.lstrip('\n') if CONTROL_STRUCTURES else rendered
+                # Process template variable using unified rendering
+                context = _build_render_context({})  # Empty with_vars, no data
+                rendered = _render_template(value, context)
+                # Remove leading newlines that may be added by preamble
+                value = rendered.lstrip('\n')
 
             GLOBAL_VARS[key] = value
 
@@ -237,15 +250,8 @@ def _prepare_data_loading(
         query_template = config['query']
         # Expand Jinja2 template variables in query if present
         if '{{' in query_template or '{%' in query_template:
-            env = _create_jinja_env()
-            # Prepend control structures (macro imports) if any exist
-            if CONTROL_STRUCTURES:
-                template_str = '\n'.join(CONTROL_STRUCTURES) + '\n' + query_template
-            else:
-                template_str = query_template
-            template = env.from_string(template_str)
             context = _build_render_context(with_vars)
-            query_value = template.render(**context)
+            query_value = _render_template(query_template, context)
             load_kwargs['query'] = query_value
         else:
             load_kwargs['query'] = query_template
@@ -267,18 +273,9 @@ def _render_embedz_template(
     Returns:
         str: Rendered template result
     """
-    # Create Jinja2 Environment with access to saved templates
-    env = _create_jinja_env()
-
-    # Build render context and render template
+    # Build render context and render template using unified rendering
     context = _build_render_context(with_vars, data)
-    # Prepend control structures (macro imports) if any exist
-    if CONTROL_STRUCTURES:
-        template_str = '\n'.join(CONTROL_STRUCTURES) + '\n' + template_part
-    else:
-        template_str = template_part
-    template = env.from_string(template_str)
-    result = template.render(**context)
+    result = _render_template(template_part, context)
 
     # Ensure output ends with newline (prevents concatenation with next paragraph)
     if result and not result.endswith('\n'):

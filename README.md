@@ -20,7 +20,8 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 🔁 **Template Reuse**: Define templates once, use them multiple times
 - 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
-- 🌐 **Variable Scoping**: Local (`with:`) and global (`global:`) variable management
+- 📋 **Preamble Section**: Define control structures (macros, variables) for entire document
+- 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), and preamble (`preamble:`) management
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 
 ## tl;dr
@@ -531,7 +532,35 @@ with:
 ```
 ````
 
-**Sharing macros** across variables within a `global` section:
+**Preamble section** for document-wide control structures (macros, variables):
+
+````markdown
+```embedz
+---
+preamble: |
+  {% set title = 'Annual Report' %}
+  {% set year = 2024 %}
+  {% macro BETWEEN(start, end) %}
+  SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
+  {% endmacro %}
+
+global:
+  fiscal_year: 2024
+  year_start: "{{ fiscal_year }}-04-01"
+  heading: "# {{ title }} {{ year }}"
+  query: "{{ BETWEEN(year_start, year_end) }}"
+---
+```
+````
+
+The `preamble` section defines control structures that are available throughout the entire document:
+- **Macros**: Define once, use everywhere
+- **Variables** (`{% set %}`): Template-level variables shared across all blocks
+- **Imports**: Import templates or macros for use in subsequent blocks
+
+> **Note**: Variables defined in `preamble` with `{% set %}` are Jinja2 template variables, different from `global` variables which are stored as Python data. Use `preamble` for control flow and `global` for data storage.
+
+**Sharing macros** across variables within a `global` section (alternative approach):
 
 ````markdown
 # Define macros in a named template
@@ -775,6 +804,7 @@ global:
 | `as` | Template to use | `as: report-template` |
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
 | `global` | Global variables (document-scoped) | `global: {author: "John"}` |
+| `preamble` | Control structures for entire document (macros, `{% set %}`, imports) | `preamble: \|`<br>`  {% set title = 'Report' %}` |
 | `header` | CSV/TSV has header row (default: true) | `header: false` |
 | `table` | SQLite table name (required for sqlite format) | `table: users` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |

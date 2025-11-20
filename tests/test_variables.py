@@ -1,7 +1,8 @@
 """Tests for variable scoping (local and global)"""
 import pytest
 import panflute as pf
-from pandoc_embedz.filter import process_embedz, GLOBAL_VARS, CONTROL_STRUCTURES
+from pandoc_embedz import filter as filter_module
+from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
 from pandoc_embedz.config import SAVED_TEMPLATES
 
 
@@ -10,11 +11,13 @@ def reset_globals():
     """Reset global state before each test"""
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    CONTROL_STRUCTURES.clear()
+    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.GLOBAL_ENV = None
     yield
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    CONTROL_STRUCTURES.clear()
+    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.GLOBAL_ENV = None
 
 
 class TestLocalVariables:
@@ -789,6 +792,56 @@ David,2025-01-01,70"""
         assert 'Charlie: 90' in output  # 2024
         assert 'Bob' not in output  # 2023
         assert 'David' not in output  # 2025
+
+    def test_preamble_with_set_and_macro(self):
+        """Test preamble section for defining control structures"""
+        # Use preamble to define variables and macros
+        test_code = """---
+preamble: |
+  {% set title = 'Annual Report' %}
+  {% set year = 2024 %}
+  {% macro HELLO(name) %}Hello, {{ name }}!{% endmacro %}
+
+global:
+  heading: "# {{ title }} {{ year }}"
+  greeting: "{{ HELLO('World') }}"
+format: json
+---
+{% for item in data %}
+{{ heading }}
+{{ greeting }}
+{{ item.name }}
+{% endfor %}
+---
+[{"name": "Test"}]
+"""
+        elem = pf.CodeBlock(test_code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        # Verify global variables used preamble definitions
+        assert 'heading' in GLOBAL_VARS
+        assert GLOBAL_VARS['heading'] == '# Annual Report 2024'
+        assert 'greeting' in GLOBAL_VARS
+        assert GLOBAL_VARS['greeting'] == 'Hello, World!'
+
+        # Verify template rendering
+        assert isinstance(result, list)
+        assert len(result) > 0
+
+    def test_preamble_invalid_type(self):
+        """Test that non-string preamble raises error"""
+        test_code = """---
+preamble:
+  - invalid
+  - list
+---
+"""
+        elem = pf.CodeBlock(test_code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="'preamble' must be a string"):
+            process_embedz(elem, doc)
 
     def test_use_macro_without_explicit_import(self):
         """Test using macro defined in named template without explicit import statement"""

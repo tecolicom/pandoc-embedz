@@ -1,7 +1,8 @@
 """Tests for template processing"""
 import pytest
 import panflute as pf
-from pandoc_embedz.filter import process_embedz, GLOBAL_VARS, CONTROL_STRUCTURES
+from pandoc_embedz import filter as filter_module
+from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
 from pandoc_embedz.config import SAVED_TEMPLATES
 
 
@@ -10,11 +11,13 @@ def reset_globals():
     """Reset global state before each test"""
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    CONTROL_STRUCTURES.clear()
+    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.GLOBAL_ENV = None
     yield
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    CONTROL_STRUCTURES.clear()
+    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.GLOBAL_ENV = None
 
 
 class TestBasicTemplating:
