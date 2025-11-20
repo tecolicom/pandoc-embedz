@@ -41,6 +41,13 @@
    - No need to manually run `twine upload`
    - Check workflow status: `gh run list --limit 3`
 
+### Post-Release Verification
+- **Verify PyPI**: Check that new version appears: `pip index versions pandoc-embedz`
+- **Install new version**: Use `pip install --no-cache-dir --upgrade pandoc-embedz` to avoid cache issues
+  - Note: `pip install --upgrade` may use cached metadata and not see the new version immediately
+  - Alternative: `pip uninstall pandoc-embedz && pip install pandoc-embedz`
+  - Or wait a few minutes for pip's cache to expire
+
 ## Security & Configuration Tips
 - Keep configuration tight: reuse `load_template_from_saved`/`validate_file_path` when reading external data so path traversal checks stay centralized.
 - Store any new template snippets or CSV fixtures near the tests that validate them to make review easier.
