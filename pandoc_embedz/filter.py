@@ -407,11 +407,38 @@ def _execute_embedz_pipeline(
     )
 
     if not data:
-        _debug("No data loaded, returning empty output")
-        return None, data_file, has_header
+        _debug("No data loaded")
+        template_has_content = bool(template_part.strip())
+        definition_block = bool(config.get('name')) or not template_has_content
+        if definition_block:
+            _debug("Definition-only block, returning empty output")
+            return None, data_file, has_header
+
+        fallback_context = _build_render_context(with_vars)
+        expected_newlines = len(template_part) - len(template_part.rstrip('\n'))
+        fallback = _render_template(template_part, fallback_context)
+        if fallback:
+            actual_newlines = len(fallback) - len(fallback.rstrip('\n'))
+            if expected_newlines > 0 and actual_newlines < expected_newlines:
+                fallback += '\n' * (expected_newlines - actual_newlines)
+            elif expected_newlines == 0 and actual_newlines == 0:
+                fallback += '\n'
+        _debug("Rendered template without data (fallback mode)")
+        return fallback, data_file, has_header
+
+    is_definition = bool(config.get('name') and not config.get('as'))
+
+    if not data:
+        _debug("No data loaded")
+        if is_definition:
+            _debug("Definition-only block, returning empty output")
+            return None, data_file, has_header
+        render_data: Union[List[Any], Dict[str, Any]] = []
+    else:
+        render_data = data
 
     _debug("Step 6: Rendering template")
-    result = _render_embedz_template(template_part, data, with_vars)
+    result = _render_embedz_template(template_part, render_data, with_vars)
 
     return result, data_file, has_header
 
@@ -482,9 +509,7 @@ def render_standalone_text(text: str, attr_overrides: Optional[Dict[str, Any]] =
         )
         _debug("Processing complete")
         _debug("=" * 60)
-        if result is None:
-            return ''
-        return result
+        return result or ''
     except KNOWN_EXCEPTIONS as e:
         print_error_info(e, template_part, config, data_file, has_header, data_part)
         raise

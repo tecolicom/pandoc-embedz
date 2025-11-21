@@ -118,4 +118,46 @@ name,value
 Foo,1
 '''
     result = render_standalone_text(template)
-    assert result.strip() == ''
+    assert 'name,value' in result
+    assert 'Foo,1' in result
+
+
+def test_standalone_without_data_renders_template():
+    """Standalone template without data should render as-is."""
+    from pandoc_embedz.filter import render_standalone_text
+
+    _reset_state()
+    template = '''---
+global:
+  title: Standalone
+---
+{{ global.title }}
+'''
+    result = render_standalone_text(template)
+    assert result.strip() == 'Standalone'
+
+
+def test_standalone_preserves_trailing_newlines():
+    """Standalone fallback keeps original trailing newlines."""
+    from pandoc_embedz.filter import render_standalone_text
+
+    _reset_state()
+    template = '''---
+---
+Line
+
+'''
+    result = render_standalone_text(template)
+    assert result.endswith('Line\n\n')
+
+
+def test_standalone_appends_newline_when_missing():
+    """Standalone fallback adds a single newline if none existed."""
+    from pandoc_embedz.filter import render_standalone_text
+
+    _reset_state()
+    template = '''---
+---
+Line'''
+    result = render_standalone_text(template)
+    assert result.endswith('Line\n')

@@ -23,6 +23,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 📋 **Preamble Section**: Define control structures (macros, variables) for entire document
 - 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), and preamble (`preamble:`) management
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
+- 🧾 **Standalone Rendering**: `pandoc-embedz --render file.tex` expands templates without running full Pandoc
 
 ## tl;dr
 
@@ -451,8 +452,6 @@ data:
 ```
 ````
 
-> **Note:** Inline data via a third `---` separator only works inside `.embedz` code blocks. Standalone templates should provide inline data through `data: |` YAML blocks or external files, because everything after the front matter is treated as template text.
-
 **See [MULTI_TABLE.md](MULTI_TABLE.md) for comprehensive examples and documentation.**
 
 ### Template Macros
@@ -823,6 +822,19 @@ global:
 
 **Processing**: Sets global variables → no output
 
+Need to render a snippet that just uses globals/locals? Simply omit `data:`—any `.embedz`
+block with template content now renders even when no dataset is provided:
+
+````markdown
+```embedz
+---
+with:
+  author: Jane Doe
+---
+Prepared by {{ author }}
+```
+````
+
 #### Configuration Options
 
 #### YAML Header
@@ -892,6 +904,8 @@ pandoc-embedz --render templates/report.tex --config config/base.yaml -o build/r
 - Optional YAML front matter at the top is parsed the same way as code blocks
 - Inline data sections (`---` separator) are **not** interpreted here—use `data:` blocks or external files instead
 - Output is written to stdout unless `--output / -o` is provided
+- If no data sources are defined, the template renders as-is (handy for LaTeX front matter
+  that only needs global variables or static content)
 
 Because the renderer simply expands templates, it works with Markdown, LaTeX, or any other plaintext format that Pandoc would normally consume later in the toolchain.
 
@@ -920,6 +934,10 @@ pandoc-embedz --render report.tex --config config/base.yaml --config config/late
 
 This makes it easy to share data sources, variable defaults, and macro preambles between Pandoc runs and standalone rendering jobs.
 
+> **Note:** Inline data via a third `---` separator only works inside `.embedz` code
+> blocks. Standalone templates should provide inline data through `data: |` YAML blocks or
+> external files, because everything after the front matter is treated as template text.
+
 ### Why Not a Generic Jinja CLI?
 
 Compared to one-off “render this template with Jinja” tools, `pandoc-embedz` is purpose-built for document pipelines:
@@ -930,6 +948,18 @@ Compared to one-off “render this template with Jinja” tools, `pandoc-embedz`
 - **Shared workflow** – standalone mode reuses the exact filter pipeline, so Markdown/LaTeX templates and Pandoc documents can share templates, configs, and debugging behavior.
 
 If you only need to expand a single template file once, a simple Jinja CLI might suffice. But for reproducible reports, multi-dataset embeds, or pipelines that already rely on Pandoc, `pandoc-embedz` keeps the whole workflow aligned.
+
+### Working with LaTeX Templates
+
+LaTeX documents often contain literal `{{`, `}}`, or lots of `{`/`}` pairs (e.g., `{{{ year }}}`). Jinja2 will treat these as template delimiters, so either wrap those sections in `{% raw %}...{% endraw %}` or escape them explicitly:
+
+```tex
+{% raw %}{{ setcounter{section}{0} }}{% endraw %}
+\section*{ {{ title }} }
+{{ '{{' }} macro {{ '}}' }}  % literal braces
+```
+
+If your LaTeX template has many literal braces, consider defining helper macros or switching Jinja2 delimiters (via `variable_start_string`/`variable_end_string`) so the syntax stays readable.
 
 ## Related Tools
 

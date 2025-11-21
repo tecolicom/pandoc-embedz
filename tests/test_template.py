@@ -135,6 +135,39 @@ format: json
             process_embedz(elem, doc)
 
 
+class TestRenderWithoutData:
+    """Ensure templates without explicit data still render when needed."""
+
+    def test_embedz_block_renders_without_data(self):
+        code = """---
+with:
+  title: Example
+---
+# {{ title }}
+"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '# Example' in markdown
+
+    def test_named_template_without_data_is_definition_only(self):
+        code = """---
+name: macros
+---
+{% macro HELLO(name) %}Hello {{ name }}{% endmacro %}
+"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert result == []
+
+
 class TestStructuredData:
     """Tests for nested JSON/YAML structures"""
 
