@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2025-11-21
+
 ### Added
 - Standalone renderer mode via `pandoc-embedz --render` (supports LaTeX/Markdown files, `--config`, and `--output`)
 - External YAML configuration files for both code blocks (`config:`) and the standalone renderer (share data/global/preamble definitions)
