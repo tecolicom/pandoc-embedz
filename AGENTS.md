@@ -48,7 +48,7 @@ All debug messages are prefixed with `[DEBUG]` and written to stderr.
 - PRs should target `main`, include a summary, list the commands you ran (tests, build, manual Pandoc runs), and link any related issues or examples.
 - Mention manual verification steps (example Markdown, Pandoc output, etc.) so reviewers know what was exercised.
 - When the user requests a detailed commit message, capture those bullet points for them (e.g., drop them into a helper script like `scripts/commit_refactor.sh`) so they can run the commit locally without copy/pasting text, and include any necessary `git add <files>` commands inside the helper to ensure the correct files are staged beforehand.
-- For visibility into which assistant produced a set of changes, append a short tag such as `(via Codex)` or `(via Claude Code)` at the end of the commit subject/body; match whatever assistant actually performed the work so the history shows the origin of the edits.
+- For visibility into which assistant produced a set of changes, append a short tag such as `(via Codex / GPT-5)` or `(via Claude Code / Claude-3)` at the end of the commit subject/body; match the actual assistant+model you used.
 - Before modifying any files:
   - Briefly summarize what you plan to do
   - Wait for the user to confirm that the plan sounds correct
