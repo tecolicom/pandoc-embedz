@@ -90,7 +90,9 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
     - [Code Block Syntax](#code-block-syntax)
     - [Configuration Options](#configuration-options)
     - [Data Variable](#data-variable)
-    - [Template Content](#template-content)
+  - [Template Content](#template-content)
+- [Standalone Rendering](#standalone-rendering)
+  - [External Config Files](#external-config-files)
 - [Related Tools](#related-tools)
 - [Documentation](#documentation)
 - [License](#license)
@@ -835,6 +837,7 @@ global:
 | `header` | CSV/TSV has header row (default: true) | `header: false` |
 | `table` | SQLite table name (required for sqlite format) | `table: users` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
+| `config` | External YAML config file(s) merged before inline settings (string or list) | `config: config/base.yaml` |
 
 #### Attribute Syntax
 
@@ -847,6 +850,8 @@ Attributes can be used instead of or in combination with YAML:
 ```
 
 **Precedence**: YAML configuration overrides attribute values when both are specified.
+
+Need to avoid repeating YAML headers? Attributes also accept `config=/path/file.yaml` (repeat as needed) to load shared settings outside the block body.
 
 #### Data Variable
 
@@ -871,6 +876,47 @@ Uses Jinja2 syntax with full feature support:
 - Include: `{% include 'template-name' %}`
 
 For detailed Jinja2 template syntax and features, see the [Jinja2 documentation](https://jinja.palletsprojects.com/).
+
+## Standalone Rendering
+
+Need to render Markdown or LaTeX files without running a full Pandoc conversion? Use the built-in renderer:
+
+```bash
+pandoc-embedz --render templates/report.tex --config config/base.yaml -o build/report.tex
+```
+
+- `--render / -r` points to the template file (use `-` to read from stdin)
+- Entire file content is treated as the template body
+- Optional YAML front matter at the top is parsed the same way as code blocks
+- Inline data can follow the third `---`, just like `.embedz` blocks
+- Output is written to stdout unless `--output / -o` is provided
+
+Because the renderer simply expands templates, it works with Markdown, LaTeX, or any other plaintext format that Pandoc would normally consume later in the toolchain.
+
+### External Config Files
+
+Both the Pandoc filter and the standalone renderer can now load shared configuration files. Add them via `config` in YAML/attributes or from the CLI:
+
+```markdown
+```embedz
+---
+config:
+  - config/base.yaml
+  - config/overrides.yaml
+---
+```
+```
+
+```bash
+pandoc-embedz --render report.tex --config config/base.yaml --config config/latex.yaml
+```
+
+- Each config file must be a YAML mapping (can define `data`, `format`, `with`, `global`, `preamble`, etc.)
+- Files are merged in order; later files override earlier ones, and inline YAML still takes precedence
+- Paths honor the same security checks as normal data files (`validate_file_path`)
+- Use a single file path or a list for `config:`; attributes support `config=path.yaml`
+
+This makes it easy to share data sources, variable defaults, and macro preambles between Pandoc runs and standalone rendering jobs.
 
 ## Related Tools
 

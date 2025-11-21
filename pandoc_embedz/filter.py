@@ -6,12 +6,14 @@ into your Markdown documents using Jinja2 template syntax within code blocks.
 """
 
 from typing import Dict, Any, Tuple, Optional, Union, List
+import argparse
 import panflute as pf
 from jinja2 import Environment, FunctionLoader, TemplateNotFound
 import pandas as pd
 import yaml
 import sys
 import os
+from pathlib import Path
 try:
     from importlib.metadata import version
 except ImportError:
@@ -23,6 +25,9 @@ from .config import (
     parse_attributes,
     parse_code_block,
     validate_config,
+    validate_file_path,
+    load_config_file,
+    deep_merge_dicts,
     SAVED_TEMPLATES
 )
 from .data_loader import _load_embedz_data
@@ -39,6 +44,15 @@ def _debug(msg: str) -> None:
 GLOBAL_VARS: Dict[str, Any] = {}
 GLOBAL_ENV: Optional[Environment] = None
 CONTROL_STRUCTURES_STR: str = ""
+KNOWN_EXCEPTIONS = (
+    FileNotFoundError,
+    ValueError,
+    TypeError,
+    yaml.YAMLError,
+    pd.errors.ParserError,
+    TemplateNotFound,
+    KeyError,
+)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper Functions for process_embedz
@@ -50,6 +64,46 @@ CONTROL_STRUCTURES_STR: str = ""
 # 4. Variable preparation (_prepare_variables)
 # 5. Data loading (_prepare_data_loading)
 # 6. Template rendering (_render_embedz_template)
+
+
+def _normalize_config_refs(value: Any) -> List[str]:
+    """Normalize config references into a list of file paths."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, list):
+        refs: List[str] = []
+        for item in value:
+            if not isinstance(item, str):
+                raise TypeError("'config' entries must be file paths (strings)")
+            refs.append(item)
+        return refs
+    raise TypeError("'config' must be a string or list of strings")
+
+
+def _merge_config_sources(
+    attr_config: Dict[str, Any],
+    yaml_config: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Merge configuration from attributes, YAML, and external files."""
+    attr_copy = dict(attr_config)
+    yaml_copy = dict(yaml_config)
+
+    config_refs: List[str] = []
+    if 'config' in attr_copy:
+        config_refs.extend(_normalize_config_refs(attr_copy.pop('config')))
+    if 'config' in yaml_copy:
+        config_refs.extend(_normalize_config_refs(yaml_copy.pop('config')))
+
+    merged: Dict[str, Any] = {}
+    for ref in config_refs:
+        file_config = load_config_file(ref)
+        merged = deep_merge_dicts(merged, file_config)
+
+    merged = deep_merge_dicts(merged, attr_copy)
+    merged = deep_merge_dicts(merged, yaml_copy)
+    return merged
 
 def _get_jinja_env() -> Environment:
     """Get or create global Jinja2 Environment with access to saved templates
@@ -138,8 +192,24 @@ def _parse_and_merge_config(
             data_part = text
             template_part = ''
 
-    # Merge configurations: YAML takes precedence over attributes
-    config = {**attr_config, **yaml_config}
+    return _build_config_from_text(text, attr_config, yaml_config, template_part, data_part)
+
+
+def _build_config_from_text(
+    text: str,
+    attr_config: Optional[Dict[str, Any]] = None,
+    yaml_config: Optional[Dict[str, Any]] = None,
+    template_part: Optional[str] = None,
+    data_part: Optional[str] = None
+) -> Tuple[Dict[str, Any], str, Optional[str]]:
+    """Shared helper to merge configs for both filter and standalone modes."""
+    if yaml_config is None or template_part is None:
+        yaml_config, template_part, data_part = parse_code_block(text)
+
+    merged_attr = attr_config or {}
+
+    # Merge configurations from external files, attributes, and YAML header
+    config = _merge_config_sources(merged_attr, yaml_config)
     _debug(f"Merged config: {config}")
 
     # Validate configuration
@@ -358,6 +428,82 @@ def print_error_info(
     sys.stderr.write(f"\nFor more information, see the documentation.\n")
     sys.stderr.write(f"{'='*60}\n\n")
 
+
+def render_standalone_text(text: str, attr_overrides: Optional[Dict[str, Any]] = None) -> str:
+    """Render template text outside of Pandoc."""
+    template_part = ''
+    config: Dict[str, Any] = {}
+    data_file: Optional[str] = None
+    has_header = True
+    data_part: Optional[str] = None
+
+    try:
+        config, template_part, data_part = _build_config_from_text(text, attr_overrides or {})
+        with_vars = _prepare_variables(config)
+        data_file, data_format, has_header, load_kwargs = _prepare_data_loading(config, with_vars)
+        data = _load_embedz_data(
+            data_file, data_part, config, data_format, has_header, load_kwargs
+        )
+        if not data:
+            _debug("No data loaded in standalone mode, returning empty string")
+            return ''
+        return _render_embedz_template(template_part, data, with_vars)
+    except KNOWN_EXCEPTIONS as e:
+        print_error_info(e, template_part, config, data_file, has_header, data_part)
+        raise
+
+
+def _read_template_source(path_spec: str) -> str:
+    """Read template contents from a file or stdin ('-')."""
+    if path_spec == '-':
+        return sys.stdin.read()
+    validated_path = validate_file_path(path_spec)
+    return Path(validated_path).read_text(encoding='utf-8')
+
+
+def _run_standalone(argv: List[str]) -> None:
+    """Handle standalone CLI rendering."""
+    parser = argparse.ArgumentParser(
+        prog='pandoc-embedz',
+        description='Render embedz templates without invoking Pandoc'
+    )
+    parser.add_argument(
+        '-r', '--render',
+        metavar='FILE',
+        required=True,
+        help="Template file to render (use '-' for stdin)"
+    )
+    parser.add_argument(
+        '-c', '--config',
+        metavar='CONFIG',
+        action='append',
+        default=[],
+        help='External YAML config file(s) merged before inline settings'
+    )
+    parser.add_argument(
+        '-o', '--output',
+        metavar='FILE',
+        help='Write rendered output to file (default: stdout)'
+    )
+
+    args = parser.parse_args(argv)
+
+    attr_overrides: Dict[str, Any] = {}
+    if args.config:
+        attr_overrides['config'] = args.config if len(args.config) > 1 else args.config[0]
+
+    try:
+        text = _read_template_source(args.render)
+        result = render_standalone_text(text, attr_overrides)
+    except KNOWN_EXCEPTIONS:
+        sys.exit(1)
+
+    if args.output:
+        Path(args.output).write_text(result, encoding='utf-8')
+    else:
+        sys.stdout.write(result)
+
+
 def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.Element], None]:
     """Process code blocks with .embedz class
 
@@ -416,8 +562,7 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         _debug("=" * 60)
         return pf.convert_text(result, input_format='markdown')
 
-    except (FileNotFoundError, ValueError, TypeError, yaml.YAMLError,
-            pd.errors.ParserError, TemplateNotFound, KeyError) as e:
+    except KNOWN_EXCEPTIONS as e:
         # Handle known exceptions with detailed error info
         print_error_info(
             e,
@@ -449,16 +594,20 @@ def print_help() -> None:
 USAGE:
     pandoc input.md --filter pandoc-embedz -o output.pdf
 
-    Or as a standalone command (processes Pandoc JSON):
-    pandoc-embedz [OPTIONS]
+Standalone rendering (Markdown, LaTeX, etc.):
+    pandoc-embedz --render template.tex --config config/base.yaml -o output.tex
 
 OPTIONS:
-    -h, --help       Show this help message
-    -v, --version    Show version information
+    -h, --help            Show this help message
+    -v, --version         Show version information
+    -r, --render FILE     Render a standalone template file (use '-' for stdin)
+    -c, --config FILE     External YAML config file (repeatable, applies to standalone mode)
+    -o, --output FILE     Write standalone render result to file (default: stdout)
 
 DESCRIPTION:
     A Pandoc filter that embeds data from various formats (CSV, JSON, YAML,
-    TOML, SQLite) into Markdown documents using Jinja2 templates.
+    TOML, SQLite) into Markdown/LaTeX documents using Jinja2 templates. The
+    standalone renderer shares the same syntax and configuration pipeline.
 
     Supports:
     - Multiple data formats with auto-detection
@@ -466,16 +615,10 @@ DESCRIPTION:
     - Template reuse and macros
     - Global and local variables
     - Multi-table operations
+    - External config files shared between Pandoc runs and standalone rendering
 
 ENVIRONMENT:
     PANDOC_EMBEDZ_DEBUG    Enable debug output (1, true, or yes)
-
-EXAMPLES:
-    # Basic usage
-    pandoc report.md --filter pandoc-embedz -o report.pdf
-
-    # With debug output
-    PANDOC_EMBEDZ_DEBUG=1 pandoc report.md --filter pandoc-embedz -o report.pdf
 
 DOCUMENTATION:
     https://github.com/tecolicom/pandoc-embedz
@@ -495,14 +638,20 @@ def print_version() -> None:
 
 def main() -> None:
     """Entry point for pandoc filter"""
+    argv = sys.argv[1:]
+
+    if any(arg in ('--render', '-r') for arg in argv):
+        _run_standalone(argv)
+        return
+
     # Handle help/version before panflute processes arguments
     # Note: Pandoc passes format arguments to filters (e.g., 'markdown', 'json')
     # so we only handle --help/-h and --version/-v explicitly
-    if len(sys.argv) > 1 and sys.argv[1] in ('-h', '--help', '-v', '--version'):
-        if sys.argv[1] in ('-h', '--help'):
+    if argv and argv[0] in ('-h', '--help', '-v', '--version'):
+        if argv[0] in ('-h', '--help'):
             print_help()
             sys.exit(0)
-        elif sys.argv[1] in ('-v', '--version'):
+        elif argv[0] in ('-v', '--version'):
             print_version()
             sys.exit(0)
 

@@ -1,0 +1,7 @@
+global:
+  title: "Sample Report"
+  author: "Jane Doe"
+data: tests/fixtures/sample.csv
+format: csv
+with:
+  prefix: "Value"

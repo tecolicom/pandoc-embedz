@@ -1,0 +1,4 @@
+global:
+  title: "Override Title"
+with:
+  prefix: "Score"

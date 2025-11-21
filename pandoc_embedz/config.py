@@ -3,7 +3,7 @@
 This module handles configuration parsing, validation, and file path validation.
 """
 
-from typing import Dict, Any, Tuple, Optional, Callable
+from typing import Dict, Any, Tuple, Optional, Callable, List
 import panflute as pf
 from jinja2 import TemplateNotFound
 import yaml
@@ -59,6 +59,38 @@ def load_template_from_saved(name: str) -> Tuple[str, None, Callable[[], bool]]:
         raise TemplateNotFound(name)
     # Return (source, filename, uptodate_func) tuple
     return SAVED_TEMPLATES[name], None, lambda: True
+
+
+def _ensure_dict(value: Any, source: str) -> Dict[str, Any]:
+    """Ensure loaded YAML content is a mapping."""
+    if value is None:
+        return {}
+    if not isinstance(value, dict):
+        raise ValueError(f"{source} must contain a YAML mapping at the top level")
+    return value
+
+
+def load_config_file(file_path: str) -> Dict[str, Any]:
+    """Load YAML configuration from an external file."""
+    validated_path = validate_file_path(file_path)
+    with open(validated_path, 'r', encoding='utf-8') as handle:
+        data = yaml.safe_load(handle)
+    return _ensure_dict(data, f"Config file '{file_path}'")
+
+
+def deep_merge_dicts(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+    """Recursively merge dictionaries without mutating inputs."""
+    merged: Dict[str, Any] = dict(base)
+    for key, value in updates.items():
+        if (
+            key in merged
+            and isinstance(merged[key], dict)
+            and isinstance(value, dict)
+        ):
+            merged[key] = deep_merge_dicts(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
 
 def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
     """Parse code block attributes into config dictionary
