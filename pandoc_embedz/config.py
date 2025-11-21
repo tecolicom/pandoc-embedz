@@ -183,8 +183,7 @@ def parse_code_block(
     else:
         template_lines = list(stream)
 
-    template_text = ''.join(template_lines)
-    template_part = template_text.rstrip('\n') if allow_inline_data else template_text
+    template_part = ''.join(template_lines)
     return config, template_part, data_part
 
 def validate_config(config: Dict[str, Any]) -> None:

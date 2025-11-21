@@ -358,6 +358,17 @@ def _prepare_data_loading(
 
     return data_file, data_format, has_header, load_kwargs
 
+def _split_template_and_newlines(template_part: str) -> Tuple[str, str]:
+    """Return template body and trailing newline suffix (at least one newline)."""
+    if not template_part:
+        return '', '\n'
+    stripped = template_part.rstrip('\n')
+    newline_count = len(template_part) - len(stripped)
+    if newline_count == 0:
+        return template_part, '\n'
+    return template_part[:-newline_count], '\n' * newline_count
+
+
 def _render_embedz_template(
     template_part: str,
     data: Union[List[Any], Dict[str, Any]],
@@ -377,12 +388,10 @@ def _render_embedz_template(
     context = _build_render_context(with_vars, data)
     _debug(f"Rendering template with context keys: {list(context.keys())}")
 
-    result = _render_template(template_part, context)
+    template_body, newline_suffix = _split_template_and_newlines(template_part)
+    result = _render_template(template_body, context)
     _debug(f"Rendered result length: {len(result)} characters")
-
-    # Ensure output ends with newline (prevents concatenation with next paragraph)
-    if result and not result.endswith('\n'):
-        result += '\n'
+    result = (result or '') + newline_suffix
 
     return result
 
@@ -406,36 +415,13 @@ def _execute_embedz_pipeline(
         data_file, data_part, config, data_format, has_header, load_kwargs
     )
 
-    if not data:
-        _debug("No data loaded")
-        template_has_content = bool(template_part.strip())
-        definition_block = bool(config.get('name')) or not template_has_content
-        if definition_block:
-            _debug("Definition-only block, returning empty output")
-            return None, data_file, has_header
+    template_has_content = bool(template_part.strip())
+    definition_block = bool(config.get('name')) or not template_has_content
+    if not data and definition_block:
+        _debug("Definition-only block, returning empty output")
+        return None, data_file, has_header
 
-        fallback_context = _build_render_context(with_vars)
-        expected_newlines = len(template_part) - len(template_part.rstrip('\n'))
-        fallback = _render_template(template_part, fallback_context)
-        if fallback:
-            actual_newlines = len(fallback) - len(fallback.rstrip('\n'))
-            if expected_newlines > 0 and actual_newlines < expected_newlines:
-                fallback += '\n' * (expected_newlines - actual_newlines)
-            elif expected_newlines == 0 and actual_newlines == 0:
-                fallback += '\n'
-        _debug("Rendered template without data (fallback mode)")
-        return fallback, data_file, has_header
-
-    is_definition = bool(config.get('name') and not config.get('as'))
-
-    if not data:
-        _debug("No data loaded")
-        if is_definition:
-            _debug("Definition-only block, returning empty output")
-            return None, data_file, has_header
-        render_data: Union[List[Any], Dict[str, Any]] = []
-    else:
-        render_data = data
+    render_data: Union[List[Any], Dict[str, Any]] = data or []
 
     _debug("Step 6: Rendering template")
     result = _render_embedz_template(template_part, render_data, with_vars)

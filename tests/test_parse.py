@@ -134,7 +134,7 @@ Template
         config, template, data = parse_code_block(text)
 
         assert config['format'] == 'json'
-        assert template == 'Template'
+        assert template == 'Template\n'
         assert '"name": "Arthur"' in data
         assert '"value": 100' in data
 
@@ -151,8 +151,8 @@ name: test
         assert template == '    indented content\n    more indented'
         assert template.startswith('    ')  # Leading whitespace preserved
 
-    def test_parse_removes_trailing_newlines(self):
-        """Trailing newlines should be removed (like shell $(...))"""
+    def test_parse_preserves_trailing_newlines(self):
+        """Trailing newlines are preserved for later reattachment"""
         text = """---
 name: test
 ---
@@ -163,8 +163,8 @@ content
 
         config, template, data = parse_code_block(text)
 
-        assert template == 'content'  # Trailing newlines removed
-        assert not template.endswith('\n')
+        assert template == 'content\n\n\n'
+        assert template.endswith('\n')
 
     def test_parse_preserves_internal_newlines(self):
         """Internal newlines should be preserved"""
