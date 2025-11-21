@@ -451,6 +451,8 @@ data:
 ```
 ````
 
+> **Note:** Inline data via a third `---` separator only works inside `.embedz` code blocks. Standalone templates should provide inline data through `data: |` YAML blocks or external files, because everything after the front matter is treated as template text.
+
 **See [MULTI_TABLE.md](MULTI_TABLE.md) for comprehensive examples and documentation.**
 
 ### Template Macros
@@ -888,7 +890,7 @@ pandoc-embedz --render templates/report.tex --config config/base.yaml -o build/r
 - `--render / -r` points to the template file (use `-` to read from stdin)
 - Entire file content is treated as the template body
 - Optional YAML front matter at the top is parsed the same way as code blocks
-- Inline data can follow the third `---`, just like `.embedz` blocks
+- Inline data sections (`---` separator) are **not** interpreted here—use `data:` blocks or external files instead
 - Output is written to stdout unless `--output / -o` is provided
 
 Because the renderer simply expands templates, it works with Markdown, LaTeX, or any other plaintext format that Pandoc would normally consume later in the toolchain.
@@ -917,6 +919,17 @@ pandoc-embedz --render report.tex --config config/base.yaml --config config/late
 - Use a single file path or a list for `config:`; attributes support `config=path.yaml`
 
 This makes it easy to share data sources, variable defaults, and macro preambles between Pandoc runs and standalone rendering jobs.
+
+### Why Not a Generic Jinja CLI?
+
+Compared to one-off “render this template with Jinja” tools, `pandoc-embedz` is purpose-built for document pipelines:
+
+- **Pandoc-native integration** – filter mode writes straight into the AST, so numbering, ToC, citations, and other filters keep working without extra glue.
+- **Rich data loading** – CSV/TSV/SSV/lines/JSON/YAML/TOML/SQLite, multi-table joins, inline data, and query templating are all first-class features.
+- **Inline configuration** – every `.embedz` block (or front matter) carries its own YAML config, globals, and macros, making documents self-contained.
+- **Shared workflow** – standalone mode reuses the exact filter pipeline, so Markdown/LaTeX templates and Pandoc documents can share templates, configs, and debugging behavior.
+
+If you only need to expand a single template file once, a simple Jinja CLI might suffice. But for reproducible reports, multi-dataset embeds, or pipelines that already rely on Pandoc, `pandoc-embedz` keeps the whole workflow aligned.
 
 ## Related Tools
 

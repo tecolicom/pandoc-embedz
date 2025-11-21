@@ -200,11 +200,14 @@ def _build_config_from_text(
     attr_config: Optional[Dict[str, Any]] = None,
     yaml_config: Optional[Dict[str, Any]] = None,
     template_part: Optional[str] = None,
-    data_part: Optional[str] = None
+    data_part: Optional[str] = None,
+    allow_inline_data: bool = True
 ) -> Tuple[Dict[str, Any], str, Optional[str]]:
     """Shared helper to merge configs for both filter and standalone modes."""
     if yaml_config is None or template_part is None:
-        yaml_config, template_part, data_part = parse_code_block(text)
+        yaml_config, template_part, data_part = parse_code_block(
+            text, allow_inline_data=allow_inline_data
+        )
 
     merged_attr = attr_config or {}
 
@@ -383,6 +386,35 @@ def _render_embedz_template(
 
     return result
 
+
+def _execute_embedz_pipeline(
+    config: Dict[str, Any],
+    template_part: str,
+    data_part: Optional[str]
+) -> Tuple[Optional[str], Optional[str], bool]:
+    """Run the core embedz pipeline shared by block and standalone modes."""
+    _debug("Step 3: Preparing variables")
+    with_vars = _prepare_variables(config)
+
+    _debug("Step 4: Preparing data loading")
+    data_file, data_format, has_header, load_kwargs = _prepare_data_loading(
+        config, with_vars
+    )
+
+    _debug("Step 5: Loading data")
+    data = _load_embedz_data(
+        data_file, data_part, config, data_format, has_header, load_kwargs
+    )
+
+    if not data:
+        _debug("No data loaded, returning empty output")
+        return None, data_file, has_header
+
+    _debug("Step 6: Rendering template")
+    result = _render_embedz_template(template_part, data, with_vars)
+
+    return result, data_file, has_header
+
 def print_error_info(
     e: Exception,
     template_part: str,
@@ -438,16 +470,21 @@ def render_standalone_text(text: str, attr_overrides: Optional[Dict[str, Any]] =
     data_part: Optional[str] = None
 
     try:
-        config, template_part, data_part = _build_config_from_text(text, attr_overrides or {})
-        with_vars = _prepare_variables(config)
-        data_file, data_format, has_header, load_kwargs = _prepare_data_loading(config, with_vars)
-        data = _load_embedz_data(
-            data_file, data_part, config, data_format, has_header, load_kwargs
+        _debug("=" * 60)
+        _debug("Processing standalone embedz template")
+        config, template_part, data_part = _build_config_from_text(
+            text,
+            attr_overrides or {},
+            allow_inline_data=False
         )
-        if not data:
-            _debug("No data loaded in standalone mode, returning empty string")
+        result, data_file, has_header = _execute_embedz_pipeline(
+            config, template_part, data_part
+        )
+        _debug("Processing complete")
+        _debug("=" * 60)
+        if result is None:
             return ''
-        return _render_embedz_template(template_part, data, with_vars)
+        return result
     except KNOWN_EXCEPTIONS as e:
         print_error_info(e, template_part, config, data_file, has_header, data_part)
         raise
@@ -533,33 +570,17 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         _debug("Step 2: Processing template references")
         template_part = _process_template_references(config, template_part)
 
-        # Step 3: Prepare variables (with and global)
-        _debug("Step 3: Preparing variables")
-        with_vars = _prepare_variables(config)
-
-        # Step 4: Prepare data loading parameters
-        _debug("Step 4: Preparing data loading")
-        data_file, data_format, has_header, load_kwargs = _prepare_data_loading(
-            config, with_vars
+        # Steps 3-6: Shared pipeline
+        result, data_file, has_header = _execute_embedz_pipeline(
+            config, template_part, data_part
         )
-
-        # Step 5: Load data
-        _debug("Step 5: Loading data")
-        data = _load_embedz_data(
-            data_file, data_part, config, data_format, has_header, load_kwargs
-        )
-
-        # If no data, only save template (no output)
-        if not data:
-            _debug("No data loaded, returning empty output")
-            return []
-
-        # Step 6: Render template
-        _debug("Step 6: Rendering template")
-        result = _render_embedz_template(template_part, data, with_vars)
 
         _debug("Processing complete")
         _debug("=" * 60)
+
+        if result is None:
+            return []
+
         return pf.convert_text(result, input_format='markdown')
 
     except KNOWN_EXCEPTIONS as e:

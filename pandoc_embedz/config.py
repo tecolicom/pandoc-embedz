@@ -134,7 +134,10 @@ def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
 
     return config
 
-def parse_code_block(text: str) -> Tuple[Dict[str, Any], str, Optional[str]]:
+def parse_code_block(
+    text: str,
+    allow_inline_data: bool = True
+) -> Tuple[Dict[str, Any], str, Optional[str]]:
     """Parse code block into YAML config, template, and data sections
 
     Args:
@@ -171,11 +174,14 @@ def parse_code_block(text: str) -> Tuple[Dict[str, Any], str, Optional[str]]:
 
     template_lines = []
     data_part = None
-    for line in stream:
-        if line.strip() == '---':
-            data_part = stream.read().strip()
-            break
-        template_lines.append(line)
+    if allow_inline_data:
+        for line in stream:
+            if line.strip() == '---':
+                data_part = stream.read().strip()
+                break
+            template_lines.append(line)
+    else:
+        template_lines = list(stream)
 
     template_part = ''.join(template_lines).rstrip('\n')
     return config, template_part, data_part

@@ -80,3 +80,42 @@ def test_render_standalone_with_cli_config():
 
     assert 'Sample Report' in result
     assert '- Arthur: 42' in result
+
+
+def test_standalone_preserves_literal_delimiters():
+    """Standalone templates treat everything after front matter as template text."""
+    from pandoc_embedz.filter import render_standalone_text
+
+    _reset_state()
+    template = '''---
+config: tests/fixtures/embedz_config.yaml
+---
+Top line
+---
+{% for row in data[:1] %}
+- {{ row.name }}
+{% endfor %}
+'''
+    result = render_standalone_text(template)
+    assert 'Top line' in result
+    assert '\n---\n' in result
+    assert '- Arthur' in result
+
+
+def test_standalone_does_not_accept_inline_data_payload():
+    """Standalone mode ignores inline data sections; data must come from config."""
+    from pandoc_embedz.filter import render_standalone_text
+
+    _reset_state()
+    template = '''---
+format: csv
+---
+{% for row in data %}
+- {{ row.name }}
+{% endfor %}
+---
+name,value
+Foo,1
+'''
+    result = render_standalone_text(template)
+    assert result.strip() == ''
