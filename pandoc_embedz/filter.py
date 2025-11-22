@@ -12,10 +12,6 @@ import pandas as pd
 import yaml
 import sys
 import os
-try:
-    from importlib.metadata import version
-except ImportError:
-    from importlib_metadata import version  # Python 3.7 compatibility
 
 # Import from local modules
 from .config import (
@@ -538,77 +534,11 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         sys.stderr.write(f"{'='*60}\n\n")
         raise
 
-def print_help() -> None:
-    """Print help message"""
-    help_text = """pandoc-embedz - Pandoc filter for embedding data-driven content
-
-USAGE:
-    pandoc input.md --filter pandoc-embedz -o output.pdf
-
-Standalone rendering (Markdown, LaTeX, etc.):
-    pandoc-embedz --render template.tex --config config/base.yaml -o output.tex
-
-OPTIONS:
-    -h, --help            Show this help message
-    -v, --version         Show version information
-    -r, --render FILE     Render a standalone template file (use '-' for stdin)
-    -c, --config FILE     External YAML config file (repeatable, applies to standalone mode)
-    -o, --output FILE     Write standalone render result to file (default: stdout)
-
-DESCRIPTION:
-    A Pandoc filter that embeds data from various formats (CSV, JSON, YAML,
-    TOML, SQLite) into Markdown/LaTeX documents using Jinja2 templates. The
-    standalone renderer shares the same syntax and configuration pipeline.
-
-    Supports:
-    - Multiple data formats with auto-detection
-    - SQL queries on CSV/TSV files
-    - Template reuse and macros
-    - Global and local variables
-    - Multi-table operations
-    - External config files shared between Pandoc runs and standalone rendering
-
-ENVIRONMENT:
-    PANDOC_EMBEDZ_DEBUG    Enable debug output (1, true, or yes)
-
-DOCUMENTATION:
-    https://github.com/tecolicom/pandoc-embedz
-
-REPORT BUGS:
-    https://github.com/tecolicom/pandoc-embedz/issues
-"""
-    print(help_text)
-
-def print_version() -> None:
-    """Print version information"""
-    try:
-        pkg_version = version('pandoc-embedz')
-    except Exception:
-        pkg_version = 'unknown'
-    print(f"pandoc-embedz {pkg_version}")
-
 def main() -> None:
-    """Entry point for pandoc filter"""
-    argv = sys.argv[1:]
+    """Backward-compatible entry point delegating to pandoc_embedz.main."""
+    from .main import main as cli_main
+    cli_main()
 
-    if any(arg in ('--render', '-r') for arg in argv):
-        from .standalone import run_standalone
-        run_standalone(argv)
-        return
 
-    # Handle help/version before panflute processes arguments
-    # Note: Pandoc passes format arguments to filters (e.g., 'markdown', 'json')
-    # so we only handle --help/-h and --version/-v explicitly
-    if argv and argv[0] in ('-h', '--help', '-v', '--version'):
-        if argv[0] in ('-h', '--help'):
-            print_help()
-            sys.exit(0)
-        elif argv[0] in ('-v', '--version'):
-            print_version()
-            sys.exit(0)
-
-    # Run as Pandoc filter (panflute handles format arguments)
-    pf.run_filter(process_embedz)
-
-if __name__ == '__main__':
+if __name__ == '__main__':  # pragma: no cover
     main()

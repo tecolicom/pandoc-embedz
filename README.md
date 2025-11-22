@@ -23,7 +23,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 📋 **Preamble Section**: Define control structures (macros, variables) for entire document
 - 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), and preamble (`preamble:`) management
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
-- 🧾 **Standalone Rendering**: `pandoc-embedz --render file.tex` expands templates without running full Pandoc
+- 🧾 **Standalone Rendering**: `pandoc-embedz --standalone file1.tex file2.md` expands whole templates (Markdown/LaTeX) without running full Pandoc
 
 ## tl;dr
 
@@ -896,16 +896,16 @@ For detailed Jinja2 template syntax and features, see the [Jinja2 documentation]
 Need to render Markdown or LaTeX files without running a full Pandoc conversion? Use the built-in renderer:
 
 ```bash
-pandoc-embedz --render templates/report.tex --config config/base.yaml -o build/report.tex
+pandoc-embedz --standalone templates/report.tex charts.tex --config config/base.yaml -o build/report.tex
 ```
 
-- `--render / -r` points to the template file (use `-` to read from stdin)
-- Entire file content is treated as the template body
+- `--standalone` (or `-s`) enables standalone mode and every positional argument after it is treated as a template file (use `-` to read from stdin)
+- Entire file content is treated as the template body; multiple files are rendered in order and their outputs are concatenated
 - Optional YAML front matter at the top is parsed the same way as code blocks
 - Inline data sections (`---` separator) are **not** interpreted here—use `data:` blocks or external files instead
 - Output is written to stdout unless `--output / -o` is provided
 - If no data sources are defined, the template renders as-is (handy for LaTeX front matter
-  that only needs global variables or static content)
+  that only needs global variables or static content); files that only define front matter/preamble produce no output
 
 Because the renderer simply expands templates, it works with Markdown, LaTeX, or any other plaintext format that Pandoc would normally consume later in the toolchain.
 
@@ -913,7 +913,7 @@ Because the renderer simply expands templates, it works with Markdown, LaTeX, or
 
 Both the Pandoc filter and the standalone renderer can now load shared configuration files. Add them via `config` in YAML/attributes or from the CLI:
 
-```markdown
+````markdown
 ```embedz
 ---
 config:
@@ -921,10 +921,10 @@ config:
   - config/overrides.yaml
 ---
 ```
-```
+````
 
 ```bash
-pandoc-embedz --render report.tex --config config/base.yaml --config config/latex.yaml
+pandoc-embedz --standalone report.md appendix.tex --config config/base.yaml --config config/latex.yaml
 ```
 
 - Each config file must be a YAML mapping (can define `data`, `format`, `with`, `global`, `preamble`, etc.)

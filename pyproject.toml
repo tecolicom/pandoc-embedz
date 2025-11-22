@@ -47,7 +47,7 @@ Repository = "https://github.com/tecolicom/pandoc-embedz"
 Issues = "https://github.com/tecolicom/pandoc-embedz/issues"
 
 [project.scripts]
-pandoc-embedz = "pandoc_embedz.filter:main"
+pandoc-embedz = "pandoc_embedz.main:main"
 
 [tool.setuptools]
 packages = ["pandoc_embedz"]
