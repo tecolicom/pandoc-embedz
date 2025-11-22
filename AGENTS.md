@@ -48,6 +48,7 @@ All debug messages are prefixed with `[DEBUG]` and written to stderr.
 - PRs should target `main`, include a summary, list the commands you ran (tests, build, manual Pandoc runs), and link any related issues or examples.
 - Mention manual verification steps (example Markdown, Pandoc output, etc.) so reviewers know what was exercised.
 - When the user requests a detailed commit message, capture those bullet points for them (e.g., drop them into a helper script like `scripts/commit_refactor.sh`) so they can run the commit locally without copy/pasting text, and include any necessary `git add <files>` commands inside the helper to ensure the correct files are staged beforehand.
+- When the user asks for a release helper, default to a one-off shell script that simply lists the concrete commands (tests, build, git add/commit/tag, pushes, `gh release create`). No automation logic beyond straight command sequencing.
 - For visibility into which assistant produced a set of changes, append a short tag such as `(via Codex / GPT-5)` or `(via Claude Code / Claude-3)` at the end of the commit subject/body; match the actual assistant+model you used.
 - Before modifying any files:
   - Briefly summarize what you plan to do

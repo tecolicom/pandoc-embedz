@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-11-22
+
+### Added
+- `pandoc_embedz.main` entry point now powers the `pandoc-embedz` console script, providing a dedicated CLI surface plus the new `--standalone`/`-s` flag for rendering Markdown outside of Pandoc.
+
+### Changed
+- Standalone execution and helper logic moved out of `filter.py`, keeping the filter narrowly focused while `main.py` owns argument parsing, help/version output, and renderer orchestration.
+- Template newline handling was streamlined so Jinja output preserves intentional trailing newlines consistently across filter and standalone execution, with updated tests to lock in behavior.
+- Documentation now covers assistant/model tagging expectations together with the refreshed standalone CLI examples.
+
+### Removed
+- Deprecated release helper scripts and a stray `log.failed` artifact were dropped from the repository.
+
 ## [0.5.0] - 2025-11-21
 
 ### Added
@@ -107,7 +120,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
-[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.4.1...v0.5.0
 [0.4.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.2.0...v0.3.0
