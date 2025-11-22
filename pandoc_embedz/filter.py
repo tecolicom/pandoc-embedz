@@ -6,14 +6,12 @@ into your Markdown documents using Jinja2 template syntax within code blocks.
 """
 
 from typing import Dict, Any, Tuple, Optional, Union, List
-import argparse
 import panflute as pf
 from jinja2 import Environment, FunctionLoader, TemplateNotFound
 import pandas as pd
 import yaml
 import sys
 import os
-from pathlib import Path
 try:
     from importlib.metadata import version
 except ImportError:
@@ -25,7 +23,6 @@ from .config import (
     parse_attributes,
     parse_code_block,
     validate_config,
-    validate_file_path,
     load_config_file,
     deep_merge_dicts,
     SAVED_TEMPLATES
@@ -474,84 +471,6 @@ def print_error_info(
     sys.stderr.write(f"{'='*60}\n\n")
 
 
-def render_standalone_text(text: str, attr_overrides: Optional[Dict[str, Any]] = None) -> str:
-    """Render template text outside of Pandoc."""
-    template_part = ''
-    config: Dict[str, Any] = {}
-    data_file: Optional[str] = None
-    has_header = True
-    data_part: Optional[str] = None
-
-    try:
-        _debug("=" * 60)
-        _debug("Processing standalone embedz template")
-        config, template_part, data_part = _build_config_from_text(
-            text,
-            attr_overrides or {},
-            allow_inline_data=False
-        )
-        result, data_file, has_header = _execute_embedz_pipeline(
-            config, template_part, data_part
-        )
-        _debug("Processing complete")
-        _debug("=" * 60)
-        return result or ''
-    except KNOWN_EXCEPTIONS as e:
-        print_error_info(e, template_part, config, data_file, has_header, data_part)
-        raise
-
-
-def _read_template_source(path_spec: str) -> str:
-    """Read template contents from a file or stdin ('-')."""
-    if path_spec == '-':
-        return sys.stdin.read()
-    validated_path = validate_file_path(path_spec)
-    return Path(validated_path).read_text(encoding='utf-8')
-
-
-def _run_standalone(argv: List[str]) -> None:
-    """Handle standalone CLI rendering."""
-    parser = argparse.ArgumentParser(
-        prog='pandoc-embedz',
-        description='Render embedz templates without invoking Pandoc'
-    )
-    parser.add_argument(
-        '-r', '--render',
-        metavar='FILE',
-        required=True,
-        help="Template file to render (use '-' for stdin)"
-    )
-    parser.add_argument(
-        '-c', '--config',
-        metavar='CONFIG',
-        action='append',
-        default=[],
-        help='External YAML config file(s) merged before inline settings'
-    )
-    parser.add_argument(
-        '-o', '--output',
-        metavar='FILE',
-        help='Write rendered output to file (default: stdout)'
-    )
-
-    args = parser.parse_args(argv)
-
-    attr_overrides: Dict[str, Any] = {}
-    if args.config:
-        attr_overrides['config'] = args.config if len(args.config) > 1 else args.config[0]
-
-    try:
-        text = _read_template_source(args.render)
-        result = render_standalone_text(text, attr_overrides)
-    except KNOWN_EXCEPTIONS:
-        sys.exit(1)
-
-    if args.output:
-        Path(args.output).write_text(result, encoding='utf-8')
-    else:
-        sys.stdout.write(result)
-
-
 def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.Element], None]:
     """Process code blocks with .embedz class
 
@@ -673,7 +592,8 @@ def main() -> None:
     argv = sys.argv[1:]
 
     if any(arg in ('--render', '-r') for arg in argv):
-        _run_standalone(argv)
+        from .standalone import run_standalone
+        run_standalone(argv)
         return
 
     # Handle help/version before panflute processes arguments

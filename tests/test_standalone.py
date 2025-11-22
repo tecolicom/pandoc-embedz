@@ -69,7 +69,7 @@ config:
 
 def test_render_standalone_with_cli_config():
     """Standalone rendering accepts config files via overrides."""
-    from pandoc_embedz.filter import render_standalone_text
+    from pandoc_embedz.standalone import render_standalone_text
 
     _reset_state()
     template = Path('tests/fixtures/cli_template.tex').read_text(encoding='utf-8')
@@ -84,7 +84,7 @@ def test_render_standalone_with_cli_config():
 
 def test_standalone_preserves_literal_delimiters():
     """Standalone templates treat everything after front matter as template text."""
-    from pandoc_embedz.filter import render_standalone_text
+    from pandoc_embedz.standalone import render_standalone_text
 
     _reset_state()
     template = '''---
@@ -104,7 +104,7 @@ Top line
 
 def test_standalone_does_not_accept_inline_data_payload():
     """Standalone mode ignores inline data sections; data must come from config."""
-    from pandoc_embedz.filter import render_standalone_text
+    from pandoc_embedz.standalone import render_standalone_text
 
     _reset_state()
     template = '''---
@@ -124,7 +124,7 @@ Foo,1
 
 def test_standalone_without_data_renders_template():
     """Standalone template without data should render as-is."""
-    from pandoc_embedz.filter import render_standalone_text
+    from pandoc_embedz.standalone import render_standalone_text
 
     _reset_state()
     template = '''---
@@ -139,7 +139,7 @@ global:
 
 def test_standalone_preserves_trailing_newlines():
     """Standalone fallback keeps original trailing newlines."""
-    from pandoc_embedz.filter import render_standalone_text
+    from pandoc_embedz.standalone import render_standalone_text
 
     _reset_state()
     template = '''---
@@ -153,7 +153,7 @@ Line
 
 def test_standalone_appends_newline_when_missing():
     """Standalone fallback adds a single newline if none existed."""
-    from pandoc_embedz.filter import render_standalone_text
+    from pandoc_embedz.standalone import render_standalone_text
 
     _reset_state()
     template = '''---
