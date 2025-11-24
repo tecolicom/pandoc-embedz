@@ -58,13 +58,13 @@ All debug messages are prefixed with `[DEBUG]` and written to stderr.
 ## Release Process
 1. **Update version**: Edit `version` in `pyproject.toml` (e.g., `0.3.0` → `0.4.0`)
 2. **Update CHANGELOG.md**: Add new version section with Added/Changed/Fixed categories and update comparison links
-3. **Run tests**: `python -m pytest tests/` to ensure all 132+ tests pass
+3. **Run tests**: `python -m pytest tests/` to ensure all tests pass
 4. **Commit changes**: `git commit -m "Release version X.Y.Z"`
 5. **Create tag**: `git tag -a vX.Y.Z -m "Release version X.Y.Z"`
 6. **Push**: `git push && git push --tags`
-7. **Create GitHub Release**: `gh release create vX.Y.Z --title "vX.Y.Z - Title" --notes "..." dist/*`
+7. **Create GitHub Release**: `gh release create vX.Y.Z --title "vX.Y.Z - Title" --notes "..."`
+   - **No need to build locally** - GitHub Actions handles building and publishing
    - **GitHub Actions automatically publishes to PyPI** when a release is created
-   - No need to manually run `twine upload`
    - Check workflow status: `gh run list --limit 3`
 
 ### Post-Release Verification

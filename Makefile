@@ -30,10 +30,6 @@ release:
 	comment "Running tests"
 	run "python -m pytest tests/"
 
-	comment "Building artifacts"
-	run "rm -rf build dist"
-	run "python -m build"
-
 	comment "Committing release $$VERSION"
 	run "git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml AGENTS.md"
 	run "git commit -F -" <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
