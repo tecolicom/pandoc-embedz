@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2025-11-25
+
+### Fixed
+- Update uv.lock to reflect v0.7.0 version (was accidentally omitted from release commit)
+- Eliminate uv deprecation warning by migrating to PEP 735 dependency-groups format
+- Improve Makefile release process to prevent similar issues in future releases
+
+### Changed
+- Replace `[tool.uv]` dev-dependencies with standard `[dependency-groups]` dev
+- Remove `.python-version` from repository (developers can use their preferred Python 3.8+ version)
+- Add `.python-version` to `.gitignore` for local development flexibility
+
+### Improved
+- Makefile now automatically includes uv.lock in release commits
+- Makefile preserves markdown headings in git tag annotations (--cleanup=whitespace)
+- Simplified release workflow by removing overly restrictive dirty check
+
 ## [0.7.0] - 2025-11-25
 
 ### Added
