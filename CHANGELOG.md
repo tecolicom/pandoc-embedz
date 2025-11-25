@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.2] - 2025-11-25
+
+### Added
+- Optional sqlite-utils integration for improved SQLite database handling
+- New `[sqlite]` optional dependency group for enhanced SQLite features
+
+### Changed
+- SQLite loader now uses sqlite-utils when available, falling back to standard sqlite3
+- Improved SQLite query execution with cleaner API when sqlite-utils is installed
+
+### Improved
+- More efficient SQLite table row retrieval using sqlite-utils' optimized methods
+- Better code maintainability in data_loader.py with optional dependency pattern
+
 ## [0.7.1] - 2025-11-25
 
 ### Fixed
