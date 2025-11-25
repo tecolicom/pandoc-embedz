@@ -17,10 +17,11 @@ release:
 		gh()     { dryrun "$$@"; }
 		python() { dryrun "$$@"; }
 		uv()     { dryrun "$$@"; }
+		perl()   { dryrun "$$@"; }
 	else
 		set -x
 	fi
-	VERSION=$$(perl -nE 'say $$1 and last if /^## \[([0-9]+\.[0-9]+\.[0-9]+)\]/' CHANGELOG.md)
+	VERSION=$$(command perl -nE 'say $$1 and last if /^## \[([0-9]+\.[0-9]+\.[0-9]+)\]/' CHANGELOG.md)
 	TAG="v$${VERSION:?Error: unable to determine release version from CHANGELOG.md}"
 	NOTES_CONTENT="$$(extract_notes < CHANGELOG.md)"
 	NOTES_CONTENT="$$(fold_notes <<< "$$NOTES_CONTENT")"
