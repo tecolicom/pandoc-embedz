@@ -69,32 +69,47 @@ All debug messages are prefixed with `[DEBUG]` and written to stderr.
 
 ## Release Process
 
-### Automated Release (Recommended)
-The project includes a highly refined Makefile that automates the entire release workflow:
+### Automated Release (Minilla-style)
+The project uses a Minilla-style release workflow where CHANGELOG.md is the single source of truth for versions:
 
-1. **Update version and CHANGELOG.md**: Manually edit `pyproject.toml`, `pandoc_embedz/__init__.py`, and `CHANGELOG.md`
-2. **Preview release (dryrun)**: `make release-n`
+**Workflow:**
+1. **Edit code and add CHANGELOG entry**
+   ```markdown
+   ## [0.7.4] - 2025-11-26
+
+   ### Added
+   - New feature description
+   ```
+   **Important:** Only edit CHANGELOG.md - do NOT manually update version numbers in pyproject.toml or __init__.py
+
+2. **Preview release (dry run)**: `make release-n`
    - Shows all commands without executing them
-   - Ignores dirty working tree and existing tags
    - Displays formatted release notes
-3. **Execute release**: `make release`
-   - Extracts version from CHANGELOG.md using Perl
-   - Runs all tests using `uv run pytest tests/`
-   - Creates commit with full release notes
-   - Creates annotated tag with detailed release notes
-   - Pushes to GitHub
-   - Creates GitHub Release using tag annotations (`--notes-from-tag`)
-   - **No need to build locally** - GitHub Actions handles building and publishing with uv
-   - **GitHub Actions automatically publishes to PyPI** when a release is created
-   - Uses `set -x` for real-time execution visibility
+   - Safe to run anytime
 
-**Makefile features:**
-- Conditional function definitions for elegant dryrun behavior
-- Abstracts `greple`/`ansifold` for easy customization
-- Uses `${VERSION:?...}` for robust error handling
-- `IGNORE_DIRTY` and `IGNORE_TAG_EXISTS` flags for flexibility
-- Full release notes in both commit message and tag annotation
-- Synchronizes GitHub Release with git tag content
+3. **Execute release**: `make release`
+   - Performs dirty check (fails if uncommitted changes exist)
+   - Extracts version from CHANGELOG.md
+   - **Automatically updates** `pyproject.toml` and `pandoc_embedz/__init__.py`
+   - Updates `uv.lock` with new version
+   - Runs all tests: `uv run pytest tests/`
+   - Commits ALL tracked changes with `git add -u` (prevents missing files)
+   - Creates annotated tag with full release notes
+   - Pushes to GitHub
+   - Creates GitHub Release using `gh release create --notes-from-tag`
+   - **GitHub Actions automatically publishes to PyPI**
+
+**Key Features:**
+- **Single source of truth**: CHANGELOG.md controls version
+- **Automatic version updates**: No manual editing of version numbers
+- **Dirty check**: Prevents releases with uncommitted changes
+- **Complete commits**: `git add -u` includes all tracked changes (no more missing files like v0.7.2)
+- **Dry run support**: `perl` commands mocked in dry run mode
+- **Error handling**: `${VERSION:?...}` ensures version extraction succeeds
+
+**Flags:**
+- `IGNORE_DIRTY=1`: Skip dirty check (used by `make release-n`)
+- `IGNORE_TAG_EXISTS=1`: Allow existing tags (used by `make release-n`)
 
 ### Manual Release (Fallback)
 If you need to release manually without the Makefile:
