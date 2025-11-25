@@ -42,7 +42,7 @@ release:
 	uv run pytest tests/
 
 	comment "Committing release $$VERSION"
-	git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml uv.lock AGENTS.md
+	git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml uv.lock
 	git commit -F - <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
 
 	comment "Tagging $$TAG"
