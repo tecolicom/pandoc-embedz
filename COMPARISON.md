@@ -10,33 +10,60 @@ pandoc-embedz の位置づけを比較分析します。
 
 ## 既存のソリューション
 
-### 1. pandoc-csv2table / pandoc-placetable / pantable
+### 1. pandoc-csv2table
 
-CSVをテーブルに変換する専用フィルタ。
+CSVをテーブルに変換する専用フィルタ（Haskell実装）。
 
 **使用例:**
-```markdown
-​```{.table file="data.csv"}
-​```
+````markdown
+```{.table file="data.csv" type="grid"}
 ```
+````
 
 **特徴:**
 - ✅ テーブル生成が簡単
+- ✅ 複数のテーブル形式をサポート（simple、multiline、pipe、grid）
+- ❌ テンプレート機能なし（テーブルのみ生成可能）
+- ❌ ループ・条件分岐不可
+- ❌ データの加工・フィルタリング不可
+- ❌ リスト等の他の形式に変換不可
+- ⚠️ メンテナンスに課題あり（ビルドエラー報告、大きな依存関係）
+- ⚠️ 新しい代替ツール（pantable）への移行が推奨されている
+
+**結論:** 単純なCSVテーブル挿入には使えるが、メンテナンス状況に注意が必要。
+
+
+### 2. pantable
+
+CSV/TSVをテーブルに変換する高機能なPythonフィルタ。
+
+**使用例:**
+````markdown
+```{.pantable file="data.csv"}
+```
+````
+
+**特徴:**
+- ✅ テーブル生成が簡単で高機能
 - ✅ CSV専用に最適化
+- ✅ Pandoc Table ASTを完全サポート
+- ✅ CSV ↔ Pandoc Table の双方向変換
+- ✅ ライブラリとしても使用可能
+- ✅ 比較的活発に保守されている（最終更新: 2022年）
 - ❌ テンプレート機能なし（テーブルのみ生成可能）
 - ❌ ループ・条件分岐不可
 - ❌ データの加工・フィルタリング不可
 - ❌ リスト等の他の形式に変換不可
 
-**結論:** 単純なCSVテーブル挿入には便利だが、柔軟性に欠ける。
+**結論:** 単純なCSVテーブル挿入には最適だが、柔軟性に欠ける。pandoc-csv2tableよりも推奨される。
 
 
-### 2. pandoc-jinja
+### 3. pandoc-jinja
 
 Pandoc メタデータを**ドキュメント全体**に展開する Jinja2 ベースのフィルタ。
 
 **使用例:**
-```markdown
+````markdown
 ---
 title: Report
 author: John
@@ -45,7 +72,7 @@ year: 2024
 
 # {{ title | upper }}
 By {{ author }} ({{ year }})
-```
+````
 
 **特徴:**
 - ✅ メタデータ変数の展開（ドキュメント全体）
@@ -56,16 +83,17 @@ By {{ author }} ({{ year }})
 - ❌ データ駆動のドキュメント生成には不向き
 - ❌ コードブロック単位の処理は不可
 - ❌ 動作が遅い（開発者自身が言及）
+- ⚠️ **プロジェクトは非活発状態**（最終更新: 2024年5月、週間DL数: 約74件）
 
 **用途の違い:** pandoc-jinja は**ドキュメント全体**のメタデータ展開が目的。
 pandoc-embedz は**コードブロック内**でのデータ駆動コンテンツ生成が目的。
 両者は目的が異なるため、併用も可能。
 
 **結論:** メタデータの変数展開には便利だが、外部データからテーブル・リストを
-生成するには使えない。
+生成するには使えない。プロジェクトの活動状況にも注意が必要。
 
 
-### 3. Pandoc Lua フィルタ
+### 4. Pandoc Lua フィルタ
 
 Lua スクリプトでカスタムフィルタを作成。
 
@@ -91,21 +119,24 @@ end
 **結論:** 柔軟だが、毎回コードを書くのは非効率。再利用性が低い。
 
 
-### 4. R Markdown / Quarto
+### 5. R Markdown / Quarto
 
 R/Python のコードチャンクでテーブル生成。
 
 **使用例:**
-```markdown
-​```{r}
+````markdown
+```{r}
 data <- read.csv("data.csv")
 knitr::kable(data)
-​```
 ```
+````
 
 **特徴:**
 - ✅ データ処理が非常に強力
 - ✅ 統計分析・可視化も可能
+- ✅ 活発に開発されている（Quarto 1.4: 2024年1月、Quarto 1.5: 2024年7月）
+- ✅ Python、R、Julia、Observable JS をサポート
+- ✅ ダッシュボード、Manuscript、インタラクティブコンテンツに対応
 - ❌ R/Python 環境が必須
 - ❌ IDE（RStudio/VS Code）のセットアップが必要
 - ❌ Pandoc単体では動かない
@@ -117,7 +148,7 @@ knitr::kable(data)
 オーバーキル。
 
 
-### 5. 前処理アプローチ（Jinja2 CLI → Pandoc）
+### 6. 前処理アプローチ（Jinja2 CLI → Pandoc）
 
 Markdownファイル自体をJinja2で生成してからPandocに渡す。
 
@@ -149,8 +180,8 @@ jinja2 report.md.j2 data.yml | pandoc -o report.pdf
 ### 主要機能
 
 **1. 完全な Jinja2 サポート**
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 data: incidents.csv
 ---
@@ -161,44 +192,46 @@ data: incidents.csv
 - {{ row.title }}: {{ row.count }}件
 {% endif %}
 {% endfor %}
-​```
 ```
+````
 
-**2. 6種類のデータフォーマット**
+**2. 8種類のデータフォーマット**
 - CSV（カンマ区切り）
 - TSV（タブ区切り）
 - SSV/Spaces（空白・タブ区切り、手動整形に最適）
 - lines（1行1要素）
 - JSON（構造化データ）
 - YAML（構造化データ）
+- TOML（構造化データ）
+- SQLite（データベースファイル）
 
 拡張子による自動判定、または明示的な format 指定が可能。`ssv` と `spaces` は同義語として使用可能。
 
 **3. 外部ファイルとインラインデータ**
-```markdown
+````markdown
 # 外部ファイル
-​```embedz
+```embedz
 ---
 data: monthly_stats.csv
 ---
 {% for row in data %}...{% endfor %}
-​```
+```
 
 # インラインデータ
-​```embedz
+```embedz
 ---
 format: json
 ---
 {% for item in data %}...{% endfor %}
 ---
 [{"name": "Item1", "count": 10}]
-​```
 ```
+````
 
 **4. テンプレートの再利用**
-```markdown
+````markdown
 # テンプレート定義
-​```embedz
+```embedz
 ---
 name: incident-list
 data: data1.csv
@@ -206,29 +239,29 @@ data: data1.csv
 {% for row in data %}
 - {{ row.date }}: {{ row.title }}
 {% endfor %}
-​```
+```
 
 # テンプレート再利用
-​```embedz
+```embedz
 ---
 as: incident-list
 data: data2.csv
 ---
-​```
 ```
+````
 
 **5. 変数スコープ管理**
-```markdown
+````markdown
 # グローバル変数（ドキュメント全体）
-​```embedz
+```embedz
 ---
 global:
   threshold: 100
 ---
-​```
+```
 
 # ローカル変数（ブロック内のみ）
-​```embedz
+```embedz
 ---
 data: data.csv
 with:
@@ -237,12 +270,12 @@ with:
 {% for row in data %}
 - {{ prefix }}-{{ row.id }}: {{ row.title }}
 {% endfor %}
-​```
 ```
+````
 
 **6. 構造化データ対応**
-```markdown
-​```embedz
+````markdown
+```embedz
 ---
 data: report.json
 ---
@@ -254,27 +287,101 @@ data: report.json
 - {{ item }}
 {% endfor %}
 {% endfor %}
-​```
+```
+````
+
+**7. SQLクエリ対応**
+````markdown
+# CSV/TSVデータにSQLクエリを実行
+```embedz
+---
+data: sales.csv
+query: SELECT product, SUM(amount) as total FROM data WHERE date >= '2024-01-01' GROUP BY product ORDER BY total DESC
+---
+| 製品 | 売上合計 |
+|------|----------|
+{% for row in data -%}
+| {{ row.product }} | ¥{{ "{:,}".format(row.total|int) }} |
+{% endfor -%}
+```
+````
+
+**8. マルチテーブル対応**
+````markdown
+# 複数のデータソースを読み込み、SQL JOINで結合
+```embedz
+---
+data:
+  products: products.csv
+  sales: sales.csv
+query: |
+  SELECT p.product_name, SUM(s.quantity) as total
+  FROM sales s
+  JOIN products p ON s.product_id = p.product_id
+  GROUP BY p.product_name
+---
+{% for row in data %}
+- {{ row.product_name }}: {{ row.total }}個
+{% endfor %}
 ```
 
-**7. 簡潔な記法（エレガント構文）**
+# 複数のデータソースに直接アクセス（SQL不要）
+```embedz
+---
+data:
+  config: config.yaml
+  sales: sales.csv
+---
+# {{ data.config.title }}
+{% for row in data.sales %}
+- {{ row.date }}: {{ row.amount }}
+{% endfor %}
+```
+````
+
+**9. SQLiteデータベース対応**
+````markdown
+# SQLiteデータベースから直接データを読み込み
+```embedz
+---
+data: analytics.db
+table: users
+---
+{% for user in data %}
+- {{ user.name }} ({{ user.email }})
+{% endfor %}
+```
+
+# カスタムクエリで集計
+```embedz
+---
+data: analytics.db
+query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01' GROUP BY category
+---
+{% for row in data %}
+- {{ row.category }}: {{ row.count }}件
+{% endfor %}
+```
+````
+
+**10. 簡潔な記法（エレガント構文）**
 
 属性とYAMLパラメータを組み合わせた自然な記法：
 
-```markdown
+````markdown
 # デリミタなしでYAMLパラメータを指定
-​```{.embedz data=file.csv as=template}
+```{.embedz data=file.csv as=template}
 with:
   title: "レポートタイトル"
   year: 2024
-​```
+```
 
 # ドット記法で単純な変数を指定
-​```{.embedz data=file.csv as=template with.title="レポート" with.year="2024"}
+```{.embedz data=file.csv as=template with.title="レポート" with.year="2024"}
 
 # グローバル変数もドット記法で
-​```{.embedz global.author="山田太郎" global.version="1.0"}
-```
+```{.embedz global.author="山田太郎" global.version="1.0"}
+````
 
 **ドット記法の特徴**:
 - `with.*` でテンプレートパラメータ
@@ -286,35 +393,49 @@ with:
 
 ## 機能比較表
 
-| 機能 | csv2table | pandoc-jinja | Lua | R Markdown | 前処理 | **pandoc-embedz** |
-|------|-----------|--------------|-----|------------|--------|---------------------|
+| 機能 | csv2table/pantable | pandoc-jinja | Lua | R Markdown | 前処理 | **pandoc-embedz** |
+|------|---------------------|--------------|-----|------------|--------|---------------------|
 | テーブル生成 | ✅ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | リスト生成 | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | ループ | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | 条件分岐 | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ |
 | CSV対応 | ✅ | ❌ | 自前実装 | ✅ | △ | ✅ |
 | JSON/YAML対応 | ❌ | ❌ | 自前実装 | ✅ | △ | ✅ |
-| 複数フォーマット | ❌ | ❌ | 自前実装 | △ | △ | ✅ (6種) |
+| SQLite対応 | ❌ | ❌ | 自前実装 | ✅ | ❌ | ✅ |
+| 複数フォーマット | ❌ | ❌ | 自前実装 | △ | △ | ✅ (8種) |
+| SQLクエリ | ❌ | ❌ | 自前実装 | ✅ | ❌ | ✅ |
+| マルチテーブル/JOIN | ❌ | ❌ | 自前実装 | ✅ | ❌ | ✅ |
 | テンプレート再利用 | ❌ | ❌ | 自前実装 | ❌ | ✅ | ✅ |
 | 変数スコープ管理 | ❌ | ❌ | 自前実装 | ❌ | △ | ✅ |
 | Pandoc単体で完結 | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
 | 学習コスト | 低 | 低 | 中 | 高 | 中 | **低** |
 | セットアップ | 簡単 | 簡単 | 簡単 | 複雑 | 中 | **簡単** |
 
+**注:** csv2table/pantableは CSV専用のテーブル変換フィルタ。pantableの方がより高機能で保守も活発なため推奨。
+
 
 ## ユースケース別推奨
 
 ### 単純なCSVテーブル挿入
-→ **pandoc-csv2table** または **pandoc-embedz**
+→ **pantable**（推奨）または **pandoc-embedz**
+- pantableはCSV専用に最適化された高機能フィルタ
+- pandoc-csv2tableは保守に課題あり、pantableへの移行を推奨
 
 ### メタデータの変数展開のみ
-→ **pandoc-jinja** または Pandoc組み込みテンプレート
+→ **pandoc-jinja**（非活発状態に注意）または Pandoc組み込みテンプレート
 
 ### データからテーブル・リストを柔軟に生成（推奨）
 → **pandoc-embedz**
 - ループ・条件分岐が使える
-- 複数フォーマット対応
+- 8種類のフォーマット対応
 - テンプレート再利用可能
+
+### データの集計・フィルタリング・結合を含むレポート作成（推奨）
+→ **pandoc-embedz**
+- SQLクエリでデータ処理
+- 複数テーブルのJOIN操作
+- SQLiteデータベース対応
+- Pandoc単体で完結
 
 ### 複雑なデータ分析・可視化を含む
 → **R Markdown / Quarto**
@@ -329,10 +450,12 @@ pandoc-embedz は、**データ駆動のドキュメント生成**において�
 
 1. **Pandocのワークフローに自然に統合**される
 2. **Jinja2の強力なテンプレート機能**をフルに活用できる
-3. **6種類のデータフォーマット**に対応
-4. **簡潔で自然な記法**: `{.embedz data=file.csv as=template}` や `with.title="Title"` などの直感的な構文
-5. **学習コストが低く**、すぐに使い始められる
-6. **Pandoc単体で完結**し、追加の環境が不要
+3. **8種類のデータフォーマット**に対応（CSV、TSV、SSV、lines、JSON、YAML、TOML、SQLite）
+4. **SQLクエリ機能**でデータのフィルタリング・集計・結合が可能
+5. **マルチテーブル対応**で複数のデータソースを扱える
+6. **簡潔で自然な記法**: `{.embedz data=file.csv as=template}` や `with.title="Title"` などの直感的な構文
+7. **学習コストが低く**、すぐに使い始められる
+8. **Pandoc単体で完結**し、追加の環境が不要
 
 特に、**報告書作成で外部データからテーブル・リストを生成する**という
 ユースケースにおいて、既存ソリューションのギャップを埋める
