@@ -16,6 +16,7 @@ release:
 		git()    { dryrun "$$@"; }
 		gh()     { dryrun "$$@"; }
 		python() { dryrun "$$@"; }
+		uv()     { dryrun "$$@"; }
 	else
 		set -x
 	fi
@@ -42,7 +43,7 @@ release:
 	fi
 
 	comment "Running tests"
-	python -m pytest tests/
+	uv run pytest tests/
 
 	comment "Committing release $$VERSION"
 	git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml AGENTS.md
