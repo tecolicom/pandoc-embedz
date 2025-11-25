@@ -80,7 +80,9 @@ The project uses a Minilla-style release workflow where CHANGELOG.md is the sing
    ### Added
    - New feature description
    ```
-   **Important:** Only edit CHANGELOG.md - do NOT manually update version numbers in pyproject.toml or __init__.py
+   **Important:**
+   - Only edit CHANGELOG.md - do NOT manually update version numbers in pyproject.toml or __init__.py
+   - No need to commit CHANGELOG.md before release - it will be included in the release commit automatically
 
 2. **Preview release (dry run)**: `make release-n`
    - Shows all commands without executing them
@@ -88,7 +90,7 @@ The project uses a Minilla-style release workflow where CHANGELOG.md is the sing
    - Safe to run anytime
 
 3. **Execute release**: `make release`
-   - Performs dirty check (fails if uncommitted changes exist)
+   - Performs dirty check (fails if uncommitted changes exist, except CHANGELOG.md)
    - Extracts version from CHANGELOG.md
    - **Automatically updates** `pyproject.toml` and `pandoc_embedz/__init__.py`
    - Updates `uv.lock` with new version
