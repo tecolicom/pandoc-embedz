@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-11-25
+
+### Added
+- Python 3.13 support with comprehensive testing across all platforms
+- `.python-version` file for consistent Python version management (3.12)
+- `[tool.uv]` section in `pyproject.toml` for uv-specific dev dependencies
+- Development setup instructions in README Contributing section for both uv and pip workflows
+
+### Changed
+- Updated GitHub Actions workflows to use Python 3.12 (from 3.10) for builds and releases
+- Enabled caching in publish.yml for faster CI builds
+- Expanded test matrix to include Python 3.13 (now testing 3.8-3.13 across Ubuntu, macOS, Windows)
+- Updated Codecov upload condition to use Python 3.12
+
+### Improved
+- Better onboarding experience for new contributors with detailed development environment setup
+- Faster CI/CD execution with optimized caching strategy
+
 ## [0.6.0] - 2025-11-22
 
 ### Added
