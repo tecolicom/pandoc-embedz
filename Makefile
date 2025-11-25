@@ -33,10 +33,6 @@ release:
 	comment "Ensuring clean main branch"
 	CURRENT_BRANCH=$$(command git rev-parse --abbrev-ref HEAD)
 	[ "$$CURRENT_BRANCH" = "main" ] || die "Error: release must be created from main (current: $$CURRENT_BRANCH)"
-	if [[ -z "$(IGNORE_DIRTY)" && -n $$(command git status --porcelain) ]]; then
-		command git status -sb
-		die "Error: working tree is dirty"
-	fi
 
 	if [[ -z "$(IGNORE_TAG_EXISTS)" ]]; then
 		command git rev-parse "$$TAG" >/dev/null 2>&1 && die "Error: tag $$TAG already exists"
@@ -46,11 +42,11 @@ release:
 	uv run pytest tests/
 
 	comment "Committing release $$VERSION"
-	git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml AGENTS.md
+	git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml uv.lock AGENTS.md
 	git commit -F - <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
 
 	comment "Tagging $$TAG"
-	git tag -a "$$TAG" -F - <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
+	git tag -a "$$TAG" --cleanup=whitespace -F - <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
 
 	comment "Pushing main and $$TAG"
 	git push origin main
@@ -62,4 +58,4 @@ release:
 	echo "Release $$TAG published successfully."
 
 release-n:
-	+@$(MAKE) DRYRUN=1 IGNORE_DIRTY=1 IGNORE_TAG_EXISTS=1 release
+	+@$(MAKE) DRYRUN=1 IGNORE_TAG_EXISTS=1 release
