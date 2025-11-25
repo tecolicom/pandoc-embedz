@@ -20,6 +20,11 @@ except ImportError:
     except ImportError:
         tomllib = None
 
+try:
+    from sqlite_utils import Database as SqliteUtilsDatabase
+except ImportError:
+    SqliteUtilsDatabase = None
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
 
@@ -99,7 +104,10 @@ def _load_toml(source: Union[str, StringIO], **kwargs) -> Dict[str, Any]:
         return tomllib.load(f)
 
 def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]:
-    """Load SQLite database"""
+    """Load SQLite database
+
+    Uses sqlite-utils if available for improved API, falls back to sqlite3.
+    """
     if isinstance(source, StringIO):
         raise ValueError(
             "SQLite format does not support inline data. "
@@ -112,6 +120,18 @@ def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]
     if not query and not table:
         raise ValueError("SQLite format requires either 'table' or 'query' parameter")
 
+    # Use sqlite-utils if available (cleaner API)
+    if SqliteUtilsDatabase is not None:
+        db = SqliteUtilsDatabase(source)
+        if query:
+            # Execute query and convert to dicts using column names
+            cursor = db.execute(query)
+            columns = [desc[0] for desc in cursor.description]
+            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+        else:
+            return list(db[table].rows)
+
+    # Fallback to standard sqlite3
     conn = sqlite3.connect(source)
     conn.row_factory = sqlite3.Row
 

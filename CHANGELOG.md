@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.3] - 2025-11-25
+
+### Fixed
+- Include missing sqlite-utils implementation code from v0.7.2 release
+- v0.7.2 release commit inadvertently omitted data_loader.py changes
+
+### Improved
+- Makefile release process now follows Minilla-style approach
+- Automatic version number updates from CHANGELOG (single source of truth)
+- Added dirty check to prevent releases with uncommitted changes
+- Use `git add -u` to include all tracked changes, preventing file omissions
+- Automatic uv.lock update during release process
+
 ## [0.7.2] - 2025-11-25
 
 ### Added
