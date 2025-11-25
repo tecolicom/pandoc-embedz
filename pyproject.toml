@@ -53,8 +53,8 @@ pandoc-embedz = "pandoc_embedz.main:main"
 [tool.setuptools]
 packages = ["pandoc_embedz"]
 
-[tool.uv]
-dev-dependencies = [
+[dependency-groups]
+dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
 ]
