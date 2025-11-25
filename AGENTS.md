@@ -311,3 +311,89 @@ Macros defined in named templates are **automatically** added to the global cont
 - Use `preamble` for control structures instead of mixing them in `global` variables
 - No need for explicit `{% from 'template' import macro %}` - macros are globally available
 - Cleaner separation: `preamble` for control, `global` for data
+
+## Parameter Aliasing
+
+### Overview
+The project uses a parameter aliasing system to improve user-facing API clarity while maintaining backward compatibility.
+
+**User-facing parameters:**
+- `define: template-name` - **Recommended** parameter for defining reusable templates
+- `name: template-name` - **Deprecated** but still functional for backward compatibility (shows warning)
+
+**Rationale:**
+- `define` vs `as` makes the distinction between definition and usage clearer
+- `name` was ambiguous (definition or reference?)
+- Backward compatibility ensures existing users' code continues to work
+
+### Implementation
+
+**Location:** `pandoc_embedz/config.py`
+
+**Key components:**
+```python
+# Internal canonical name -> Preferred external alias
+PARAMETER_PREFERRED_ALIASES = {
+    'name': 'define',  # 'define' maps to internal 'name'
+}
+
+# Parameters deprecated for direct use
+DEPRECATED_DIRECT_USE = {
+    'name': 'define',  # Show warning when 'name' is used
+}
+
+def normalize_config(config: Dict[str, Any], warn_deprecated: bool = True) -> Dict[str, Any]:
+    """Normalize config by converting preferred aliases to internal names"""
+    # 1. Check for conflicts (both 'define' and 'name' specified)
+    # 2. Convert 'define' -> 'name' (no warning)
+    # 3. Keep 'name' as-is but show deprecation warning
+    # 4. Return normalized config with internal names
+```
+
+**Integration:**
+- Called in `filter.py` after config merging, before validation
+- Applied to both filter mode and standalone mode
+- Works with YAML headers, attributes, and external config files
+
+**Internal naming:**
+- Code uses `config.get('name')` throughout (natural variable name)
+- Documentation uses `define` exclusively
+- Users can use either, but `define` is recommended
+
+### Adding New Aliases
+
+To add a new parameter alias:
+
+1. **Update `PARAMETER_PREFERRED_ALIASES`:**
+   ```python
+   PARAMETER_PREFERRED_ALIASES = {
+       'name': 'define',
+       'source': 'data',  # Example: 'data' as internal name
+   }
+   ```
+
+2. **Update `DEPRECATED_DIRECT_USE` if needed:**
+   ```python
+   DEPRECATED_DIRECT_USE = {
+       'name': 'define',
+       'source': 'data',  # If old name should show warning
+   }
+   ```
+
+3. **Add tests** in `tests/test_attributes.py`:
+   - Test preferred alias works without warning
+   - Test deprecated name works with warning
+   - Test conflict detection
+
+4. **Update documentation** to use only the preferred alias
+
+### Testing
+Tests for parameter aliasing are in `tests/test_attributes.py::TestDeprecatedNameParameter`:
+- `test_name_parameter_yaml_still_works` - YAML header with deprecated `name`
+- `test_name_attribute_still_works` - Attribute with deprecated `name`
+- `test_name_template_is_saved_correctly` - Template saving with deprecated `name`
+
+All tests verify:
+1. Deprecated parameter still works
+2. Deprecation warning is shown
+3. Template is correctly saved/processed
