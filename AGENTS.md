@@ -56,15 +56,43 @@ All debug messages are prefixed with `[DEBUG]` and written to stderr.
   - Then proceed (avoid “silent” edits, especially for work that might take a while)
 
 ## Release Process
+
+### Automated Release (Recommended)
+The project includes a highly refined Makefile that automates the entire release workflow:
+
+1. **Update version and CHANGELOG.md**: Manually edit `pyproject.toml`, `pandoc_embedz/__init__.py`, and `CHANGELOG.md`
+2. **Preview release (dryrun)**: `make release-n`
+   - Shows all commands without executing them
+   - Ignores dirty working tree and existing tags
+   - Displays formatted release notes
+3. **Execute release**: `make release`
+   - Extracts version from CHANGELOG.md using Perl
+   - Runs all tests (`pytest`)
+   - Creates commit with full release notes
+   - Creates annotated tag with detailed release notes
+   - Pushes to GitHub
+   - Creates GitHub Release using tag annotations (`--notes-from-tag`)
+   - **No need to build locally** - GitHub Actions handles building and publishing
+   - **GitHub Actions automatically publishes to PyPI** when a release is created
+   - Uses `set -x` for real-time execution visibility
+
+**Makefile features:**
+- Conditional function definitions for elegant dryrun behavior
+- Abstracts `greple`/`ansifold` for easy customization
+- Uses `${VERSION:?...}` for robust error handling
+- `IGNORE_DIRTY` and `IGNORE_TAG_EXISTS` flags for flexibility
+- Full release notes in both commit message and tag annotation
+- Synchronizes GitHub Release with git tag content
+
+### Manual Release (Fallback)
+If you need to release manually without the Makefile:
 1. **Update version**: Edit `version` in `pyproject.toml` (e.g., `0.3.0` → `0.4.0`)
-2. **Update CHANGELOG.md**: Add new version section with Added/Changed/Fixed categories and update comparison links
-3. **Run tests**: `python -m pytest tests/` to ensure all tests pass
+2. **Update CHANGELOG.md**: Add new version section with Added/Changed/Fixed categories
+3. **Run tests**: `python -m pytest tests/`
 4. **Commit changes**: `git commit -m "Release version X.Y.Z"`
 5. **Create tag**: `git tag -a vX.Y.Z -m "Release version X.Y.Z"`
 6. **Push**: `git push && git push --tags`
 7. **Create GitHub Release**: `gh release create vX.Y.Z --title "vX.Y.Z - Title" --notes "..."`
-   - **No need to build locally** - GitHub Actions handles building and publishing
-   - **GitHub Actions automatically publishes to PyPI** when a release is created
    - Check workflow status: `gh run list --limit 3`
 
 ### Post-Release Verification
