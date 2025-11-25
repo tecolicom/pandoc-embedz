@@ -38,11 +38,24 @@ release:
 		command git rev-parse "$$TAG" >/dev/null 2>&1 && die "Error: tag $$TAG already exists"
 	fi
 
+	comment "Checking for uncommitted changes"
+	if [[ -z "$(IGNORE_DIRTY)" ]]; then
+		DIRTY=$$(command git status --porcelain)
+		[ -z "$$DIRTY" ] || die "Error: working directory has uncommitted changes:\n$$DIRTY"
+	fi
+
+	comment "Updating version numbers to $$VERSION"
+	perl -i -pe "s/^version = .*/version = \"$$VERSION\"/" pyproject.toml
+	perl -i -pe "s/__version__ = .*/__version__ = '$$VERSION'/" pandoc_embedz/__init__.py
+
+	comment "Updating uv.lock"
+	uv lock
+
 	comment "Running tests"
 	uv run pytest tests/
 
 	comment "Committing release $$VERSION"
-	git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml uv.lock
+	git add -u
 	git commit -F - <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
 
 	comment "Tagging $$TAG"
@@ -58,4 +71,4 @@ release:
 	echo "Release $$TAG published successfully."
 
 release-n:
-	+@$(MAKE) DRYRUN=1 IGNORE_TAG_EXISTS=1 release
+	+@$(MAKE) DRYRUN=1 IGNORE_TAG_EXISTS=1 IGNORE_DIRTY=1 release
