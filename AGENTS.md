@@ -317,13 +317,18 @@ Macros defined in named templates are **automatically** added to the global cont
 ### Overview
 The project uses a parameter aliasing system to improve user-facing API clarity while maintaining backward compatibility.
 
-**User-facing parameters:**
+**User-facing parameters for template definition:**
 - `define: template-name` - **Recommended** parameter for defining reusable templates
 - `name: template-name` - **Deprecated** but still functional for backward compatibility (shows warning)
 
+**User-facing parameters for template usage:**
+- `template: template-name` - **Recommended** parameter for YAML (more declarative)
+- `as: template-name` - **Alternative** parameter, shorter for attributes (both work without warnings)
+
 **Rationale:**
-- `define` vs `as` makes the distinction between definition and usage clearer
+- `define` vs `template`/`as` makes the distinction between definition and usage clearer
 - `name` was ambiguous (definition or reference?)
+- `template` is more declarative in YAML, while `as` is shorter for attributes
 - Backward compatibility ensures existing users' code continues to work
 
 ### Implementation
@@ -335,11 +340,13 @@ The project uses a parameter aliasing system to improve user-facing API clarity 
 # Internal canonical name -> Preferred external alias
 PARAMETER_PREFERRED_ALIASES = {
     'name': 'define',  # 'define' maps to internal 'name'
+    'as': 'template',  # 'template' maps to internal 'as'
 }
 
 # Parameters deprecated for direct use
 DEPRECATED_DIRECT_USE = {
     'name': 'define',  # Show warning when 'name' is used
+    # Note: 'as' is NOT deprecated - both 'as' and 'template' work without warnings
 }
 
 def normalize_config(config: Dict[str, Any], warn_deprecated: bool = True) -> Dict[str, Any]:

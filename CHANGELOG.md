@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `template` parameter as preferred alias for `as` in template usage (more declarative in YAML)
+- Both `template` and `as` work without warnings (context-dependent usage)
+- Parameter aliasing system with preferred external names mapping to internal canonical names
+- Backward compatibility tests for deprecated `name` parameter and new `template` alias (150 total tests passing)
+
+### Changed
+- Replaced `name` parameter with `define` for template definitions (more intuitive: define vs. use)
+- Documentation now recommends `template:` in YAML examples and `as=` in attribute examples
+- `name` parameter remains supported for backward compatibility with deprecation warnings
+- Added `normalize_config()` function for parameter alias resolution
+- Error messages now refer to `define=` instead of deprecated `name=`
+
 ## [0.7.3] - 2025-11-25
 
 ### Fixed

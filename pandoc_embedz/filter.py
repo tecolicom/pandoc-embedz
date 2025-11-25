@@ -260,7 +260,7 @@ def _process_template_references(
         if template_ref not in SAVED_TEMPLATES:
             raise ValueError(
                 f"Template '{template_ref}' not found. "
-                f"Define it first with name='{template_ref}'"
+                f"Define it first with define='{template_ref}'"
             )
         template_part = SAVED_TEMPLATES[template_ref]
         _debug(f"Loaded template '{template_ref}'")

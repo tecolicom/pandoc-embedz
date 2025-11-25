@@ -17,6 +17,7 @@ SAVED_TEMPLATES: Dict[str, str] = {}
 # Internal canonical name -> Preferred external alias (no warning)
 PARAMETER_PREFERRED_ALIASES = {
     'name': 'define',      # 'define' -> 'name' に正規化（推奨、警告なし）
+    'as': 'template',      # 'template' -> 'as' に正規化（推奨、警告なし）
 }
 
 # Parameters that are deprecated when used directly

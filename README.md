@@ -59,6 +59,8 @@ with:
 ```
 ````
 
+_Note: `as=` is shorthand. In YAML headers, `template:` is preferred. See [Template Reuse](#template-reuse) for details._
+
 **Render:**
 ```bash
 pandoc report.md --filter pandoc-embedz -o output.pdf
@@ -194,7 +196,7 @@ data: alerts.csv
 
 ### Template Reuse
 
-Define templates once with `define`, then reuse them with `as`. Perfect for consistent formatting across multiple data sources:
+Define templates once with `define`, then reuse them with `template` (or `as` for short). Perfect for consistent formatting across multiple data sources:
 
 ````markdown
 ```{.embedz define=item-list}
@@ -207,7 +209,7 @@ Define templates once with `define`, then reuse them with `as`. Perfect for cons
 ```embedz
 ---
 data: products.csv
-as: item-list
+template: item-list
 with:
   title: Product List
 ---
@@ -220,6 +222,23 @@ with:
   title: Service List
 ```
 ````
+
+**With inline data:**
+
+````markdown
+```embedz
+---
+template: item-list
+format: json
+with:
+  title: Product List
+---
+---
+[{"name": "Widget", "value": "$10"}, {"name": "Gadget", "value": "$20"}]
+```
+````
+
+Note the **two `---` separators**: the first closes the YAML header, and the second separates the (empty) template section from the inline data section.
 
 ## Advanced Features
 
@@ -766,21 +785,36 @@ Defines a reusable template with `define:`:
 
 #### 3. Template Usage
 
-Uses a previously defined template with `as:`:
+Uses a previously defined template with `template:` (or `as:` for short):
 
 ````markdown
 ```embedz
 ---
 data: file.csv
-as: my-template
+template: my-template
 ---
 ```
 
-Or with attribute syntax:
+Or with attribute syntax (using `as=` for brevity):
 
 ```{.embedz data=file.csv as=my-template}
 ```
 ````
+
+**With inline data** (note the two `---` separators):
+
+````markdown
+```embedz
+---
+template: my-template
+format: json
+---
+---
+[{"value": "item1"}, {"value": "item2"}]
+```
+````
+
+The structure is: YAML header → first `---` → (empty template section) → second `---` → inline data.
 
 **Processing**: Loads `file.csv` → applies "my-template" → outputs result
 
@@ -844,7 +878,7 @@ Prepared by {{ author }}
 | `data` | Data source: file path (string), multiple files (dict), or inline data (multi-line string or dict with `data` key) | `data: stats.csv` or `data: {sales: sales.csv}` or `data: \|<br>  name,value<br>  ...` |
 | `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `lines` (auto-detected from extension) | `format: json` |
 | `define` | Template name (for definition) | `define: report-template` |
-| `as` | Template to use | `as: report-template` |
+| `template` (or `as`) | Template to use (both aliases work, `template` preferred in YAML, `as` shorter for attributes) | `template: report-template` or `as: report-template` |
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
 | `global` | Global variables (document-scoped) | `global: {author: "John"}` |
 | `preamble` | Control structures for entire document (macros, `{% set %}`, imports) | `preamble: \|`<br>`  {% set title = 'Report' %}` |
@@ -852,6 +886,9 @@ Prepared by {{ author }}
 | `table` | SQLite table name (required for sqlite format) | `table: users` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
 | `config` | External YAML config file(s) merged before inline settings (string or list) | `config: config/base.yaml` |
+
+**Backward Compatibility:**
+- `name` parameter (deprecated): Still works but shows a warning. Use `define` instead.
 
 #### Attribute Syntax
 

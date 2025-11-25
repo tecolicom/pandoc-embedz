@@ -642,3 +642,122 @@ Template content here"""
         captured = capsys.readouterr()
         assert "deprecated" in captured.err.lower()
         assert "define" in captured.err.lower()
+
+
+class TestTemplateParameterAlias:
+    """Tests for 'template' parameter as preferred alias for 'as'"""
+
+    def setup_method(self):
+        """Clear global state before each test"""
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+    def test_template_parameter_yaml(self, capsys):
+        """'template' parameter in YAML should work without warning"""
+        # Define template
+        define_code = """---
+define: test-template
+---
+{% for row in data %}
+- {{ row.name }}
+{% endfor %}"""
+
+        elem1 = pf.CodeBlock(define_code, classes=['embedz'])
+        process_embedz(elem1, pf.Doc())
+
+        # Use template with 'template:' parameter
+        use_code = """---
+template: test-template
+format: json
+---
+---
+[{"name": "apple"}, {"name": "banana"}]"""
+
+        elem2 = pf.CodeBlock(use_code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem2, doc)
+
+        # Should render successfully
+        assert result is not None
+        result_text = pf.stringify(pf.Doc(*result))
+        assert 'apple' in result_text
+        assert 'banana' in result_text
+
+        # Should NOT have any deprecation warning
+        captured = capsys.readouterr()
+        assert "deprecated" not in captured.err.lower()
+
+    def test_template_attribute(self, capsys):
+        """'template=' attribute should work without warning"""
+        # Define template
+        elem1 = pf.CodeBlock(
+            text="Template: {{ data[0] }}",
+            classes=['embedz'],
+            attributes=[('define', 'simple')]
+        )
+        process_embedz(elem1, pf.Doc())
+
+        # Use template with 'template=' attribute
+        elem2 = pf.CodeBlock(
+            text='---\nformat: json\n---\n---\n["test"]',
+            classes=['embedz'],
+            attributes=[('template', 'simple')]
+        )
+        doc = pf.Doc()
+        result = process_embedz(elem2, doc)
+
+        # Should render successfully
+        assert result is not None
+        result_text = pf.stringify(pf.Doc(*result))
+        assert 'Template: test' in result_text
+
+        # Should NOT have any deprecation warning
+        captured = capsys.readouterr()
+        assert "deprecated" not in captured.err.lower()
+
+    def test_as_still_works(self, capsys):
+        """'as' parameter should continue to work without deprecation"""
+        # Define template
+        define_code = """---
+define: legacy-template
+---
+Result: {{ data[0] }}"""
+
+        elem1 = pf.CodeBlock(define_code, classes=['embedz'])
+        process_embedz(elem1, pf.Doc())
+
+        # Use with 'as:' parameter (old style)
+        use_code = """---
+as: legacy-template
+format: json
+---
+---
+["value"]"""
+
+        elem2 = pf.CodeBlock(use_code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem2, doc)
+
+        # Should work
+        assert result is not None
+        result_text = pf.stringify(pf.Doc(*result))
+        assert 'Result: value' in result_text
+
+        # 'as' should NOT be deprecated (no warning)
+        captured = capsys.readouterr()
+        assert "deprecated" not in captured.err.lower()
+
+    def test_template_and_as_conflict(self):
+        """Using both 'template' and 'as' should raise error"""
+        code = """---
+template: template1
+as: template2
+---"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+
+        # Should raise ValueError about conflicting parameters
+        with pytest.raises(ValueError) as excinfo:
+            process_embedz(elem, pf.Doc())
+
+        assert "conflicting" in str(excinfo.value).lower() or "both" in str(excinfo.value).lower()

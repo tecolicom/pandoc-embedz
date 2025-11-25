@@ -244,7 +244,7 @@ data: data1.csv
 # テンプレート再利用
 ```embedz
 ---
-as: incident-list
+template: incident-list
 data: data2.csv
 ---
 ```
