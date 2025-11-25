@@ -9,42 +9,56 @@ release:
 	comment() { printf '# %s\n' "$$*"; }
 	warn() { printf '%s\n' "$$*" >&2; }
 	die()  { warn "$$@"; exit 1; }
-	run() { [ -n "$$DRYRUN" ] && printf '%s\n' "$$1" || eval "$$1"; }
-	VERSION=$$(sed -En 's/^## \[([0-9]+\.[0-9]+\.[0-9]+)\].*/\1/p' CHANGELOG.md | head -n1)
-	[ -n "$$VERSION" ] || die "Error: unable to determine release version from CHANGELOG.md"
-	TAG="v$$VERSION"
-#	NOTES_CONTENT="$$(awk 'BEGIN { grab=0 } /^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ { if (grab) exit; grab=1 } grab { print }' CHANGELOG.md)"
-	NOTES_CONTENT="$$(greple -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\](?s:.*?)(?=\n## )' CHANGELOG.md -m1 --no-color -h | ansifold --autoindent '^-\s+' -s --boundary=space)"
+	dryrun() { echo "$${FUNCNAME[1]}$$(printf ' %q' "$$@")"; }
+	extract_notes() { greple -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\](?s:.*?)(?=\n## )' -m1 --no-color -h; }
+	fold_notes() { ansifold --autoindent '^-\s+' -s --boundary=space; }
+	if [ -n "$$DRYRUN" ]; then
+		git()    { dryrun "$$@"; }
+		gh()     { dryrun "$$@"; }
+		python() { dryrun "$$@"; }
+	else
+		set -x
+	fi
+	VERSION=$$(perl -nE 'say $$1 and last if /^## \[([0-9]+\.[0-9]+\.[0-9]+)\]/' CHANGELOG.md)
+	TAG="v$${VERSION:?Error: unable to determine release version from CHANGELOG.md}"
+	NOTES_CONTENT="$$(extract_notes < CHANGELOG.md)"
+	NOTES_CONTENT="$$(fold_notes <<< "$$NOTES_CONTENT")"
+	echo "========================================"
+	comment "Release notes for $$VERSION"
+	echo "========================================"
 	echo "$$NOTES_CONTENT"
+	echo "========================================"
 
 	comment "Ensuring clean main branch"
-	CURRENT_BRANCH=$$(git rev-parse --abbrev-ref HEAD)
+	CURRENT_BRANCH=$$(command git rev-parse --abbrev-ref HEAD)
 	[ "$$CURRENT_BRANCH" = "main" ] || die "Error: release must be created from main (current: $$CURRENT_BRANCH)"
-	if [[ -z "$(IGNORE_DIRTY)" && -n $$(git status --porcelain) ]]; then
-		git status -sb
+	if [[ -z "$(IGNORE_DIRTY)" && -n $$(command git status --porcelain) ]]; then
+		command git status -sb
 		die "Error: working tree is dirty"
 	fi
 
-	git rev-parse "$$TAG" >/dev/null 2>&1 && die "Error: tag $$TAG already exists"
+	if [[ -z "$(IGNORE_TAG_EXISTS)" ]]; then
+		command git rev-parse "$$TAG" >/dev/null 2>&1 && die "Error: tag $$TAG already exists"
+	fi
 
 	comment "Running tests"
-	run "python -m pytest tests/"
+	python -m pytest tests/
 
 	comment "Committing release $$VERSION"
-	run "git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml AGENTS.md"
-	run "git commit -F -" <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
+	git add CHANGELOG.md pandoc_embedz/__init__.py pyproject.toml AGENTS.md
+	git commit -F - <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
 
 	comment "Tagging $$TAG"
-	run "git tag -a \"$$TAG\" -m \"Release version $$VERSION\""
+	git tag -a "$$TAG" -F - <<< "$$(printf 'Release version %s\n\n%s' "$$VERSION" "$$NOTES_CONTENT")"
 
 	comment "Pushing main and $$TAG"
-	run "git push origin main"
-	run "git push origin tag \"$$TAG\""
+	git push origin main
+	git push origin tag "$$TAG"
 
 	comment "Creating GitHub release $$TAG"
-	run "gh release create \"$$TAG\" --title \"v$$VERSION\" --notes-file -" <<< "$$NOTES_CONTENT"
+	gh release create "$$TAG" --title "v$$VERSION" --notes-from-tag
 
-	run "echo \"Release $$TAG published successfully.\""
+	echo "Release $$TAG published successfully."
 
 release-n:
-	+@$(MAKE) DRYRUN=1 IGNORE_DIRTY=1 release
+	+@$(MAKE) DRYRUN=1 IGNORE_DIRTY=1 IGNORE_TAG_EXISTS=1 release
