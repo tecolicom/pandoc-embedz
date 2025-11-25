@@ -1010,3 +1010,42 @@ Kazumasa Utashiro
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
+
+### Development Setup
+
+#### Using uv (Recommended)
+
+```bash
+# Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone the repository
+git clone https://github.com/tecolicom/pandoc-embedz.git
+cd pandoc-embedz
+
+# Install dependencies and setup development environment
+uv sync --all-extras
+
+# Run tests
+uv run pytest tests/
+```
+
+#### Using pip
+
+```bash
+# Clone the repository
+git clone https://github.com/tecolicom/pandoc-embedz.git
+cd pandoc-embedz
+
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# Install in editable mode with dev dependencies
+pip install -e .[dev]
+
+# Run tests
+pytest tests/
+```
+
+For detailed development guidelines, see [AGENTS.md](AGENTS.md).
