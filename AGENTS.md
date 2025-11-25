@@ -404,3 +404,41 @@ All tests verify:
 1. Deprecated parameter still works
 2. Deprecation warning is shown
 3. Template is correctly saved/processed
+
+### Implementation Notes (as of commit d5ffa45)
+
+**Design Decision: Why `as` is NOT deprecated**
+- `template` and `as` serve different contexts (YAML vs attributes)
+- Both are valid choices: `template:` is declarative, `as=` is concise
+- Different from `name` → `define` where `define` is strictly better
+- Users can choose based on context without penalties
+
+**Critical: Inline Data Structure**
+
+When using `template:` or `as:` with inline data, **three `---` separators** are required:
+
+```markdown
+---
+template: my-template
+format: json
+---
+(empty template section)
+---
+[{"data": "here"}]
+```
+
+Structure: YAML header → first `---` → template section → second `---` → data section
+
+**Known Issue: Existing Test Problem**
+
+`tests/test_template.py::TestTemplateReuse::test_use_saved_template` uses only two separators:
+```python
+use_code = """---
+as: list-template
+format: json
+---
+[{"name": "Arthur"}]"""  # Wrong: data parsed as template, not data
+```
+
+Result: Test passes (checks `isinstance(result, list)`) but doesn't verify actual rendering.
+Recommendation: Audit all template usage tests for correct separator structure.
