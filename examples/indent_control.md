@@ -8,7 +8,7 @@
 
 ```embedz
 ---
-name: simple-item
+define: simple-item
 ---
 {{ indent }}{{ item.text }}
 ```
@@ -49,7 +49,7 @@ local:
 
 ```embedz
 ---
-name: indent-macros
+define: indent-macros
 ---
 {% macro list_item(text, level=0) -%}
 {{ '  ' * level }}- {{ text }}
@@ -92,7 +92,7 @@ format: json
 
 ```embedz
 ---
-name: tree-renderer
+define: tree-renderer
 ---
 {% macro render_tree(item, level=0) -%}
 {{ '  ' * level }}- {{ item.name }}
@@ -155,7 +155,7 @@ format: json
 
 ```embedz
 ---
-name: dynamic-indent
+define: dynamic-indent
 ---
 {% macro priority_item(item) -%}
 {{ '  ' * (3 - item.priority) }}- [P{{ item.priority }}] {{ item.task }}

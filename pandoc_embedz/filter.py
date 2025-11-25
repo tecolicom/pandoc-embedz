@@ -19,6 +19,7 @@ from .config import (
     parse_attributes,
     parse_code_block,
     validate_config,
+    normalize_config,
     load_config_file,
     deep_merge_dicts,
     SAVED_TEMPLATES
@@ -207,6 +208,10 @@ def _build_config_from_text(
     # Merge configurations from external files, attributes, and YAML header
     config = _merge_config_sources(merged_attr, yaml_config)
     _debug(f"Merged config: {config}")
+
+    # Normalize configuration (resolve aliases)
+    config = normalize_config(config)
+    _debug(f"Normalized config: {config}")
 
     # Validate configuration
     validate_config(config)

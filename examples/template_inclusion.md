@@ -8,14 +8,14 @@ First, define some reusable format templates:
 
 ```embedz
 ---
-name: date-format
+define: date-format
 ---
 {{ item.date }}
 ```
 
 ```embedz
 ---
-name: title-format
+define: title-format
 ---
 **{{ item.title }}**
 ```
@@ -44,7 +44,7 @@ Define a template that uses conditionals:
 
 ```embedz
 ---
-name: severity-badge
+define: severity-badge
 ---
 {% if item.severity == "high" %}🔴 High{% elif item.severity == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
 ```
@@ -73,14 +73,14 @@ Create multiple levels of template composition:
 
 ```embedz
 ---
-name: status-icon
+define: status-icon
 ---
 {% if item.status == "resolved" %}✅{% elif item.status == "investigating" %}🔍{% else %}⏳{% endif %}
 ```
 
 ```embedz
 ---
-name: incident-entry
+define: incident-entry
 ---
 {% include 'status-icon' with context %} {{ item.date }} - {{ item.title }}
 ```
@@ -109,7 +109,7 @@ Define a template for table rows:
 
 ```embedz
 ---
-name: table-row
+define: table-row
 ---
 {{ "| " }}{{ item.name }}{{ " | " }}{{ item.count }}{{ " | " }}{{ item.percentage }}{{ "% |" }}
 ```

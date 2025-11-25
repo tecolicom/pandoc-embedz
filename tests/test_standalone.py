@@ -192,7 +192,7 @@ Title: {{ title }}
     file3 = tmp_path / "defs.md"
     file3.write_text(
         """---
-name: helper-macros
+define: helper-macros
 ---
 {% macro HELLO(name) %}Hello {{ name }}{% endmacro %}
 """,

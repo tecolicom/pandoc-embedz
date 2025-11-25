@@ -284,7 +284,7 @@ Template here
 
 **Alternative: Macros in named templates (auto-shared):**
 ````markdown
-```{.embedz name=sql-macros}
+```{.embedz define=sql-macros}
 {%- macro BETWEEN(start, end) -%}
 SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 {%- endmacro -%}

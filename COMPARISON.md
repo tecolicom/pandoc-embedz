@@ -233,7 +233,7 @@ format: json
 # テンプレート定義
 ```embedz
 ---
-name: incident-list
+define: incident-list
 data: data1.csv
 ---
 {% for row in data %}

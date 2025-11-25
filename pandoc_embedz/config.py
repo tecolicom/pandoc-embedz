@@ -7,11 +7,22 @@ from typing import Dict, Any, Tuple, Optional, Callable, List
 import panflute as pf
 from jinja2 import TemplateNotFound
 import yaml
+import sys
 from io import StringIO
 from pathlib import Path
 
 # Store templates - shared across modules
 SAVED_TEMPLATES: Dict[str, str] = {}
+
+# Internal canonical name -> Preferred external alias (no warning)
+PARAMETER_PREFERRED_ALIASES = {
+    'name': 'define',      # 'define' -> 'name' に正規化（推奨、警告なし）
+}
+
+# Parameters that are deprecated when used directly
+DEPRECATED_DIRECT_USE = {
+    'name': 'define',  # 'name' を直接使うのは非推奨、'define' を推奨
+}
 
 def validate_file_path(file_path: str) -> str:
     """Validate file path to prevent path traversal attacks
@@ -185,6 +196,58 @@ def parse_code_block(
 
     template_part = ''.join(template_lines)
     return config, template_part, data_part
+
+def normalize_config(config: Dict[str, Any], warn_deprecated: bool = True) -> Dict[str, Any]:
+    """Normalize config by converting preferred aliases to internal names
+
+    Args:
+        config: Original configuration dictionary
+        warn_deprecated: Whether to show deprecation warnings
+
+    Returns:
+        Normalized configuration with internal canonical names
+
+    Examples:
+        >>> normalize_config({'define': 'foo'})
+        {'name': 'foo'}  # No warning
+
+        >>> normalize_config({'name': 'foo'})
+        {'name': 'foo'}  # Warning: 'name' is deprecated, use 'define'
+    """
+    normalized = {}
+
+    # First pass: check for conflicts between preferred and deprecated parameters
+    for internal, preferred in PARAMETER_PREFERRED_ALIASES.items():
+        if preferred in config and internal in config:
+            raise ValueError(
+                f"Conflicting parameters: both '{preferred}' (preferred) and '{internal}' (deprecated) specified. "
+                f"Use '{preferred}' only."
+            )
+
+    for key, value in config.items():
+        # Check if this key is a preferred alias for some internal name
+        internal_name = None
+        for internal, preferred in PARAMETER_PREFERRED_ALIASES.items():
+            if key == preferred:
+                internal_name = internal
+                break
+
+        if internal_name:
+            # Convert preferred alias to internal name (no warning)
+            normalized[internal_name] = value
+        else:
+            # Keep as-is
+            normalized[key] = value
+
+            # Check if direct use is deprecated
+            if warn_deprecated and key in DEPRECATED_DIRECT_USE:
+                preferred = DEPRECATED_DIRECT_USE[key]
+                sys.stderr.write(
+                    f"Warning: '{key}' parameter is deprecated. "
+                    f"Use '{preferred}' instead.\n"
+                )
+
+    return normalized
 
 def validate_config(config: Dict[str, Any]) -> None:
     """Validate configuration to prevent invalid settings

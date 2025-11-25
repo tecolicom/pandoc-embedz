@@ -81,7 +81,7 @@ class TestTemplateReuse:
 
     def test_save_template(self):
         code = """---
-name: test-template
+define: test-template
 ---
 {% for row in data %}
 - {{ row.name }}
@@ -98,7 +98,7 @@ name: test-template
     def test_use_saved_template(self):
         # First, save a template
         save_code = """---
-name: list-template
+define: list-template
 ---
 {% for row in data %}
 - {{ row.name }}
@@ -156,7 +156,7 @@ with:
 
     def test_named_template_without_data_is_definition_only(self):
         code = """---
-name: macros
+define: macros
 ---
 {% macro HELLO(name) %}Hello {{ name }}{% endmacro %}
 """
@@ -201,7 +201,7 @@ class TestTemplateInclude:
     def test_basic_include(self):
         # First, define a template
         define_code = """---
-name: item-format
+define: item-format
 ---
 - {{ item.name }}: {{ item.value }}"""
 
@@ -228,17 +228,17 @@ format: json
     def test_nested_include(self):
         # Define multiple templates
         define_date = """---
-name: date-format
+define: date-format
 ---
 {{ item.date }}"""
 
         define_title = """---
-name: title-format
+define: title-format
 ---
 **{{ item.title }}**"""
 
         define_entry = """---
-name: jvn-entry
+define: jvn-entry
 ---
 - {% include 'date-format' with context %} {% include 'title-format' with context %}"""
 

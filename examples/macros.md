@@ -12,7 +12,7 @@ Define simple formatting macros:
 
 ```embedz
 ---
-name: basic-formatters
+define: basic-formatters
 ---
 {% macro bold(text) -%}
 **{{ text }}**
@@ -54,7 +54,7 @@ Create macros with conditional logic:
 
 ```embedz
 ---
-name: status-macros
+define: status-macros
 ---
 {% macro severity_badge(level) -%}
 {% if level == "high" or level == "critical" %}🔴 Critical
@@ -103,7 +103,7 @@ Macros can accept multiple parameters with default values:
 
 ```embedz
 ---
-name: advanced-formatters
+define: advanced-formatters
 ---
 {% macro format_date(date, prefix="Date: ") -%}
 {{ prefix }}{{ date }}
@@ -151,7 +151,7 @@ Macros can call other macros:
 
 ```embedz
 ---
-name: composite-macros
+define: composite-macros
 ---
 {% macro format_priority(priority) -%}
 {% if priority == 1 %}⚡ Urgent
@@ -194,7 +194,7 @@ format: json
 
 ```embedz
 ---
-name: simple-item
+define: simple-item
 ---
 - {{ item.name }}: {{ item.value }}
 ```
@@ -214,7 +214,7 @@ format: json
 
 ```embedz
 ---
-name: macro-item
+define: macro-item
 ---
 {% macro format_item(name, value, prefix="Item ") -%}
 - {{ prefix }}{{ name }}: {{ value }}

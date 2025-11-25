@@ -46,7 +46,7 @@ data: data.csv
 
 **With template reuse:**
 ````markdown
-```{.embedz name=item-list}
+```{.embedz define=item-list}
 ## {{ title }}
 {% for item in data %}
 - {{ item.name }}: {{ item.value }}
@@ -194,10 +194,10 @@ data: alerts.csv
 
 ### Template Reuse
 
-Define templates once with `name`, then reuse them with `as`. Perfect for consistent formatting across multiple data sources:
+Define templates once with `define`, then reuse them with `as`. Perfect for consistent formatting across multiple data sources:
 
 ````markdown
-```{.embedz name=item-list}
+```{.embedz define=item-list}
 ## {{ title }}
 {% for item in data %}
 - {{ item.name }}: {{ item.value }}
@@ -460,7 +460,7 @@ Create reusable template functions with parameters using Jinja2 macros. More fle
 
 ````markdown
 # Define macros
-```{.embedz name=formatters}
+```{.embedz define=formatters}
 {% macro format_item(title, date) -%}
 **{{ title }}** ({{ date }})
 {%- endmacro %}
@@ -586,7 +586,7 @@ Use the `preamble` section and named templates to define reusable control struct
 
 ````markdown
 # Define macros in a named template
-```{.embedz name=sql-macros}
+```{.embedz define=sql-macros}
 {%- macro BETWEEN(start, end) -%}
 SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 {%- endmacro -%}
@@ -636,15 +636,15 @@ Focused guides for composing complex templates.
 
 #### Template Inclusion
 
-Break complex layouts into smaller fragments and stitch them together with `{% include %}`. Define each fragment with `name` and reuse it inside loops so formatting stays centralized.
+Break complex layouts into smaller fragments and stitch them together with `{% include %}`. Define each fragment with `define` and reuse it inside loops so formatting stays centralized.
 
 ````markdown
 # Define formatting fragments
-```{.embedz name=date-format}
+```{.embedz define=date-format}
 📅 {{ item.date }}
 ```
 
-```{.embedz name=title-format}
+```{.embedz define=title-format}
 **{{ item.title }}**
 ```
 
@@ -664,7 +664,7 @@ data: incidents.csv
 The `with context` clause forwards the current loop variables so included templates can read `item`. You can also layer includes, for example:
 
 ````markdown
-```{.embedz name=severity-badge}
+```{.embedz define=severity-badge}
 {% if item.severity == "high" -%}
   🔴
 {%- elif item.severity == "medium" -%}
@@ -752,10 +752,10 @@ data: file.csv
 
 #### 2. Template Definition
 
-Defines a reusable template with `name:`:
+Defines a reusable template with `define:`:
 
 ````markdown
-```{.embedz name=my-template}
+```{.embedz define=my-template}
 {% for item in data %}
 - {{ item.value }}
 {% endfor %}
@@ -843,7 +843,7 @@ Prepared by {{ author }}
 |-----|-------------|---------|
 | `data` | Data source: file path (string), multiple files (dict), or inline data (multi-line string or dict with `data` key) | `data: stats.csv` or `data: {sales: sales.csv}` or `data: \|<br>  name,value<br>  ...` |
 | `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `lines` (auto-detected from extension) | `format: json` |
-| `name` | Template name (for definition) | `name: report-template` |
+| `define` | Template name (for definition) | `define: report-template` |
 | `as` | Template to use | `as: report-template` |
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
 | `global` | Global variables (document-scoped) | `global: {author: "John"}` |
@@ -859,7 +859,7 @@ Attributes can be used instead of or in combination with YAML:
 
 ```markdown
 {.embedz data=file.csv as=template}
-{.embedz name=template}
+{.embedz define=template}
 {.embedz global.author="John"}
 ```
 
