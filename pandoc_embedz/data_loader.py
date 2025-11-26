@@ -148,13 +148,15 @@ def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]
         conn.close()
 
 def _load_lines(source: Union[str, StringIO], **kwargs) -> List[str]:
-    """Load plain text lines"""
+    """Load plain text lines
+
+    Returns each line as a string. Empty lines are preserved as empty strings.
+    """
     if isinstance(source, StringIO):
-        lines = source.getvalue().splitlines()
+        return source.getvalue().splitlines()
     else:
         with open(source, 'r', encoding='utf-8') as f:
-            lines = f.read().splitlines()
-    return [line for line in lines if line.strip()]
+            return f.read().splitlines()
 
 def _load_csv(
     source: Union[str, StringIO],

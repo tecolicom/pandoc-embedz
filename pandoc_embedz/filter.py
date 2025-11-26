@@ -389,7 +389,9 @@ def _render_embedz_template(
     template_body, newline_suffix = _split_template_and_newlines(template_part)
     result = _render_template(template_body, context)
     _debug(f"Rendered result length: {len(result)} characters")
+    _debug(f"Rendered result (raw): {repr(result)}")
     result = (result or '') + newline_suffix
+    _debug(f"Final result (with newline suffix): {repr(result)}")
 
     return result
 
@@ -512,6 +514,7 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
         if result is None:
             return []
 
+        # Convert to AST (Pandoc re-parses the markdown text)
         return pf.convert_text(result, input_format='markdown')
 
     except KNOWN_EXCEPTIONS as e:
