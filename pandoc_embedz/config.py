@@ -16,13 +16,13 @@ SAVED_TEMPLATES: Dict[str, str] = {}
 
 # Internal canonical name -> Preferred external alias (no warning)
 PARAMETER_PREFERRED_ALIASES = {
-    'name': 'define',      # 'define' -> 'name' に正規化（推奨、警告なし）
-    'as': 'template',      # 'template' -> 'as' に正規化（推奨、警告なし）
+    'name': 'define',      # Normalize 'define' -> 'name' (recommended, no warning)
+    'as': 'template',      # Normalize 'template' -> 'as' (recommended, no warning)
 }
 
 # Parameters that are deprecated when used directly
 DEPRECATED_DIRECT_USE = {
-    'name': 'define',  # 'name' を直接使うのは非推奨、'define' を推奨
+    'name': 'define',  # Direct use of 'name' is deprecated; use 'define' instead
 }
 
 def validate_file_path(file_path: str) -> str:

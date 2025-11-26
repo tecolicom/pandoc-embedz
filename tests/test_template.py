@@ -108,23 +108,34 @@ define: list-template
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
-        # Then use it
+        # Then use it with 3 separators: YAML header → empty template → data
         use_code = """---
 as: list-template
 format: json
+---
+
 ---
 [{"name": "Arthur"}, {"name": "Ford"}]"""
 
         elem2 = pf.CodeBlock(use_code, classes=['embedz'])
         result = process_embedz(elem2, doc)
 
+        # Verify result type and content
         assert isinstance(result, list)
         assert 'list-template' in SAVED_TEMPLATES
 
+        # Verify rendered content
+        markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Arthur' in markdown
+        assert 'Ford' in markdown
+
     def test_use_nonexistent_template_fails(self):
+        # Template usage with inline data requires 3 separators
         code = """---
 as: nonexistent
 format: json
+---
+
 ---
 [{"name": "Arthur"}]"""
 

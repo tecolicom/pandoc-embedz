@@ -7,11 +7,9 @@ import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
+from importlib.metadata import version
+
 from .config import validate_file_path
-try:
-    from importlib.metadata import version
-except ImportError:  # pragma: no cover
-    from importlib_metadata import version  # Python 3.7 compatibility
 
 
 def _filter_module():

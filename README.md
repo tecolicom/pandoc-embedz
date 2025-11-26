@@ -233,12 +233,13 @@ format: json
 with:
   title: Product List
 ---
+
 ---
 [{"name": "Widget", "value": "$10"}, {"name": "Gadget", "value": "$20"}]
 ```
 ````
 
-Note the **two `---` separators**: the first closes the YAML header, and the second separates the (empty) template section from the inline data section.
+Note the **three `---` separators**: the first opens the YAML header, the second closes it, and the third marks the beginning of the inline data section.
 
 ## Advanced Features
 
