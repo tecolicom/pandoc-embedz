@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2025-11-26
+
+### Fixed
+- Corrected test structure in `test_use_saved_template` and `test_use_nonexistent_template_fails` to use proper 3-separator format for template usage with inline data
+- Fixed README.md documentation: corrected separator count description from "two" to "three" for template usage with inline data
+- Added content verification assertions to `test_use_saved_template` to prevent false positives
+
+### Changed
+- Replaced Japanese comments with English in `config.py` for better international collaboration
+- Removed duplicate dependency definitions from `pyproject.toml` (consolidated to `[dependency-groups]`)
+- Removed unnecessary Python 3.7 compatibility code from `main.py` (project requires Python 3.8+)
+
+### Improved
+- Updated CODE_ANALYSIS.md with completion status for Phase 1 and Phase 2 improvements
+- Enhanced test quality with actual content verification instead of type-only checks
+
 ## [0.8.0] - 2025-11-26
 
 ### Added
