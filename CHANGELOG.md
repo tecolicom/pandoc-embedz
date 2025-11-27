@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2025-11-27
+
+### Added
+- Stdin support for reading data from standard input
+  - `data: "-"` explicitly reads from stdin
+  - Auto-detection in standalone mode when data is not specified and stdin is not a tty
+  - Multiple files disable auto-detection to prevent stdin consumption issues
+- `-t/--template` option for inline template text (standalone mode)
+- `-f/--format` option for explicitly specifying data format (standalone mode)
+- `-d/--debug` option for enabling debug output via command line (standalone mode)
+- 8 new test cases for stdin handling and empty input (162 total tests)
+
+### Fixed
+- Stdin consumption bug when processing multiple template files
+  - Auto-detection now disabled for multiple files
+  - Prevents first file from consuming stdin, leaving subsequent files empty
+- `-t` option behavior: now only reads stdin when `-f` is specified
+  - `-t` without `-f` renders template without reading stdin
+- Empty JSON/CSV input handling
+  - Empty or whitespace-only input now returns empty list `[]` instead of error
+  - More robust pipeline handling
+
+### Improved
+- Lines format now preserves empty lines as empty strings
+- Debug output shows rendered results with repr() for better visibility
+- Documentation updated with stdin auto-detection behavior and limitations
+- More intuitive and predictable `-t` option behavior
+
 ## [0.8.1] - 2025-11-26
 
 ### Fixed
@@ -213,7 +241,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
-[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.8.1...v0.9.0
+[0.8.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/tecolicom/pandoc-embedz/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/tecolicom/pandoc-embedz/compare/v0.7.1...v0.7.2
