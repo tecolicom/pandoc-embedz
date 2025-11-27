@@ -265,6 +265,25 @@ class TestLoadSQLite:
         with pytest.raises(ValueError, match="does not support inline data"):
             load_data(StringIO("dummy"), format='sqlite', table='items')
 
+    def test_load_sqlite_sql_injection_prevented(self):
+        """SQL injection via table name should be safely escaped"""
+        # Attempt SQL injection via table name - should be escaped, not executed
+        # The table doesn't exist, but the point is it doesn't execute as SQL
+        from pandoc_embedz.data_loader import _quote_identifier
+        # Verify quoting works correctly
+        assert _quote_identifier('items') == '"items"'
+        assert _quote_identifier('items; DROP TABLE items;--') == '"items; DROP TABLE items;--"'
+        assert _quote_identifier('my table') == '"my table"'
+        assert _quote_identifier('test"quote') == '"test""quote"'
+
+    def test_load_sqlite_table_name_with_special_chars(self):
+        """Table names with special characters should be properly quoted"""
+        from pandoc_embedz.data_loader import _quote_identifier
+        # These would be dangerous without quoting, but are safe when quoted
+        assert _quote_identifier('123table') == '"123table"'
+        assert _quote_identifier('my-table') == '"my-table"'
+        assert _quote_identifier('schema.table') == '"schema.table"'
+
 
 class TestLoadLines:
     """Tests for lines format data loading"""

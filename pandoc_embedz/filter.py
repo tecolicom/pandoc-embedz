@@ -510,6 +510,13 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
     _debug("=" * 60)
     _debug("Processing embedz code block")
 
+    # Initialize variables for error handling
+    config: Dict[str, Any] = {}
+    template_part = 'N/A'
+    data_part: Optional[str] = None
+    data_file: Optional[str] = None
+    has_header = True
+
     try:
         # Step 1: Parse and merge configuration
         _debug("Step 1: Parsing configuration")
@@ -535,14 +542,7 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
 
     except KNOWN_EXCEPTIONS as e:
         # Handle known exceptions with detailed error info
-        print_error_info(
-            e,
-            template_part if 'template_part' in locals() else 'N/A',
-            config if 'config' in locals() else {},
-            data_file if 'data_file' in locals() else None,
-            has_header if 'has_header' in locals() else True,
-            data_part if 'data_part' in locals() else None
-        )
+        print_error_info(e, template_part, config, data_file, has_header, data_part)
         # In test environment, raise exception; otherwise exit
         if os.environ.get('PYTEST_CURRENT_TEST'):
             raise

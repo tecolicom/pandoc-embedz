@@ -137,11 +137,31 @@ def _load_toml(source: Union[str, StringIO], **kwargs) -> Dict[str, Any]:
             "TOML support requires 'tomli' package for Python < 3.11. "
             "Install with: pip install tomli"
         )
-    if isinstance(source, StringIO):
-        content = source.getvalue()
-        return tomllib.loads(content)
-    else:
-        return tomllib.loads(Path(source).read_text(encoding='utf-8'))
+    content = _read_source(source)
+    return tomllib.loads(content)
+
+def _quote_identifier(name: str) -> str:
+    """Quote SQLite identifier (table/column name) to prevent SQL injection.
+
+    Uses double-quote escaping per SQL standard (supported by SQLite).
+    Any double quotes in the name are escaped by doubling them.
+
+    Args:
+        name: Identifier name to quote
+
+    Returns:
+        str: Safely quoted identifier
+
+    Examples:
+        >>> _quote_identifier('items')
+        '"items"'
+        >>> _quote_identifier('my table')
+        '"my table"'
+        >>> _quote_identifier('test"quote')
+        '"test""quote"'
+    """
+    return '"' + name.replace('"', '""') + '"'
+
 
 def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]:
     """Load SQLite database
@@ -180,7 +200,8 @@ def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]
         if query:
             cursor.execute(query)
         else:
-            cursor.execute(f"SELECT * FROM {table}")
+            # Quote table name to prevent SQL injection
+            cursor.execute(f"SELECT * FROM {_quote_identifier(table)}")
 
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
