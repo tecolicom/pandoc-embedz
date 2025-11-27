@@ -25,21 +25,22 @@ pandoc report.md --filter pandoc-embedz -o output.pdf
 
 ### Project Structure
 ```
-pandoc_embedz/          # Main package (1,366 lines)
-├── filter.py           # Pandoc filter (549 lines)
-├── data_loader.py      # Data loading (338 lines)
-├── config.py           # Configuration (285 lines)
-└── main.py             # CLI entry point (186 lines)
+pandoc_embedz/
+├── filter.py           # Pandoc filter entry point
+├── data_loader.py      # Data format loaders (CSV, JSON, SQLite, etc.)
+├── config.py           # Configuration parsing and validation
+└── main.py             # CLI entry point (standalone mode)
 
-tests/                  # Test suite (3,190 lines, 150+ tests)
+tests/
 ├── test_attributes.py  # Attribute parsing
 ├── test_load_data.py   # Data loading
 ├── test_template.py    # Template functionality
 ├── test_variables.py   # Variable scoping
+├── test_standalone.py  # Standalone mode
 └── fixtures/           # Test data files
 
 examples/               # Runnable examples
-CODE_ANALYSIS.md        # Code quality analysis and known issues
+CODE_ANALYSIS.md        # Code quality analysis
 ```
 
 ---
