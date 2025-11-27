@@ -41,8 +41,8 @@ release:
 
 	comment "Checking for uncommitted changes"
 	if [[ -z "$(IGNORE_DIRTY)" ]]; then
-		DIRTY=$$(command git status --porcelain | grep -v "^ M CHANGELOG.md$$" || true)
-		[ -z "$$DIRTY" ] || die "Error: working directory has uncommitted changes (except CHANGELOG.md):\n$$DIRTY"
+		DIRTY=$$(command git status --porcelain | grep -vE '^ M (CHANGELOG\.md|pyproject\.toml|pandoc_embedz/__init__\.py|uv\.lock)$$' || true)
+		[ -z "$$DIRTY" ] || die "Error: working directory has uncommitted changes (except release-managed files):\n$$DIRTY"
 	fi
 
 	comment "Updating version numbers to $$VERSION"

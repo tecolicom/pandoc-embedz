@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1] - 2025-11-27
+
+### Performance
+- Optimized debug string formatting with lazy evaluation (reduces overhead when DEBUG=False)
+- Replaced O(n*m) nested loop in normalize_config with O(1) dict lookup
+- Converted CONTROL_STRUCTURES from string concatenation to list append for better efficiency
+- Eliminated redundant file reads in data loaders
+
+### Code Quality
+- Extracted duplicate StringIO handling to `_read_source()` helper function
+- Consolidated pandas read_kwargs logic into `_build_csv_read_kwargs()` helper
+- Added `_has_template_syntax()` helper to reduce code duplication (3 uses)
+- Simplified `_split_template_and_newlines()` by removing redundant conditional check
+
+### Improved
+- Better maintainability with less code duplication (~30-40 lines reduced)
+- More consistent patterns across similar operations
+- All optimizations preserve existing functionality (162/162 tests passing)
+
 ## [0.9.0] - 2025-11-27
 
 ### Added
