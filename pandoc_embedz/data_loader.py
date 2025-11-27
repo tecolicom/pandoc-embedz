@@ -9,6 +9,7 @@ import pandas as pd
 import yaml
 import json
 import sqlite3
+import sys
 from io import StringIO
 from pathlib import Path
 
@@ -232,7 +233,7 @@ def load_data(
     Uses a dispatch table to delegate to format-specific loaders.
 
     Args:
-        source: File path or StringIO object
+        source: File path, StringIO object, or '-' for stdin
         format: Data format (csv, tsv, ssv, json, yaml, toml, sqlite, lines)
                If None, auto-detect from filename
         has_header: Whether CSV/TSV/SSV has header row
@@ -243,7 +244,10 @@ def load_data(
     """
     from .config import validate_file_path
 
-    if isinstance(source, str):
+    # Handle stdin
+    if isinstance(source, str) and source == '-':
+        source = StringIO(sys.stdin.read())
+    elif isinstance(source, str):
         source = validate_file_path(source)
 
     # Normalize format aliases

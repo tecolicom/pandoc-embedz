@@ -47,6 +47,13 @@ def render_standalone_text(
             attr_overrides or {},
             allow_inline_data=False
         )
+
+        # In standalone mode, if no data source is specified and stdin is available,
+        # automatically read from stdin
+        if 'data' not in config and not sys.stdin.isatty():
+            config['data'] = '-'
+            filter_module._debug("No data source specified, reading from stdin")
+
         result, data_file, has_header = filter_module._execute_embedz_pipeline(
             config, template_part, data_part
         )
@@ -64,7 +71,9 @@ def run_standalone(
     files: List[str],
     config_paths: Optional[List[str]] = None,
     output_path: Optional[str] = None,
-    enable_debug: bool = False
+    enable_debug: bool = False,
+    template_text: Optional[str] = None,
+    data_format: Optional[str] = None
 ) -> None:
     """Handle standalone rendering for one or more files."""
     filter_module = _filter_module()
@@ -80,13 +89,37 @@ def run_standalone(
         else:
             attr_overrides['config'] = config_paths
 
+    # Add data source and format overrides
+    if data_format:
+        attr_overrides['format'] = data_format
+
     outputs: List[str] = []
     try:
-        for template_path in files:
-            text = _read_template_source(template_path)
-            result = render_standalone_text(text, attr_overrides)
+        if template_text:
+            # Use template text from command line
+            # Build a simple template (data source will be auto-detected from stdin if needed)
+            template_content = template_text
+            if data_format or config_paths:
+                # Add YAML front matter if format or config is specified
+                front_matter_parts = []
+                if data_format:
+                    front_matter_parts.append(f'format: {data_format}')
+                # config_paths are handled via attr_overrides
+                if front_matter_parts:
+                    template_content = f"""---
+{chr(10).join(front_matter_parts)}
+---
+{template_text}"""
+            result = render_standalone_text(template_content, attr_overrides)
             if result:
                 outputs.append(result)
+        else:
+            # Use template files
+            for template_path in files:
+                text = _read_template_source(template_path)
+                result = render_standalone_text(text, attr_overrides)
+                if result:
+                    outputs.append(result)
     except filter_module.KNOWN_EXCEPTIONS:  # type: ignore[attr-defined]
         sys.exit(1)
 
@@ -106,6 +139,8 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-c', '--config', action='append', dest='configs')
     parser.add_argument('-o', '--output')
     parser.add_argument('-d', '--debug', action='store_true')
+    parser.add_argument('-t', '--template', dest='template_text')
+    parser.add_argument('-f', '--format', dest='data_format')
     parser.add_argument('-h', '--help', action='store_true')
     parser.add_argument('-v', '--version', action='store_true')
     parser.add_argument('files', nargs='*')
@@ -126,6 +161,8 @@ OPTIONS:
     -h, --help            Show this help message
     -v, --version         Show version information
     -s, --standalone      Render one or more template files directly
+    -t, --template TEXT   Template text (use instead of template file)
+    -f, --format FORMAT   Data format (csv, tsv, json, yaml, lines, etc.)
     -c, --config FILE     External YAML config file (repeatable, applies to standalone mode)
     -o, --output FILE     Write standalone render result to file (default: stdout)
     -d, --debug           Enable debug output
@@ -178,10 +215,18 @@ def main() -> None:
         sys.exit(0)
 
     if args.standalone:
-        if not args.files:
-            sys.stderr.write("pandoc-embedz: --standalone/-s requires at least one file\n")
+        # If template text is provided, files are optional
+        if not args.template_text and not args.files:
+            sys.stderr.write("pandoc-embedz: --standalone/-s requires at least one file or --template/-t option\n")
             sys.exit(1)
-        run_standalone(args.files, args.configs, args.output, enable_debug=args.debug)
+        run_standalone(
+            args.files,
+            args.configs,
+            args.output,
+            enable_debug=args.debug,
+            template_text=args.template_text,
+            data_format=args.data_format
+        )
         return
 
     # Enable debug mode for filter mode if requested

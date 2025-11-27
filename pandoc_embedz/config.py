@@ -29,15 +29,19 @@ def validate_file_path(file_path: str) -> str:
     """Validate file path to prevent path traversal attacks
 
     Args:
-        file_path: File path to validate
+        file_path: File path to validate, or '-' for stdin
 
     Returns:
-        str: Validated absolute file path
+        str: Validated absolute file path, or '-' for stdin
 
     Raises:
         FileNotFoundError: If file does not exist
         ValueError: If path appears to be malicious
     """
+    # Allow '-' as stdin indicator
+    if file_path == '-':
+        return '-'
+
     try:
         # Convert to Path object and resolve to absolute path
         path = Path(file_path).resolve()

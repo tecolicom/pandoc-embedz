@@ -76,6 +76,7 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
   - [CSV File (Auto-detected)](#csv-file-auto-detected)
   - [JSON Structure](#json-structure)
   - [Inline Data](#inline-data)
+  - [Standard Input](#standard-input)
   - [Conditionals](#conditionals)
   - [Template Reuse](#template-reuse)
 - [Advanced Features](#advanced-features)
@@ -173,6 +174,44 @@ format: json
 ]
 ```
 ````
+
+### Standard Input
+
+Read data from stdin in standalone mode:
+
+**Using template file:**
+
+````markdown
+```embedz
+---
+format: lines
+---
+{% for row in data %}
+- {{ row }}
+{% endfor %}
+```
+````
+
+```bash
+seq 10 | pandoc-embedz -s template.md
+```
+
+In standalone mode, if no `data:` is specified and stdin is available (piped or redirected), data is automatically read from stdin.
+
+**Using inline template (-t option):**
+
+```bash
+# Lines format
+seq 10 | pandoc-embedz -s -t '{% for n in data %}- {{ n }}\n{% endfor %}' -f lines
+
+# CSV format
+echo -e "name,value\nApple,10" | pandoc-embedz -s -t '{% for row in data %}{{ row.name }}: {{ row.value }}\n{% endfor %}' -f csv
+
+# JSON format
+echo '[{"name":"Apple"}]' | pandoc-embedz -s -t '{{ data[0].name }}' -f json
+```
+
+The `-t/--template` option allows you to specify the template text directly on the command line, and `-f/--format` specifies the data format (defaults to csv if not specified).
 
 ### Conditionals
 
@@ -942,15 +981,33 @@ pandoc-embedz --standalone templates/report.tex charts.tex --config config/base.
 
 **Command-line options:**
 
-- `--standalone` (or `-s`) enables standalone mode and every positional argument after it is treated as a template file (use `-` to read from stdin)
-- `--config` (or `-c`) loads external YAML config file(s) (repeatable)
-- `--output` (or `-o`) writes output to file (default: stdout)
+- `--standalone` (or `-s`) enables standalone mode
+- `--template TEXT` (or `-t`) specifies template text directly (instead of template file)
+- `--format FORMAT` (or `-f`) specifies data format (csv, json, yaml, lines, etc.)
+- `--config FILE` (or `-c`) loads external YAML config file(s) (repeatable)
+- `--output FILE` (or `-o`) writes output to file (default: stdout)
 - `--debug` (or `-d`) enables debug output to stderr (see [Debugging](#debugging) for details)
-- Entire file content is treated as the template body; multiple files are rendered in order and their outputs are concatenated
+
+**Behavior:**
+
+- When using template files: entire file content is treated as the template body; multiple files are rendered in order and their outputs are concatenated
 - Optional YAML front matter at the top is parsed the same way as code blocks
-- Inline data sections (`---` separator) are **not** interpreted here—use `data:` blocks or external files instead
-- If no data sources are defined, the template renders as-is (handy for LaTeX front matter
-  that only needs global variables or static content); files that only define front matter/preamble produce no output
+- Inline data sections (`---` separator) are **not** interpreted—use `data:` blocks or external files instead
+- If no `data:` is specified and stdin is available (piped/redirected), data is automatically read from stdin
+- If no data sources are defined, the template renders as-is (handy for LaTeX front matter that only needs global variables or static content); files that only define front matter/preamble produce no output
+
+**Quick data formatting examples:**
+
+```bash
+# Format CSV data
+cat data.csv | pandoc-embedz -s -t '{% for row in data %}{{ row.name }}\n{% endfor %}'
+
+# Format with specific format
+seq 10 | pandoc-embedz -s -t '{% for n in data %}- {{ n }}\n{% endfor %}' -f lines
+
+# Use template file (data auto-read from stdin)
+cat data.csv | pandoc-embedz -s template.md
+```
 
 Because the renderer simply expands templates, it works with Markdown, LaTeX, or any other plaintext format that Pandoc would normally consume later in the toolchain.
 
