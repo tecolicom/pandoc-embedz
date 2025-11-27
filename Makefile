@@ -12,6 +12,19 @@ release:
 	dryrun() { echo "$${FUNCNAME[1]}$$(printf ' %q' "$$@")"; }
 	extract_notes() { greple -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\](?s:.*?)(?=\n## )' -m1 --no-color -h; }
 	fold_notes() { ansifold --autoindent '^-\s+' -s --boundary=space; }
+	# Files managed by release process (allowed to be modified)
+	RELEASE_MANAGED_FILES=(
+		CHANGELOG.md
+		pyproject.toml
+		pandoc_embedz/__init__.py
+		uv.lock
+	)
+	check_dirty() {
+		local pattern
+		pattern=$$(printf '%s|' "$${RELEASE_MANAGED_FILES[@]}")
+		pattern="^ M ($${pattern%|})$$"
+		command git status --porcelain | grep -vE "$$pattern" || true
+	}
 	if [ -n "$$DRYRUN" ]; then
 		git()    { dryrun "$$@"; }
 		gh()     { dryrun "$$@"; }
@@ -41,7 +54,7 @@ release:
 
 	comment "Checking for uncommitted changes"
 	if [[ -z "$(IGNORE_DIRTY)" ]]; then
-		DIRTY=$$(command git status --porcelain | grep -vE '^ M (CHANGELOG\.md|pyproject\.toml|pandoc_embedz/__init__\.py|uv\.lock)$$' || true)
+		DIRTY=$$(check_dirty)
 		[ -z "$$DIRTY" ] || die "Error: working directory has uncommitted changes (except release-managed files):\n$$DIRTY"
 	fi
 
