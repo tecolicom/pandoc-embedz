@@ -285,7 +285,8 @@ class TestLoadLines:
     def test_load_lines_skip_empty(self):
         lines_data = StringIO("Arthur\n\nFord\n\n\nZaphod")
         data = load_data(lines_data, format='lines')
-        assert len(data) == 3  # Empty lines removed
+        assert len(data) == 6  # Empty lines are preserved
+        assert data == ['Arthur', '', 'Ford', '', '', 'Zaphod']
 
 
 class TestAutoDetection:
