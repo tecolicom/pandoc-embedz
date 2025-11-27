@@ -20,6 +20,9 @@ PARAMETER_PREFERRED_ALIASES = {
     'as': 'template',      # Normalize 'template' -> 'as' (recommended, no warning)
 }
 
+# Reverse lookup: Preferred alias -> Internal canonical name (for O(1) lookups)
+_ALIAS_TO_INTERNAL = {preferred: internal for internal, preferred in PARAMETER_PREFERRED_ALIASES.items()}
+
 # Parameters that are deprecated when used directly
 DEPRECATED_DIRECT_USE = {
     'name': 'define',  # Direct use of 'name' is deprecated; use 'define' instead
@@ -230,12 +233,8 @@ def normalize_config(config: Dict[str, Any], warn_deprecated: bool = True) -> Di
             )
 
     for key, value in config.items():
-        # Check if this key is a preferred alias for some internal name
-        internal_name = None
-        for internal, preferred in PARAMETER_PREFERRED_ALIASES.items():
-            if key == preferred:
-                internal_name = internal
-                break
+        # Check if this key is a preferred alias for some internal name (O(1) lookup)
+        internal_name = _ALIAS_TO_INTERNAL.get(key)
 
         if internal_name:
             # Convert preferred alias to internal name (no warning)

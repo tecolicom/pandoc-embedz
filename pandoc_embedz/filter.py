@@ -29,15 +29,32 @@ from .data_loader import _load_embedz_data
 # Debug mode controlled by environment variable
 DEBUG = os.getenv('PANDOC_EMBEDZ_DEBUG', '').lower() in ('1', 'true', 'yes')
 
-def _debug(msg: str) -> None:
-    """Print debug message to stderr if DEBUG is enabled"""
+def _debug(msg: str, *args: Any) -> None:
+    """Print debug message to stderr if DEBUG is enabled
+
+    Uses lazy evaluation - formatting only happens if DEBUG is True.
+    Usage: _debug("Message: %s", value)
+    """
     if DEBUG:
+        if args:
+            msg = msg % args
         sys.stderr.write(f"[DEBUG] {msg}\n")
+
+def _has_template_syntax(text: str) -> bool:
+    """Check if text contains Jinja2 template syntax.
+
+    Args:
+        text: Text to check
+
+    Returns:
+        True if text contains Jinja2 variable or control syntax
+    """
+    return '{{' in text or '{%' in text
 
 # Store global variables and control structures
 GLOBAL_VARS: Dict[str, Any] = {}
 GLOBAL_ENV: Optional[Environment] = None
-CONTROL_STRUCTURES_STR: str = ""
+CONTROL_STRUCTURES_PARTS: List[str] = []
 KNOWN_EXCEPTIONS = (
     FileNotFoundError,
     ValueError,
@@ -121,7 +138,8 @@ def _render_template(template_str: str, context: Dict[str, Any]) -> str:
         str: Rendered template result
     """
     env = _get_jinja_env()
-    full_template = CONTROL_STRUCTURES_STR + template_str
+    control_structures_str = '\n'.join(CONTROL_STRUCTURES_PARTS)
+    full_template = control_structures_str + '\n' + template_str if control_structures_str else template_str
     template = env.from_string(full_template)
     return template.render(**context)
 
@@ -160,11 +178,11 @@ def _parse_and_merge_config(
     """
     # Parse attributes from code block
     attr_config = parse_attributes(elem)
-    _debug(f"Attribute config: {attr_config}")
+    _debug("Attribute config: %s", attr_config)
 
     # Parse code block content
     yaml_config, template_part, data_part = parse_code_block(text)
-    _debug(f"YAML config: {yaml_config}")
+    _debug("YAML config: %s", yaml_config)
 
     # Special handling: if 'as' attribute without YAML header
     if not text.startswith('---') and 'as' in attr_config:
@@ -207,11 +225,11 @@ def _build_config_from_text(
 
     # Merge configurations from external files, attributes, and YAML header
     config = _merge_config_sources(merged_attr, yaml_config)
-    _debug(f"Merged config: {config}")
+    _debug("Merged config: %s", config)
 
     # Normalize configuration (resolve aliases)
     config = normalize_config(config)
-    _debug(f"Normalized config: {config}")
+    _debug("Normalized config: %s", config)
 
     # Validate configuration
     validate_config(config)
@@ -233,12 +251,12 @@ def _process_template_references(
 
     Side effects:
         - Updates SAVED_TEMPLATES dictionary if 'name' is specified
-        - Updates CONTROL_STRUCTURES_STR if template contains macro definitions
+        - Updates CONTROL_STRUCTURES_PARTS if template contains macro definitions
 
     Raises:
         ValueError: If referenced template is not found
     """
-    global CONTROL_STRUCTURES_STR
+    global CONTROL_STRUCTURES_PARTS
 
     # Save named template
     template_name = config.get('name')
@@ -246,13 +264,13 @@ def _process_template_references(
         if template_name in SAVED_TEMPLATES:
             sys.stderr.write(f"Warning: Overwriting template '{template_name}'\n")
         SAVED_TEMPLATES[template_name] = template_part
-        _debug(f"Saved template '{template_name}'")
+        _debug("Saved template '%s'", template_name)
 
-        # If template contains macro definitions, add to CONTROL_STRUCTURES_STR
+        # If template contains macro definitions, add to CONTROL_STRUCTURES_PARTS
         # so macros are available globally without explicit import
-        if '{%' in template_part and 'macro' in template_part:
-            CONTROL_STRUCTURES_STR += template_part + '\n'
-            _debug(f"Added macros from template '{template_name}' to global control structures")
+        if _has_template_syntax(template_part) and 'macro' in template_part:
+            CONTROL_STRUCTURES_PARTS.append(template_part)
+            _debug("Added macros from template '%s' to global control structures", template_name)
 
     # Load saved template
     template_ref = config.get('as')
@@ -263,7 +281,7 @@ def _process_template_references(
                 f"Define it first with define='{template_ref}'"
             )
         template_part = SAVED_TEMPLATES[template_ref]
-        _debug(f"Loaded template '{template_ref}'")
+        _debug("Loaded template '%s'", template_ref)
 
     return template_part
 
@@ -278,17 +296,17 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
 
     Side effects:
         Updates GLOBAL_VARS dictionary if 'global' key is present
-        Updates CONTROL_STRUCTURES_STR if 'preamble' key is present
+        Updates CONTROL_STRUCTURES_PARTS if 'preamble' key is present
     """
-    global CONTROL_STRUCTURES_STR
+    global CONTROL_STRUCTURES_PARTS
 
     # Process preamble (control structures for entire document)
     if 'preamble' in config:
         preamble_content = config['preamble']
         if isinstance(preamble_content, str):
             if preamble_content.strip():  # Only add non-empty content
-                CONTROL_STRUCTURES_STR += preamble_content + '\n'
-                _debug(f"Added preamble to control structures")
+                CONTROL_STRUCTURES_PARTS.append(preamble_content)
+                _debug("Added preamble to control structures")
         else:
             raise ValueError(
                 f"'preamble' must be a string, got {type(preamble_content).__name__}"
@@ -298,22 +316,22 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
     with_vars: Dict[str, Any] = {}
     if 'with' in config:
         with_vars.update(config['with'])
-        _debug(f"Local variables (with): {with_vars}")
+        _debug("Local variables (with): %s", with_vars)
 
     # Process global variables if present
     if 'global' in config:
         for key, value in config['global'].items():
             # Check if value contains template syntax
-            if isinstance(value, str) and ('{{' in value or '{%' in value):
+            if isinstance(value, str) and _has_template_syntax(value):
                 # Process template variable using unified rendering
                 context = _build_render_context({})  # Empty with_vars, no data
                 rendered = _render_template(value, context)
                 # Remove leading newlines that may be added by preamble
                 value = rendered.lstrip('\n')
-                _debug(f"Expanded global variable '{key}': {value}")
+                _debug("Expanded global variable '%s': %s", key, value)
 
             GLOBAL_VARS[key] = value
-        _debug(f"Global variables: {GLOBAL_VARS}")
+        _debug("Global variables: %s", GLOBAL_VARS)
 
     return with_vars
 
@@ -334,25 +352,25 @@ def _prepare_data_loading(
     data_format = config.get('format')  # None = auto-detect
     has_header = config.get('header', True)
 
-    _debug(f"Data file: {data_file}, format: {data_format}, has_header: {has_header}")
+    _debug("Data file: %s, format: %s, has_header: %s", data_file, data_format, has_header)
 
     # Prepare format-specific kwargs (e.g., for SQLite)
     load_kwargs = {}
     if 'table' in config:
         load_kwargs['table'] = config['table']
-        _debug(f"SQLite table: {config['table']}")
+        _debug("SQLite table: %s", config['table'])
 
     if 'query' in config:
         query_template = config['query']
         # Expand Jinja2 template variables in query if present
-        if '{{' in query_template or '{%' in query_template:
+        if _has_template_syntax(query_template):
             context = _build_render_context(with_vars)
             query_value = _render_template(query_template, context)
             load_kwargs['query'] = query_value
-            _debug(f"Expanded query: {query_value}")
+            _debug("Expanded query: %s", query_value)
         else:
             load_kwargs['query'] = query_template
-            _debug(f"Query: {query_template}")
+            _debug("Query: %s", query_template)
 
     return data_file, data_format, has_header, load_kwargs
 
@@ -362,9 +380,7 @@ def _split_template_and_newlines(template_part: str) -> Tuple[str, str]:
         return '', '\n'
     stripped = template_part.rstrip('\n')
     newline_count = len(template_part) - len(stripped)
-    if newline_count == 0:
-        return template_part, '\n'
-    return template_part[:-newline_count], '\n' * newline_count
+    return stripped, '\n' * max(1, newline_count)
 
 
 def _render_embedz_template(
@@ -384,14 +400,14 @@ def _render_embedz_template(
     """
     # Build render context and render template using unified rendering
     context = _build_render_context(with_vars, data)
-    _debug(f"Rendering template with context keys: {list(context.keys())}")
+    _debug("Rendering template with context keys: %s", list(context.keys()))
 
     template_body, newline_suffix = _split_template_and_newlines(template_part)
     result = _render_template(template_body, context)
-    _debug(f"Rendered result length: {len(result)} characters")
-    _debug(f"Rendered result (raw): {repr(result)}")
+    _debug("Rendered result length: %d characters", len(result))
+    _debug("Rendered result (raw): %r", result)
     result = (result or '') + newline_suffix
-    _debug(f"Final result (with newline suffix): {repr(result)}")
+    _debug("Final result (with newline suffix): %r", result)
 
     return result
 

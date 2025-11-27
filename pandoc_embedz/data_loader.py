@@ -78,16 +78,46 @@ def _apply_sql_query_multi(tables: Dict[str, pd.DataFrame], query: str) -> List[
 # ─────────────────────────────────────────────────────────────────────────────
 # Format Loaders
 
+def _build_csv_read_kwargs(sep: str, has_header: Optional[bool] = None) -> Dict[str, Any]:
+    r"""Build pandas read_csv kwargs for the given separator.
+
+    Args:
+        sep: Separator string (e.g., ',', '\t', r'\s+')
+        has_header: If provided, sets the 'header' parameter
+
+    Returns:
+        Dict of kwargs for pd.read_csv()
+    """
+    kwargs: Dict[str, Any] = {}
+
+    if sep is not None:
+        kwargs['sep'] = sep
+
+    if has_header is not None:
+        kwargs['header'] = 0 if has_header else None
+
+    if sep == r'\s+':
+        kwargs['engine'] = 'python'
+
+    return kwargs
+
+def _read_source(source: Union[str, StringIO]) -> str:
+    """Read content from file path or StringIO.
+
+    Args:
+        source: File path string or StringIO object
+
+    Returns:
+        Content as string
+    """
+    return source.getvalue() if isinstance(source, StringIO) else Path(source).read_text(encoding='utf-8')
+
 def _load_json(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
     """Load JSON format
 
     Returns empty list for empty input instead of raising an error.
     """
-    if isinstance(source, StringIO):
-        content = source.getvalue()
-    else:
-        with open(source, 'r', encoding='utf-8') as f:
-            content = f.read()
+    content = _read_source(source)
 
     # Handle empty input - return empty list
     if not content.strip():
@@ -97,10 +127,8 @@ def _load_json(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[
 
 def _load_yaml(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
     """Load YAML format"""
-    if isinstance(source, StringIO):
-        return yaml.safe_load(source.getvalue())
-    with open(source, 'r', encoding='utf-8') as f:
-        return yaml.safe_load(f)
+    content = _read_source(source)
+    return yaml.safe_load(content)
 
 def _load_toml(source: Union[str, StringIO], **kwargs) -> Dict[str, Any]:
     """Load TOML format"""
@@ -110,9 +138,10 @@ def _load_toml(source: Union[str, StringIO], **kwargs) -> Dict[str, Any]:
             "Install with: pip install tomli"
         )
     if isinstance(source, StringIO):
-        return tomllib.loads(source.getvalue())
-    with open(source, 'rb') as f:
-        return tomllib.load(f)
+        content = source.getvalue()
+        return tomllib.loads(content)
+    else:
+        return tomllib.loads(Path(source).read_text(encoding='utf-8'))
 
 def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]:
     """Load SQLite database
@@ -163,11 +192,8 @@ def _load_lines(source: Union[str, StringIO], **kwargs) -> List[str]:
 
     Returns each line as a string. Empty lines are preserved as empty strings.
     """
-    if isinstance(source, StringIO):
-        return source.getvalue().splitlines()
-    else:
-        with open(source, 'r', encoding='utf-8') as f:
-            return f.read().splitlines()
+    content = _read_source(source)
+    return content.splitlines()
 
 def _load_csv(
     source: Union[str, StringIO],
@@ -179,9 +205,7 @@ def _load_csv(
 
     Returns empty list for empty input instead of raising an error.
     """
-    read_kwargs = {'sep': sep}
-    if sep == r'\s+':
-        read_kwargs['engine'] = 'python'
+    read_kwargs = _build_csv_read_kwargs(sep)
 
     try:
         if has_header:
@@ -303,11 +327,9 @@ def _query_tables(
 
         # Load into DataFrame using separator mapping
         sep = SEP_MAP[file_format]
-        read_kwargs = {'header': 0 if has_header else None}
-        if sep == r'\s+':
-            read_kwargs['engine'] = 'python'
+        read_kwargs = _build_csv_read_kwargs(sep, has_header)
 
-        tables[table_name] = pd.read_csv(source, sep=sep, **read_kwargs)
+        tables[table_name] = pd.read_csv(source, **read_kwargs)
 
     return _apply_sql_query_multi(tables, query)
 
