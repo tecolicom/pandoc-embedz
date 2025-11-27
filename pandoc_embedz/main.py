@@ -49,8 +49,10 @@ def render_standalone_text(
         )
 
         # In standalone mode, if no data source is specified and stdin is available,
-        # automatically read from stdin
-        if 'data' not in config and not sys.stdin.isatty():
+        # automatically read from stdin (but not in test environment)
+        if ('data' not in config and
+            not sys.stdin.isatty() and
+            not os.getenv('PYTEST_CURRENT_TEST')):
             config['data'] = '-'
             filter_module._debug("No data source specified, reading from stdin")
 
@@ -97,16 +99,12 @@ def run_standalone(
     try:
         if template_text:
             # Use template text from command line
-            # Build a simple template (data source will be auto-detected from stdin if needed)
-            template_content = template_text
-            if data_format or config_paths:
-                # Add YAML front matter if format or config is specified
-                front_matter_parts = []
-                if data_format:
-                    front_matter_parts.append(f'format: {data_format}')
-                # config_paths are handled via attr_overrides
-                if front_matter_parts:
-                    template_content = f"""---
+            # When using template text, always read data from stdin
+            front_matter_parts = ['data: "-"']
+            if data_format:
+                front_matter_parts.append(f'format: {data_format}')
+            # config_paths are handled via attr_overrides
+            template_content = f"""---
 {chr(10).join(front_matter_parts)}
 ---
 {template_text}"""
@@ -215,10 +213,16 @@ def main() -> None:
         sys.exit(0)
 
     if args.standalone:
+        # Check for conflicting options
+        if args.template_text and args.files:
+            sys.stderr.write("pandoc-embedz: cannot specify both -t/--template and template files\n")
+            sys.exit(1)
+
         # If template text is provided, files are optional
         if not args.template_text and not args.files:
             sys.stderr.write("pandoc-embedz: --standalone/-s requires at least one file or --template/-t option\n")
             sys.exit(1)
+
         run_standalone(
             args.files,
             args.configs,

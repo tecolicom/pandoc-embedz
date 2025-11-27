@@ -205,3 +205,101 @@ define: helper-macros
     assert 'Arthur' in captured
     assert 'Title: Standalone' in captured
     assert 'HELLO' not in captured
+
+
+def test_stdin_data_source():
+    """Data can be read from stdin using data: '-'."""
+    from pandoc_embedz.main import render_standalone_text
+    import sys
+    from io import StringIO
+
+    _reset_state()
+
+    # Mock stdin with CSV data
+    original_stdin = sys.stdin
+    sys.stdin = StringIO("name,value\nApple,10\nBanana,5\n")
+
+    try:
+        template = '''---
+data: "-"
+format: csv
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}'''
+        result = render_standalone_text(template)
+        assert 'Apple: 10' in result
+        assert 'Banana: 5' in result
+    finally:
+        sys.stdin = original_stdin
+
+
+def test_template_text_option(capsys):
+    """Template can be specified via -t option."""
+    from pandoc_embedz.main import run_standalone
+    import sys
+    from io import StringIO
+
+    _reset_state()
+
+    # Mock stdin with lines data
+    original_stdin = sys.stdin
+    sys.stdin = StringIO("line1\nline2\nline3\n")
+
+    try:
+        run_standalone(
+            files=[],
+            template_text='{% for item in data %}* {{ item }}\n{% endfor %}',
+            data_format='lines'
+        )
+        captured = capsys.readouterr().out
+        assert '* line1' in captured
+        assert '* line2' in captured
+        assert '* line3' in captured
+    finally:
+        sys.stdin = original_stdin
+
+
+def test_format_option(capsys):
+    """Data format can be specified via -f option."""
+    from pandoc_embedz.main import run_standalone
+    import sys
+    from io import StringIO
+
+    _reset_state()
+
+    # Mock stdin with JSON data
+    original_stdin = sys.stdin
+    sys.stdin = StringIO('[{"name":"Test","value":42}]')
+
+    try:
+        run_standalone(
+            files=[],
+            template_text='{% for item in data %}{{ item.name }}: {{ item.value }}\n{% endfor %}',
+            data_format='json'
+        )
+        captured = capsys.readouterr().out
+        assert 'Test: 42' in captured
+    finally:
+        sys.stdin = original_stdin
+
+
+def test_template_and_file_conflict(tmp_path):
+    """Cannot specify both -t and template files."""
+    from pandoc_embedz.main import main
+    import sys
+
+    file = tmp_path / "template.md"
+    file.write_text("test", encoding='utf-8')
+
+    # Mock sys.argv
+    original_argv = sys.argv
+    sys.argv = ['pandoc-embedz', '-s', '-t', 'template text', str(file)]
+
+    try:
+        import pytest
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+    finally:
+        sys.argv = original_argv
