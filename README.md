@@ -96,6 +96,7 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
   - [Template Content](#template-content)
 - [Standalone Rendering](#standalone-rendering)
   - [External Config Files](#external-config-files)
+- [Debugging](#debugging)
 - [Related Tools](#related-tools)
 - [Documentation](#documentation)
 - [License](#license)
@@ -929,6 +930,8 @@ Uses Jinja2 syntax with full feature support:
 
 For detailed Jinja2 template syntax and features, see the [Jinja2 documentation](https://jinja.palletsprojects.com/).
 
+**Note**: Template output is interpreted as Markdown by default. This means you can use Markdown syntax (`**bold**`, `- lists`, `[links]()`, etc.) and LaTeX commands (`\textbf{}`, etc.) in your templates, and they will be properly converted to the target output format (HTML, PDF, LaTeX, etc.).
+
 ## Standalone Rendering
 
 Need to render Markdown or LaTeX files without running a full Pandoc conversion? Use the built-in renderer:
@@ -937,11 +940,15 @@ Need to render Markdown or LaTeX files without running a full Pandoc conversion?
 pandoc-embedz --standalone templates/report.tex charts.tex --config config/base.yaml -o build/report.tex
 ```
 
+**Command-line options:**
+
 - `--standalone` (or `-s`) enables standalone mode and every positional argument after it is treated as a template file (use `-` to read from stdin)
+- `--config` (or `-c`) loads external YAML config file(s) (repeatable)
+- `--output` (or `-o`) writes output to file (default: stdout)
+- `--debug` (or `-d`) enables debug output to stderr (see [Debugging](#debugging) for details)
 - Entire file content is treated as the template body; multiple files are rendered in order and their outputs are concatenated
 - Optional YAML front matter at the top is parsed the same way as code blocks
 - Inline data sections (`---` separator) are **not** interpreted here—use `data:` blocks or external files instead
-- Output is written to stdout unless `--output / -o` is provided
 - If no data sources are defined, the template renders as-is (handy for LaTeX front matter
   that only needs global variables or static content); files that only define front matter/preamble produce no output
 
@@ -998,6 +1005,29 @@ LaTeX documents often contain literal `{{`, `}}`, or lots of `{`/`}` pairs (e.g.
 ```
 
 If your LaTeX template has many literal braces, consider defining helper macros or switching Jinja2 delimiters (via `variable_start_string`/`variable_end_string`) so the syntax stays readable.
+
+## Debugging
+
+Enable debug output to see detailed processing information including configuration merging, data loading, and template rendering.
+
+**Using environment variable** (works in both filter and standalone modes):
+
+```bash
+# Filter mode
+PANDOC_EMBEDZ_DEBUG=1 pandoc input.md --filter pandoc-embedz -o output.pdf
+
+# Standalone mode
+PANDOC_EMBEDZ_DEBUG=1 pandoc-embedz -s template.md
+```
+
+**Using command-line option** (standalone mode only):
+
+```bash
+pandoc-embedz -s -d template.md
+pandoc-embedz --standalone --debug template.md
+```
+
+The environment variable accepts `1`, `true`, or `yes` as valid values.
 
 ## Related Tools
 

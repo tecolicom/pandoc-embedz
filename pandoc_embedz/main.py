@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -62,10 +63,16 @@ def render_standalone_text(
 def run_standalone(
     files: List[str],
     config_paths: Optional[List[str]] = None,
-    output_path: Optional[str] = None
+    output_path: Optional[str] = None,
+    enable_debug: bool = False
 ) -> None:
     """Handle standalone rendering for one or more files."""
     filter_module = _filter_module()
+
+    # Enable debug mode if requested
+    if enable_debug:
+        filter_module.DEBUG = True
+
     attr_overrides: Dict[str, object] = {}
     if config_paths:
         if len(config_paths) == 1:
@@ -98,6 +105,7 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument('-s', '--standalone', action='store_true')
     parser.add_argument('-c', '--config', action='append', dest='configs')
     parser.add_argument('-o', '--output')
+    parser.add_argument('-d', '--debug', action='store_true')
     parser.add_argument('-h', '--help', action='store_true')
     parser.add_argument('-v', '--version', action='store_true')
     parser.add_argument('files', nargs='*')
@@ -120,6 +128,7 @@ OPTIONS:
     -s, --standalone      Render one or more template files directly
     -c, --config FILE     External YAML config file (repeatable, applies to standalone mode)
     -o, --output FILE     Write standalone render result to file (default: stdout)
+    -d, --debug           Enable debug output
 
 DESCRIPTION:
     A Pandoc filter that embeds data from various formats (CSV, JSON, YAML,
@@ -172,8 +181,12 @@ def main() -> None:
         if not args.files:
             sys.stderr.write("pandoc-embedz: --standalone/-s requires at least one file\n")
             sys.exit(1)
-        run_standalone(args.files, args.configs, args.output)
+        run_standalone(args.files, args.configs, args.output, enable_debug=args.debug)
         return
+
+    # Enable debug mode for filter mode if requested
+    if args.debug:
+        os.environ['PANDOC_EMBEDZ_DEBUG'] = '1'
 
     # Defer to Pandoc filter mode
     filter_module = _filter_module()
