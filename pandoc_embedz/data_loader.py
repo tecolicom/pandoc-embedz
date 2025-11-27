@@ -179,33 +179,22 @@ def _load_csv(
 
     Returns empty list for empty input instead of raising an error.
     """
-    # Check if input is empty
-    if isinstance(source, StringIO):
-        content = source.getvalue()
-        if not content.strip():
-            return []
-        # Reset position for pandas to read
-        source.seek(0)
-    else:
-        # For file paths, check if file is empty
-        with open(source, 'r', encoding='utf-8') as f:
-            content = f.read()
-            if not content.strip():
-                return []
-        # File will be reopened by pandas
-
     read_kwargs = {'sep': sep}
     if sep == r'\s+':
         read_kwargs['engine'] = 'python'
 
-    if has_header:
-        df = pd.read_csv(source, **read_kwargs)
-        if 'query' in kwargs:
-            return _apply_sql_query(df, kwargs['query'])
-        return df.to_dict('records')
-    else:
-        df = pd.read_csv(source, header=None, **read_kwargs)
-        return df.values.tolist()
+    try:
+        if has_header:
+            df = pd.read_csv(source, **read_kwargs)
+            if 'query' in kwargs:
+                return _apply_sql_query(df, kwargs['query'])
+            return df.to_dict('records')
+        else:
+            df = pd.read_csv(source, header=None, **read_kwargs)
+            return df.values.tolist()
+    except pd.errors.EmptyDataError:
+        # pandas raises EmptyDataError for empty or whitespace-only input
+        return []
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Loader Dispatch Table
