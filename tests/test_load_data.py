@@ -683,3 +683,31 @@ product_id,product_name,price
         import pytest
         with pytest.raises(ValueError, match="Cannot specify both 'data' attribute and inline data"):
             process_embedz(elem, doc)
+
+class TestEmptyInput:
+    """Tests for empty input handling"""
+
+    def test_empty_json_returns_empty_list(self):
+        """Empty JSON input should return empty list instead of error"""
+        data = load_data(StringIO(""), format='json')
+        assert data == []
+
+    def test_whitespace_json_returns_empty_list(self):
+        """Whitespace-only JSON input should return empty list"""
+        data = load_data(StringIO("   \n  \t  "), format='json')
+        assert data == []
+
+    def test_empty_csv_returns_empty_list(self):
+        """Empty CSV input should return empty list instead of error"""
+        data = load_data(StringIO(""), format='csv')
+        assert data == []
+
+    def test_whitespace_csv_returns_empty_list(self):
+        """Whitespace-only CSV input should return empty list"""
+        data = load_data(StringIO("   \n  \t  "), format='csv')
+        assert data == []
+
+    def test_empty_tsv_returns_empty_list(self):
+        """Empty TSV input should return empty list"""
+        data = load_data(StringIO(""), format='tsv')
+        assert data == []

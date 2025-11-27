@@ -79,11 +79,21 @@ def _apply_sql_query_multi(tables: Dict[str, pd.DataFrame], query: str) -> List[
 # Format Loaders
 
 def _load_json(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
-    """Load JSON format"""
+    """Load JSON format
+
+    Returns empty list for empty input instead of raising an error.
+    """
     if isinstance(source, StringIO):
-        return json.loads(source.getvalue())
-    with open(source, 'r', encoding='utf-8') as f:
-        return json.load(f)
+        content = source.getvalue()
+    else:
+        with open(source, 'r', encoding='utf-8') as f:
+            content = f.read()
+
+    # Handle empty input - return empty list
+    if not content.strip():
+        return []
+
+    return json.loads(content)
 
 def _load_yaml(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
     """Load YAML format"""
@@ -165,7 +175,25 @@ def _load_csv(
     has_header: bool = True,
     **kwargs
 ) -> Union[List[Dict[str, Any]], List[List[Any]]]:
-    """Load CSV/TSV/SSV format with optional SQL query support"""
+    """Load CSV/TSV/SSV format with optional SQL query support
+
+    Returns empty list for empty input instead of raising an error.
+    """
+    # Check if input is empty
+    if isinstance(source, StringIO):
+        content = source.getvalue()
+        if not content.strip():
+            return []
+        # Reset position for pandas to read
+        source.seek(0)
+    else:
+        # For file paths, check if file is empty
+        with open(source, 'r', encoding='utf-8') as f:
+            content = f.read()
+            if not content.strip():
+                return []
+        # File will be reopened by pandas
+
     read_kwargs = {'sep': sep}
     if sep == r'\s+':
         read_kwargs['engine'] = 'python'

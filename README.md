@@ -993,20 +993,30 @@ pandoc-embedz --standalone templates/report.tex charts.tex --config config/base.
 - When using template files: entire file content is treated as the template body; multiple files are rendered in order and their outputs are concatenated
 - Optional YAML front matter at the top is parsed the same way as code blocks
 - Inline data sections (`---` separator) are **not** interpreted—use `data:` blocks or external files instead
-- If no `data:` is specified and stdin is available (piped/redirected), data is automatically read from stdin
+- **Stdin auto-detection:**
+  - When using `-t` option: data is read from stdin **only if** `-f` is specified
+  - When using template files: if no `data:` is specified and stdin is available (piped/redirected), data is automatically read from stdin
+  - **Limitation:** Stdin auto-detection is disabled when processing multiple template files (stdin can only be read once). Use explicit `data: "-"` in the first file if needed.
+- **Empty input:** Empty or whitespace-only input is treated as an empty list `[]` for JSON and CSV formats
 - If no data sources are defined, the template renders as-is (handy for LaTeX front matter that only needs global variables or static content); files that only define front matter/preamble produce no output
 
 **Quick data formatting examples:**
 
 ```bash
-# Format CSV data
-cat data.csv | pandoc-embedz -s -t '{% for row in data %}{{ row.name }}\n{% endfor %}'
+# Format CSV data (requires -f to read from stdin)
+cat data.csv | pandoc-embedz -s -t '{% for row in data %}{{ row.name }}\n{% endfor %}' -f csv
 
 # Format with specific format
 seq 10 | pandoc-embedz -s -t '{% for n in data %}- {{ n }}\n{% endfor %}' -f lines
 
-# Use template file (data auto-read from stdin)
+# Static template without data (no stdin reading)
+pandoc-embedz -s -t 'Static content'
+
+# Use template file (data auto-read from stdin for single file)
 cat data.csv | pandoc-embedz -s template.md
+
+# Multiple files with explicit data source
+pandoc-embedz -s file1.md file2.md  # No stdin auto-detection
 ```
 
 Because the renderer simply expands templates, it works with Markdown, LaTeX, or any other plaintext format that Pandoc would normally consume later in the toolchain.

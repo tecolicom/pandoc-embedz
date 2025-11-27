@@ -42,17 +42,27 @@ def render_standalone_text(
     try:
         filter_module._debug("=" * 60)
         filter_module._debug("Processing standalone embedz template")
+
+        # Extract internal flags from attr_overrides (use get, not pop, as dict is reused)
+        overrides = attr_overrides or {}
+        multiple_files = overrides.get('_multiple_files', False) if isinstance(overrides, dict) else False
+        no_stdin_auto = overrides.get('_no_stdin_auto', False) if isinstance(overrides, dict) else False
+
         config, template_part, data_part = filter_module._build_config_from_text(
             text,
-            attr_overrides or {},
+            overrides,
             allow_inline_data=False
         )
 
         # In standalone mode, if no data source is specified and stdin is available,
-        # automatically read from stdin (but not in test environment)
+        # automatically read from stdin (but not in test environment, when processing multiple files,
+        # or when using -t without -f)
+        # Note: stdin can only be read once, so auto-detection is disabled for multiple files
         if ('data' not in config and
             not sys.stdin.isatty() and
-            not os.getenv('PYTEST_CURRENT_TEST')):
+            not os.getenv('PYTEST_CURRENT_TEST') and
+            not multiple_files and
+            not no_stdin_auto):
             config['data'] = '-'
             filter_module._debug("No data source specified, reading from stdin")
 
@@ -95,19 +105,34 @@ def run_standalone(
     if data_format:
         attr_overrides['format'] = data_format
 
+    # Set internal flag for multiple files to disable stdin auto-detection
+    if len(files) > 1:
+        attr_overrides['_multiple_files'] = True
+
+    # Set internal flag when using -t without -f to disable stdin auto-detection
+    if template_text and not data_format:
+        attr_overrides['_no_stdin_auto'] = True
+
     outputs: List[str] = []
     try:
         if template_text:
             # Use template text from command line
-            # When using template text, always read data from stdin
-            front_matter_parts = ['data: "-"']
+            # Only read from stdin if format is specified
+            front_matter_parts = []
             if data_format:
+                front_matter_parts.append('data: "-"')
                 front_matter_parts.append(f'format: {data_format}')
+
             # config_paths are handled via attr_overrides
-            template_content = f"""---
+            if front_matter_parts:
+                template_content = f"""---
 {chr(10).join(front_matter_parts)}
 ---
 {template_text}"""
+            else:
+                # No data source, just render template as-is
+                template_content = template_text
+
             result = render_standalone_text(template_content, attr_overrides)
             if result:
                 outputs.append(result)

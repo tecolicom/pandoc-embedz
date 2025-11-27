@@ -303,3 +303,90 @@ def test_template_and_file_conflict(tmp_path):
         assert exc_info.value.code == 1
     finally:
         sys.argv = original_argv
+
+
+def test_multiple_files_no_stdin_auto_detection(tmp_path):
+    """Multiple files should not auto-detect stdin to avoid consuming it on first file."""
+    from pandoc_embedz.main import run_standalone
+    import sys
+    from io import StringIO
+
+    _reset_state()
+
+    # Create two template files without data: specification
+    file1 = tmp_path / "template1.md"
+    file1.write_text('{% if data %}{{ data[0] }}{% else %}No data 1{% endif %}', encoding='utf-8')
+
+    file2 = tmp_path / "template2.md"
+    file2.write_text('{% if data %}{{ data[0] }}{% else %}No data 2{% endif %}', encoding='utf-8')
+
+    # Mock stdin with data
+    original_stdin = sys.stdin
+    sys.stdin = StringIO("test")
+
+    try:
+        from io import StringIO
+        import sys as sys_module
+        output = StringIO()
+        original_stdout = sys_module.stdout
+        sys_module.stdout = output
+
+        run_standalone(files=[str(file1), str(file2)])
+
+        sys_module.stdout = original_stdout
+        result = output.getvalue()
+
+        # Both files should show "No data" because stdin auto-detection is disabled
+        assert 'No data 1' in result
+        assert 'No data 2' in result
+    finally:
+        sys.stdin = original_stdin
+
+
+def test_template_text_without_format_no_stdin(capsys):
+    """Template text without -f option should not read from stdin."""
+    from pandoc_embedz.main import run_standalone
+    import sys
+    from io import StringIO
+
+    _reset_state()
+
+    # Mock stdin with data (should not be consumed)
+    original_stdin = sys.stdin
+    sys.stdin = StringIO("should not be read")
+
+    try:
+        run_standalone(
+            files=[],
+            template_text='Static text without data'
+        )
+        captured = capsys.readouterr().out
+        assert 'Static text without data' in captured
+        assert 'should not be read' not in captured
+    finally:
+        sys.stdin = original_stdin
+
+
+def test_template_text_with_format_reads_stdin(capsys):
+    """Template text with -f option should read from stdin."""
+    from pandoc_embedz.main import run_standalone
+    import sys
+    from io import StringIO
+
+    _reset_state()
+
+    # Mock stdin with data
+    original_stdin = sys.stdin
+    sys.stdin = StringIO("line1\nline2")
+
+    try:
+        run_standalone(
+            files=[],
+            template_text='{% for item in data %}{{ item }}\n{% endfor %}',
+            data_format='lines'
+        )
+        captured = capsys.readouterr().out
+        assert 'line1' in captured
+        assert 'line2' in captured
+    finally:
+        sys.stdin = original_stdin
