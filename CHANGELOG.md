@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2] - 2025-11-28
+
+### Added
+- Best Practices section in README.md covering CSV output handling, file extensions, and pipeline patterns
+- Real-World Usage Patterns section in AGENTS.md with standalone mode examples and filter/standalone mode distinctions
+- CLAUDE.md symlink to AGENTS.md for Claude Code integration
+
+### Improved
+- Refactored Makefile dirty check with list variable and function for better maintainability
+- Simplified AGENTS.md project structure by removing line counts
+- Enhanced SQL injection protection with `_quote_identifier()` for safe table name handling
+- Unified TOML loader to use `_read_source()` helper for consistency
+- Variable initialization moved before try blocks to avoid locals() checks
+
 ## [0.9.1] - 2025-11-27
 
 ### Performance
