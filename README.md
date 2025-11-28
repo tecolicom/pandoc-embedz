@@ -97,6 +97,10 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
   - [Template Content](#template-content)
 - [Standalone Rendering](#standalone-rendering)
   - [External Config Files](#external-config-files)
+- [Best Practices](#best-practices)
+  - [CSV Output Escaping](#csv-output-escaping)
+  - [File Extension Recommendations](#file-extension-recommendations)
+  - [Pipeline Processing Pattern](#pipeline-processing-pattern)
 - [Debugging](#debugging)
 - [Related Tools](#related-tools)
 - [Documentation](#documentation)
@@ -969,7 +973,9 @@ Uses Jinja2 syntax with full feature support:
 
 For detailed Jinja2 template syntax and features, see the [Jinja2 documentation](https://jinja.palletsprojects.com/).
 
-**Note**: Template output is interpreted as Markdown by default. This means you can use Markdown syntax (`**bold**`, `- lists`, `[links]()`, etc.) and LaTeX commands (`\textbf{}`, etc.) in your templates, and they will be properly converted to the target output format (HTML, PDF, LaTeX, etc.).
+**Note on output format:**
+- **Filter mode** (`.embedz` code blocks): Template output is interpreted as Markdown and passed back to Pandoc for further processing. You can use Markdown syntax (`**bold**`, `- lists`, `[links]()`, etc.) and LaTeX commands (`\textbf{}`, etc.) in your templates.
+- **Standalone mode** (`-s` flag): Template output is plain text and not processed. Use this for generating CSV, JSON, configuration files, or any non-Markdown content.
 
 ## Standalone Rendering
 
@@ -1072,6 +1078,89 @@ LaTeX documents often contain literal `{{`, `}}`, or lots of `{`/`}` pairs (e.g.
 ```
 
 If your LaTeX template has many literal braces, consider defining helper macros or switching Jinja2 delimiters (via `variable_start_string`/`variable_end_string`) so the syntax stays readable.
+
+## Best Practices
+
+### CSV Output Escaping
+
+When outputting CSV format from templates, ensure proper escaping of special characters (commas, quotes, newlines). Use a Jinja2 macro for consistent handling:
+
+> **Note**: In standalone mode (`-s`), template output is treated as plain text and not interpreted as Markdown. This makes it safe for generating CSV, JSON, or other structured formats without unwanted formatting changes.
+
+````markdown
+---
+format: csv
+query: SELECT * FROM data WHERE active = 1
+---
+{# CSV field escaping macro #}
+{%- macro csv_escape(value) -%}
+  {%- set v = value | string -%}
+  {%- if ',' in v or '"' in v or '\n' in v -%}
+    "{{ v | replace('"', '""') }}"
+  {%- else -%}
+    {{ v }}
+  {%- endif -%}
+{%- endmacro -%}
+
+{# Output header #}
+{% for key in data[0].keys() -%}
+{{ csv_escape(key) }}{{ '' if loop.last else ',' }}
+{%- endfor %}
+
+{# Output data rows #}
+{% for row in data -%}
+{% for key in row.keys() -%}
+{{ csv_escape(row[key]) }}{{ '' if loop.last else ',' }}
+{%- endfor %}
+{% endfor -%}
+````
+
+**How it works:**
+- Fields containing `,`, `"`, or newlines are automatically quoted
+- Double quotes inside fields are escaped as `""`
+- Normal fields remain unquoted for readability
+
+### File Extension Recommendations
+
+For standalone templates that output non-Markdown content:
+
+- **`.emz`** - Recommended short extension for pandoc-embedz templates (3 characters, memorable)
+- **`.embedz`** - Alternative if you prefer descriptive names
+- **`.md`** - Use only when the template generates actual Markdown content
+
+**Example:**
+```bash
+# Good naming
+csv_transform.emz
+normalize_data.emz
+format_report.embedz
+
+# Use .md only for Markdown output
+report_template.md
+```
+
+### Pipeline Processing Pattern
+
+Combine pandoc-embedz with other command-line tools for data transformation pipelines:
+
+```bash
+# Extract → Transform → Format pipeline
+extract_tool database table --columns 1-10 | \
+  pandoc-embedz -s transform.emz | \
+  post_process_tool > output.csv
+
+# Multi-stage transformations
+cat raw_data.csv | \
+  pandoc-embedz -s stage1_normalize.emz | \
+  pandoc-embedz -s stage2_aggregate.emz | \
+  pandoc-embedz -s stage3_format.emz > final.csv
+```
+
+**Tips:**
+- Use `-s` (standalone mode) for pipeline processing
+- Data flows through stdin/stdout naturally
+- Each `.emz` file handles one transformation step
+- Keep transformations focused and reusable
 
 ## Debugging
 
