@@ -340,6 +340,48 @@ See [CODE_ANALYSIS.md](CODE_ANALYSIS.md) for:
 - Replace Japanese comments with English
 - Enhance test assertions beyond `isinstance` checks
 
+### Feature Request: Global variable expansion from query results
+
+**Background:** While implementing a data-driven annual report (JPCERT/CC incident statistics), the following workflow was attempted:
+
+1. Load incident data from CSV (`data: data/IR_REPORT.csv`)
+2. Aggregate by fiscal year using SQL query
+3. Set computed values (今年度報告件数, 前年度報告件数, etc.) as global variables
+4. Reference these values from multiple sections throughout the document
+
+**Problem:** Variables set with `{% set %}` in a template are block-scoped and cannot be referenced from other embedz blocks. The `global:` section values are not expanded as Jinja2 templates after query execution.
+
+**What was tried:**
+```yaml
+data: data/IR_REPORT.csv
+query: |
+  SELECT ... GROUP BY 年度
+global:
+  報告件数今年度: "{{ data | selectattr('年度', 'eq', '今年度') | map(attribute='報告件数') | first }}"
+```
+
+**Current behavior:**
+The `global:` value remains as a literal string `"{{ data | ... }}"` and is not expanded, because global variables are processed before data loading/query execution.
+
+**Desired behavior:**
+After `data:` loading and `query:` execution, `global:` values containing `{{` or `{%` should be expanded with access to the `data` variable, allowing subsequent blocks to reference computed values like `{{ 報告件数今年度 }}`.
+
+**Current workaround:**
+- Keep all data loading, processing, and output within a single embedz block
+- Use `{% set %}` within the template body to build data structures:
+  ```jinja2
+  {%- set 今年度 = data | selectattr('年度', 'eq', '今年度') | first -%}
+  {%- set インシデント = {'報告件数': 今年度.報告件数, ...} -%}
+  ```
+- Duplicate `data:` and `query:` in each block that needs the same data
+
+**Use case:** Annual report generation where statistics (e.g., incident counts, year-over-year comparisons) need to be referenced in multiple sections throughout the document.
+
+**Possible implementation approaches:**
+1. Add a `post_query_global:` section that is processed after query execution
+2. Allow `global:` values to be re-expanded after data is available
+3. Introduce a `computed:` section specifically for data-derived values
+
 ---
 
 ## Real-World Usage Patterns
