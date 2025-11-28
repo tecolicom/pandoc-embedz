@@ -10,7 +10,7 @@ def _reset_state():
 
     SAVED_TEMPLATES.clear()
     filter_module.GLOBAL_VARS.clear()
-    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.CONTROL_STRUCTURES_PARTS.clear()
 
 
 def test_config_file_merged_in_code_block():

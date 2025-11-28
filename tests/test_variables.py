@@ -11,12 +11,12 @@ def reset_globals():
     """Reset global state before each test"""
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.CONTROL_STRUCTURES_PARTS.clear()
     filter_module.GLOBAL_ENV = None
     yield
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.CONTROL_STRUCTURES_PARTS.clear()
     filter_module.GLOBAL_ENV = None
 
 
@@ -897,3 +897,206 @@ David,2025-01-01,70"""
         assert 'Charlie: 90' in output  # 2024
         assert 'Bob' not in output  # 2023
         assert 'David' not in output  # 2025
+
+
+class TestGlobalVariablesWithData:
+    """Tests for global variables that reference loaded data"""
+
+    def test_global_variable_referencing_data(self):
+        """Test global variable can reference loaded data"""
+        code = """---
+format: csv
+global:
+  total_count: "{{ data | length }}"
+---
+Total: {{ total_count }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,90"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['total_count'] == '3'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Total: 3' in output
+
+    def test_global_variable_with_data_aggregation(self):
+        """Test global variable can aggregate data values"""
+        code = """---
+format: csv
+global:
+  total_value: "{{ data | sum(attribute='value') }}"
+  average_value: "{{ (data | sum(attribute='value')) / (data | length) }}"
+---
+Total: {{ total_value }}, Average: {{ average_value }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,120"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['total_value'] == '300'
+        assert GLOBAL_VARS['average_value'] == '100.0'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Total: 300' in output
+        assert 'Average: 100.0' in output
+
+    def test_global_variable_with_data_filter(self):
+        """Test global variable can filter data"""
+        code = """---
+format: csv
+global:
+  high_value_count: "{{ data | selectattr('value', 'gt', 90) | list | length }}"
+---
+High value items: {{ high_value_count }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,120
+David,50"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['high_value_count'] == '2'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'High value items: 2' in output
+
+    def test_global_variable_with_query_result(self):
+        """Test global variable can reference query result"""
+        code = """---
+format: csv
+query: SELECT * FROM data WHERE value > 80
+global:
+  filtered_count: "{{ data | length }}"
+---
+Filtered count: {{ filtered_count }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,120
+David,50"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Query filters to Alice(100) and Charlie(120)
+        assert GLOBAL_VARS['filtered_count'] == '2'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Filtered count: 2' in output
+
+    def test_global_variable_available_in_subsequent_block(self):
+        """Test global variable set from data is available in later blocks"""
+        # First block: load data and set global variable
+        code1 = """---
+format: csv
+global:
+  report_total: "{{ data | sum(attribute='value') }}"
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert GLOBAL_VARS['report_total'] == '300'
+
+        # Second block: use the global variable
+        code2 = """---
+format: json
+---
+Report total from previous block: {{ report_total }}
+---
+[]"""
+
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Report total from previous block: 300' in output
+
+    def test_global_variable_with_first_item(self):
+        """Test global variable can extract first item from data"""
+        code = """---
+format: csv
+global:
+  first_name: "{{ (data | first).name }}"
+  first_value: "{{ (data | first).value }}"
+---
+First: {{ first_name }} ({{ first_value }})
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['first_name'] == 'Alice'
+        assert GLOBAL_VARS['first_value'] == '100'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'First: Alice (100)' in output
+
+    def test_query_uses_global_from_previous_block(self):
+        """Test query can use global variables defined in previous block"""
+        # First block: define query parameters
+        code1 = """---
+global:
+  min_value: 80
+---
+"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: use global in query, then set new global from result
+        code2 = """---
+format: csv
+query: SELECT * FROM data WHERE value >= {{ min_value }}
+global:
+  filtered_total: "{{ data | sum(attribute='value') }}"
+---
+Filtered total: {{ filtered_total }}
+---
+name,value
+Alice,100
+Bob,50
+Charlie,80"""
+
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        # Query filters to Alice(100) and Charlie(80), sum = 180
+        assert GLOBAL_VARS['filtered_total'] == '180'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Filtered total: 180' in output

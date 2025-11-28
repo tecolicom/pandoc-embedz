@@ -640,6 +640,30 @@ The `preamble` section defines control structures that are available throughout 
 - **Variables** (`{% set %}`): Template-level variables shared across all blocks (and can feed `global`)
 - **Imports**: Import templates or macros for use in subsequent blocks
 
+**Global variables from loaded data** - set global variables based on query results:
+
+````markdown
+```embedz
+---
+format: csv
+query: SELECT * FROM data WHERE value > 80
+global:
+  filtered_count: "{{ data | length }}"
+  total_value: "{{ data | sum(attribute='value') }}"
+---
+Filtered count: {{ filtered_count }}, Total: {{ total_value }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,120
+```
+````
+
+> **Note**: Variables in `query:` can use `with:` from the same block or `global:` from previous blocks.
+> Global variables in the same block are expanded **after** data loading,
+> so they can reference `data` but cannot be used in that block's `query:`.
+
 ### Preamble & Macro Sharing
 
 Use the `preamble` section and named templates to define reusable control structures that every embedz block can access.

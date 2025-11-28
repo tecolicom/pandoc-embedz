@@ -340,47 +340,58 @@ See [CODE_ANALYSIS.md](CODE_ANALYSIS.md) for:
 - Replace Japanese comments with English
 - Enhance test assertions beyond `isinstance` checks
 
-### Feature Request: Global variable expansion from query results
+### Global Variable Expansion from Query Results (Implemented)
 
-**Background:** While implementing a data-driven annual report (JPCERT/CC incident statistics), the following workflow was attempted:
+**Status:** ✅ Implemented in v0.9.3
 
-1. Load incident data from CSV (`data: data/IR_REPORT.csv`)
-2. Aggregate by fiscal year using SQL query
-3. Set computed values (今年度報告件数, 前年度報告件数, etc.) as global variables
-4. Reference these values from multiple sections throughout the document
+Global variables can now reference loaded data. The processing order is:
 
-**Problem:** Variables set with `{% set %}` in a template are block-scoped and cannot be referenced from other embedz blocks. The `global:` section values are not expanded as Jinja2 templates after query execution.
+1. Prepare preamble and with variables
+2. Expand query (using existing global variables from previous blocks)
+3. Load data
+4. **Expand global variables (with access to loaded data)**
+5. Render template
 
-**What was tried:**
+**Example:**
 ```yaml
-data: data/IR_REPORT.csv
-query: |
-  SELECT ... GROUP BY 年度
+---
+format: csv
+query: SELECT * FROM data WHERE value > 80
 global:
-  報告件数今年度: "{{ data | selectattr('年度', 'eq', '今年度') | map(attribute='報告件数') | first }}"
+  filtered_count: "{{ data | length }}"
+  total_value: "{{ data | sum(attribute='value') }}"
+---
+Filtered count: {{ filtered_count }}, Total: {{ total_value }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,120
 ```
 
-**Current behavior:**
-The `global:` value remains as a literal string `"{{ data | ... }}"` and is not expanded, because global variables are processed before data loading/query execution.
+**Important:** Variables used in `query:` can come from:
+- `with:` in the same block (input parameters)
+- `global:` from a previous block
 
-**Desired behavior:**
-After `data:` loading and `query:` execution, `global:` values containing `{{` or `{%` should be expanded with access to the `data` variable, allowing subsequent blocks to reference computed values like `{{ 報告件数今年度 }}`.
+Variables in the same block's `global:` cannot be used in `query:` (they are expanded after data loading).
 
-**Current workaround:**
-- Keep all data loading, processing, and output within a single embedz block
-- Use `{% set %}` within the template body to build data structures:
-  ```jinja2
-  {%- set 今年度 = data | selectattr('年度', 'eq', '今年度') | first -%}
-  {%- set インシデント = {'報告件数': 今年度.報告件数, ...} -%}
-  ```
-- Duplicate `data:` and `query:` in each block that needs the same data
+```yaml
+# Using with: in the same block
+---
+format: csv
+with:
+  min_value: 80
+query: SELECT * FROM data WHERE value >= {{ min_value }}
+global:
+  filtered_total: "{{ data | sum(attribute='value') }}"
+---
 
-**Use case:** Annual report generation where statistics (e.g., incident counts, year-over-year comparisons) need to be referenced in multiple sections throughout the document.
-
-**Possible implementation approaches:**
-1. Add a `post_query_global:` section that is processed after query execution
-2. Allow `global:` values to be re-expanded after data is available
-3. Introduce a `computed:` section specifically for data-derived values
+# Or using global: from a previous block
+---
+global:
+  min_value: 80
+---
+```
 
 ---
 

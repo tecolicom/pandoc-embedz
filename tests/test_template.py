@@ -11,12 +11,12 @@ def reset_globals():
     """Reset global state before each test"""
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.CONTROL_STRUCTURES_PARTS.clear()
     filter_module.GLOBAL_ENV = None
     yield
     SAVED_TEMPLATES.clear()
     GLOBAL_VARS.clear()
-    filter_module.CONTROL_STRUCTURES_STR = ""
+    filter_module.CONTROL_STRUCTURES_PARTS.clear()
     filter_module.GLOBAL_ENV = None
 
 

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Global variables can now reference loaded data using Jinja2 templates
+  - `global:` section is expanded after data loading, enabling `{{ data | length }}` etc.
+  - Computed values are available in subsequent blocks
+  - Processing order: preamble → with → query → data load → global → render
+
+### Changed
+- Reordered pipeline processing to enable data access in global variables
+  - `with:` variables are processed before query (usable in query)
+  - `global:` variables are processed after data loading (can reference data)
+
 ## [0.9.2] - 2025-11-28
 
 ### Added

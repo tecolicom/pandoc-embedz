@@ -285,22 +285,21 @@ def _process_template_references(
 
     return template_part
 
-def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Prepare local and global variables for rendering
+def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Prepare preamble and with variables (before data loading)
 
     Args:
-        config: Configuration dictionary containing 'with', 'global', and/or 'preamble' keys
+        config: Configuration dictionary containing 'preamble' and/or 'with' keys
 
     Returns:
         dict: Local variables (with_vars)
 
     Side effects:
-        Updates GLOBAL_VARS dictionary if 'global' key is present
         Updates CONTROL_STRUCTURES_PARTS if 'preamble' key is present
     """
     global CONTROL_STRUCTURES_PARTS
 
-    # Process preamble (control structures for entire document)
+    # Process preamble
     if 'preamble' in config:
         preamble_content = config['preamble']
         if isinstance(preamble_content, str):
@@ -312,28 +311,41 @@ def _prepare_variables(config: Dict[str, Any]) -> Dict[str, Any]:
                 f"'preamble' must be a string, got {type(preamble_content).__name__}"
             )
 
-    # Prepare local variables
+    # Process with variables (no data access - these are input parameters)
     with_vars: Dict[str, Any] = {}
     if 'with' in config:
         with_vars.update(config['with'])
         _debug("Local variables (with): %s", with_vars)
 
-    # Process global variables if present
-    if 'global' in config:
-        for key, value in config['global'].items():
-            # Check if value contains template syntax
-            if isinstance(value, str) and _has_template_syntax(value):
-                # Process template variable using unified rendering
-                context = _build_render_context({})  # Empty with_vars, no data
-                rendered = _render_template(value, context)
-                # Remove leading newlines that may be added by preamble
-                value = rendered.lstrip('\n')
-                _debug("Expanded global variable '%s': %s", key, value)
-
-            GLOBAL_VARS[key] = value
-        _debug("Global variables: %s", GLOBAL_VARS)
-
     return with_vars
+
+
+def _expand_global_variables(
+    config: Dict[str, Any],
+    with_vars: Dict[str, Any],
+    data: Optional[Any] = None
+) -> None:
+    """Expand global variables with access to loaded data
+
+    Args:
+        config: Configuration dictionary containing 'global' key
+        with_vars: Local variables from 'with' section
+        data: Loaded data (available for template expansion)
+
+    Side effects:
+        Updates GLOBAL_VARS dictionary
+    """
+    if 'global' not in config:
+        return
+
+    for key, value in config['global'].items():
+        if isinstance(value, str) and _has_template_syntax(value):
+            context = _build_render_context(with_vars, data)
+            rendered = _render_template(value, context)
+            value = rendered.lstrip('\n')
+            _debug("Expanded global variable '%s': %s", key, value)
+        GLOBAL_VARS[key] = value
+    _debug("Global variables: %s", GLOBAL_VARS)
 
 def _prepare_data_loading(
     config: Dict[str, Any],
@@ -417,9 +429,20 @@ def _execute_embedz_pipeline(
     template_part: str,
     data_part: Optional[str]
 ) -> Tuple[Optional[str], Optional[str], bool]:
-    """Run the core embedz pipeline shared by block and standalone modes."""
-    _debug("Step 3: Preparing variables")
-    with_vars = _prepare_variables(config)
+    """Run the core embedz pipeline shared by block and standalone modes.
+
+    Processing order (Steps 3-7, continuing from process_embedz Steps 1-2):
+    3. Prepare preamble and with variables (input parameters)
+    4. Prepare data loading (query expansion uses with vars and existing GLOBAL_VARS)
+    5. Load data
+    6. Expand global variables (with access to loaded data)
+    7. Render template
+
+    Note: with: variables are input parameters, usable in query:.
+          global: variables in the same block can reference loaded data.
+    """
+    _debug("Step 3: Preparing preamble and with variables")
+    with_vars = _prepare_preamble_and_with(config)
 
     _debug("Step 4: Preparing data loading")
     data_file, data_format, has_header, load_kwargs = _prepare_data_loading(
@@ -431,6 +454,9 @@ def _execute_embedz_pipeline(
         data_file, data_part, config, data_format, has_header, load_kwargs
     )
 
+    _debug("Step 6: Expanding global variables (with data access)")
+    _expand_global_variables(config, with_vars, data)
+
     template_has_content = bool(template_part.strip())
     definition_block = bool(config.get('name')) or not template_has_content
     if not data and definition_block:
@@ -439,7 +465,7 @@ def _execute_embedz_pipeline(
 
     render_data: Union[List[Any], Dict[str, Any]] = data or []
 
-    _debug("Step 6: Rendering template")
+    _debug("Step 7: Rendering template")
     result = _render_embedz_template(template_part, render_data, with_vars)
 
     return result, data_file, has_header
