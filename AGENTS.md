@@ -342,9 +342,84 @@ See [CODE_ANALYSIS.md](CODE_ANALYSIS.md) for:
 
 ---
 
+## Real-World Usage Patterns
+
+### Standalone Mode for Data Processing
+
+Standalone mode (`-s`) is particularly useful for CSV transformation pipelines:
+
+```bash
+# Data normalization pipeline
+extract_tool database.db table --columns 1-11 | \
+  pandoc-embedz -s normalize.emz | \
+  other_tool > output.csv
+```
+
+**Key characteristics:**
+- Output is plain text (not processed as Markdown)
+- Safe for CSV, JSON, configuration files
+- No Pandoc API calls - pure template rendering
+- Can be chained with other Unix tools
+
+### CSV Output Best Practices
+
+When generating CSV output, proper escaping is critical:
+
+```jinja2
+{%- macro csv_escape(value) -%}
+  {%- set v = value | string -%}
+  {%- if ',' in v or '"' in v or '\n' in v -%}
+    "{{ v | replace('"', '""') }}"
+  {%- else -%}
+    {{ v }}
+  {%- endif -%}
+{%- endmacro -%}
+```
+
+**Why this matters:**
+- CSV fields containing `,`, `"`, or newlines must be quoted
+- Double quotes inside fields must be escaped as `""`
+- Without proper escaping, CSV parsers will fail
+
+### File Naming Conventions
+
+**Recommended extensions for standalone templates:**
+- `.emz` - Short, memorable (3 characters)
+- `.embedz` - Descriptive alternative
+- `.md` - Only for templates that generate Markdown
+
+**Example structure:**
+```
+templates/
+├── normalize_data.emz       # CSV transformation
+├── format_report.emz        # Data formatting
+└── report_body.md           # Markdown generation
+```
+
+### Filter Mode vs Standalone Mode
+
+**Critical distinction:**
+
+| Aspect | Filter Mode | Standalone Mode |
+|--------|-------------|-----------------|
+| Invocation | `--filter pandoc-embedz` | `-s` flag |
+| Output format | Markdown (to Pandoc AST) | Plain text |
+| Pandoc API | Called | Not called |
+| Use case | Document embedding | Data transformation |
+
+**Implementation notes:**
+- Filter mode: `filter.py` processes code blocks, returns Markdown
+- Standalone mode: `main.py` renders template, outputs text
+- Output format note in README.md (line 976-978) clarifies this
+
+---
+
 ## Additional Resources
 
-- **README.md**: User documentation and examples (30,000+ characters)
+- **README.md**: User documentation and examples (includes Best Practices section)
+  - Basic usage and advanced features
+  - Best Practices: CSV escaping, file extensions, pipeline patterns
+  - Filter mode vs standalone mode clarification
 - **MULTI_TABLE.md**: Advanced multi-table SQL features
 - **COMPARISON.md**: Comparison with alternative tools
 - **CHANGELOG.md**: Version history and release notes
