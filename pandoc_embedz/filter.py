@@ -320,87 +320,27 @@ def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
     return with_vars
 
 
-def _evaluate_bind_expression(
-    expr_str: str,
-    context: Dict[str, Any],
-    env: Environment
-) -> Any:
-    """Evaluate expression and preserve type.
-
-    Uses Jinja2's compile_expression() to evaluate the expression and
-    return the result with its original type preserved (dict, list, int, etc.)
-    instead of converting to string.
-
-    Args:
-        expr_str: Jinja2 expression (without {{ }})
-        context: Template rendering context
-        env: Jinja2 Environment
-
-    Returns:
-        Evaluated value with original type preserved
-
-    Raises:
-        Exception: If expression evaluation fails
-    """
-    try:
-        compiled = env.compile_expression(expr_str)
-        result = compiled(**context)
-        _debug("Evaluated bind expression '%s' -> %r (type: %s)",
-               expr_str, result, type(result).__name__)
-        return result
-    except Exception as e:
-        _debug("Bind expression evaluation failed for '%s': %s", expr_str, e)
-        raise
-
-
-def _expand_template_recursive(
-    value: Any,
-    context: Dict[str, Any]
-) -> Any:
-    """Recursively expand Jinja2 templates in nested structures.
-
-    Args:
-        value: Value to expand (can be str, dict, list, or other)
-        context: Template rendering context
-
-    Returns:
-        Expanded value with same structure
-    """
-    if isinstance(value, str):
-        if _has_template_syntax(value):
-            rendered = _render_template(value, context)
-            return rendered.lstrip('\n')
-        return value
-    elif isinstance(value, dict):
-        return {k: _expand_template_recursive(v, context) for k, v in value.items()}
-    elif isinstance(value, list):
-        return [_expand_template_recursive(item, context) for item in value]
-    else:
-        return value
-
-
-def _evaluate_bind_recursive(
+def _process_nested_structure(
     value: Any,
     context: Dict[str, Any],
-    env: Environment
+    processor: callable
 ) -> Any:
-    """Recursively evaluate expressions in nested structures with type preservation.
+    """Recursively process nested structures (dict/list) with a string processor.
 
     Args:
-        value: Value to evaluate (can be str, dict, list, or other)
+        value: Value to process (can be str, dict, list, or other)
         context: Template rendering context
-        env: Jinja2 Environment
+        processor: Function to process string values, signature: (str, context) -> Any
 
     Returns:
-        Evaluated value with type preserved
+        Processed value with same structure
     """
     if isinstance(value, str):
-        expr_str = value.strip()
-        return _evaluate_bind_expression(expr_str, context, env)
+        return processor(value, context)
     elif isinstance(value, dict):
-        return {k: _evaluate_bind_recursive(v, context, env) for k, v in value.items()}
+        return {k: _process_nested_structure(v, context, processor) for k, v in value.items()}
     elif isinstance(value, list):
-        return [_evaluate_bind_recursive(item, context, env) for item in value]
+        return [_process_nested_structure(item, context, processor) for item in value]
     else:
         # Non-string primitives (int, float, bool, None) pass through unchanged
         return value
@@ -423,9 +363,18 @@ def _process_bind_section(
     Side effects:
         Updates GLOBAL_VARS dictionary
     """
+    def eval_expression(expr_str: str, ctx: Dict[str, Any]) -> Any:
+        """Evaluate expression and preserve type."""
+        expr_str = expr_str.strip()
+        compiled = env.compile_expression(expr_str)
+        result = compiled(**ctx)
+        _debug("Evaluated expression '%s' -> %r (type: %s)",
+               expr_str, result, type(result).__name__)
+        return result
+
     for bind_key, bind_expr in bind_config.items():
         context = _build_render_context(with_vars, data)
-        result = _evaluate_bind_recursive(bind_expr, context, env)
+        result = _process_nested_structure(bind_expr, context, eval_expression)
         GLOBAL_VARS[bind_key] = result
         _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
 
@@ -437,13 +386,11 @@ def _expand_global_variables(
 ) -> None:
     """Expand global variables with access to loaded data
 
-    Processes variables in order of appearance. Regular variables are
-    template-expanded (string result), bind: variables are expression-evaluated
-    (type preserved). Nested dicts and lists are recursively expanded.
+    Processes variables in order of appearance:
+    - bind: evaluates expressions with type preservation
+    - global: expands templates to strings
 
-    Supports both:
-    - global: { bind: { ... } } - bind inside global
-    - bind: { ... } - top-level bind (equivalent to global_eval)
+    Both support nested structures processed recursively.
 
     Args:
         config: Configuration dictionary containing 'global' and/or 'bind' keys
@@ -453,6 +400,13 @@ def _expand_global_variables(
     Side effects:
         Updates GLOBAL_VARS dictionary
     """
+    def expand_template(text: str, ctx: Dict[str, Any]) -> str:
+        """Expand template if it contains Jinja2 syntax."""
+        if _has_template_syntax(text):
+            rendered = _render_template(text, ctx)
+            return rendered.lstrip('\n')
+        return text
+
     env = _get_jinja_env()
 
     # Process top-level bind: FIRST (so global: can reference bound variables)
@@ -468,7 +422,7 @@ def _expand_global_variables(
             else:
                 # Regular variable: recursively expand templates in nested structures
                 context = _build_render_context(with_vars, data)
-                expanded = _expand_template_recursive(value, context)
+                expanded = _process_nested_structure(value, context, expand_template)
                 GLOBAL_VARS[key] = expanded
                 _debug("Set global variable '%s': %r", key, expanded)
 
