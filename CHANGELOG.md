@@ -12,16 +12,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `global:` section is expanded after data loading, enabling `{{ data | length }}` etc.
   - Computed values are available in subsequent blocks
   - Processing order: preamble → with → query → data load → global → render
-- New `bind:` subsection in `global:` for type-preserving expression evaluation
+- New `bind:` section for type-preserving expression evaluation
   - Evaluates Jinja2 expressions and preserves result type (dict, list, int, bool, None)
   - Enables property access on bound variables: `{{ first_row.name }}`
   - Uses `compile_expression()` instead of `render()` for type preservation
-  - Example:
+  - Supports both top-level `bind:` and nested `global: { bind: }` syntax
+  - Example (top-level):
+    ```yaml
+    bind:
+      first_row: data | first
+      total: data | sum(attribute='value')
+    ```
+  - Example (inside global):
     ```yaml
     global:
       bind:
         first_row: data | first
-        total: data | sum(attribute='value')
     ```
 - Recursive template expansion in nested `global:` structures
   - Templates in nested dicts and lists are now expanded

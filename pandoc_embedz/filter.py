@@ -379,6 +379,31 @@ def _expand_template_recursive(
         return value
 
 
+def _process_bind_section(
+    bind_config: Dict[str, Any],
+    with_vars: Dict[str, Any],
+    data: Optional[Any],
+    env: Environment
+) -> None:
+    """Process bind section: evaluate expressions with type preservation.
+
+    Args:
+        bind_config: Dictionary of variable names to expressions
+        with_vars: Local variables from 'with' section
+        data: Loaded data (available for expression evaluation)
+        env: Jinja2 Environment
+
+    Side effects:
+        Updates GLOBAL_VARS dictionary
+    """
+    for bind_key, bind_expr in bind_config.items():
+        context = _build_render_context(with_vars, data)
+        expr_str = bind_expr.strip() if isinstance(bind_expr, str) else str(bind_expr)
+        result = _evaluate_bind_expression(expr_str, context, env)
+        GLOBAL_VARS[bind_key] = result
+        _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
+
+
 def _expand_global_variables(
     config: Dict[str, Any],
     with_vars: Dict[str, Any],
@@ -390,36 +415,39 @@ def _expand_global_variables(
     template-expanded (string result), bind: variables are expression-evaluated
     (type preserved). Nested dicts and lists are recursively expanded.
 
+    Supports both:
+    - global: { bind: { ... } } - bind inside global
+    - bind: { ... } - top-level bind (equivalent to global_eval)
+
     Args:
-        config: Configuration dictionary containing 'global' key
+        config: Configuration dictionary containing 'global' and/or 'bind' keys
         with_vars: Local variables from 'with' section
         data: Loaded data (available for template expansion)
 
     Side effects:
         Updates GLOBAL_VARS dictionary
     """
-    if 'global' not in config:
-        return
-
     env = _get_jinja_env()
 
-    for key, value in config['global'].items():
-        if key == 'bind' and isinstance(value, dict):
-            # Process bind section: evaluate expressions with type preservation
-            for bind_key, bind_expr in value.items():
-                context = _build_render_context(with_vars, data)
-                expr_str = bind_expr.strip() if isinstance(bind_expr, str) else str(bind_expr)
-                result = _evaluate_bind_expression(expr_str, context, env)
-                GLOBAL_VARS[bind_key] = result
-                _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
-        else:
-            # Regular variable: recursively expand templates in nested structures
-            context = _build_render_context(with_vars, data)
-            expanded = _expand_template_recursive(value, context)
-            GLOBAL_VARS[key] = expanded
-            _debug("Set global variable '%s': %r", key, expanded)
+    # Process top-level bind: FIRST (so global: can reference bound variables)
+    if 'bind' in config and isinstance(config['bind'], dict):
+        _process_bind_section(config['bind'], with_vars, data, env)
 
-    _debug("Global variables: %s", GLOBAL_VARS)
+    # Process global: section if present
+    if 'global' in config:
+        for key, value in config['global'].items():
+            if key == 'bind' and isinstance(value, dict):
+                # Process bind subsection within global
+                _process_bind_section(value, with_vars, data, env)
+            else:
+                # Regular variable: recursively expand templates in nested structures
+                context = _build_render_context(with_vars, data)
+                expanded = _expand_template_recursive(value, context)
+                GLOBAL_VARS[key] = expanded
+                _debug("Set global variable '%s': %r", key, expanded)
+
+    if GLOBAL_VARS:
+        _debug("Global variables: %s", GLOBAL_VARS)
 
 def _prepare_data_loading(
     config: Dict[str, Any],

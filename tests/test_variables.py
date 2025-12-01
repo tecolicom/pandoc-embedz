@@ -1587,3 +1587,183 @@ Name: {{ config.name }}, Count: {{ config.count }}
         assert GLOBAL_VARS['config']['count'] == 42
         assert GLOBAL_VARS['config']['enabled'] is True
         assert GLOBAL_VARS['config']['items'] == ['one', 'two']
+
+
+class TestTopLevelBind:
+    """Tests for top-level bind: section (outside global:)"""
+
+    def test_top_level_bind_preserves_dict_type(self):
+        """Test top-level bind: preserves dict type"""
+        code = """---
+format: csv
+bind:
+  first_row: data | first
+---
+Name: {{ first_row.name }}, Value: {{ first_row.value }}
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['first_row'], dict)
+        assert GLOBAL_VARS['first_row']['name'] == 'Alice'
+        assert GLOBAL_VARS['first_row']['value'] == 100
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Name: Alice, Value: 100' in output
+
+    def test_top_level_bind_preserves_int_type(self):
+        """Test top-level bind: preserves integer type"""
+        code = """---
+format: csv
+bind:
+  total: data | sum(attribute='value')
+  count: data | length
+---
+Total: {{ total }}, Count: {{ count }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,20"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['total'], int)
+        assert GLOBAL_VARS['total'] == 200
+        assert isinstance(GLOBAL_VARS['count'], int)
+        assert GLOBAL_VARS['count'] == 3
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Total: 200, Count: 3' in output
+
+    def test_top_level_bind_with_global(self):
+        """Test top-level bind: works alongside global:"""
+        code = """---
+format: csv
+global:
+  title: "Summary Report"
+bind:
+  first: data | first
+  total: data | sum(attribute='value')
+---
+{{ title }}: {{ first.name }} (Total: {{ total }})
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['title'] == 'Summary Report'
+        assert isinstance(GLOBAL_VARS['first'], dict)
+        assert GLOBAL_VARS['first']['name'] == 'Alice'
+        assert GLOBAL_VARS['total'] == 300
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Summary Report: Alice (Total: 300)' in output
+
+    def test_top_level_bind_available_in_subsequent_block(self):
+        """Test top-level bind variables are available in subsequent blocks"""
+        # First block: bind variables
+        code1 = """---
+format: csv
+bind:
+  first_row: data | first
+  total: data | sum(attribute='value')
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert isinstance(GLOBAL_VARS['first_row'], dict)
+        assert GLOBAL_VARS['total'] == 300
+
+        # Second block: use bound variables
+        code2 = """---
+---
+First: {{ first_row.name }} ({{ first_row.value }})
+Total: {{ total }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'First: Alice (100)' in output
+        assert 'Total: 300' in output
+
+    def test_top_level_bind_with_computation(self):
+        """Test top-level bind: supports computations with preserved types"""
+        code = """---
+format: csv
+bind:
+  first: data | first
+  second: data | last
+  diff: (data | first).value - (data | last).value
+  greater: (data | first).value > (data | last).value
+---
+Diff: {{ diff }}, First > Last: {{ greater }}
+---
+name,value
+Alice,100
+Bob,30"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['diff'] == 70
+        assert GLOBAL_VARS['greater'] is True
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Diff: 70' in output
+        # Note: > may be escaped to \> in markdown output
+        assert 'First' in output and 'Last: True' in output
+
+    def test_global_can_reference_top_level_bind(self):
+        """Test global: can reference top-level bind: variables"""
+        code = """---
+format: csv
+bind:
+  first: data | first
+  total: data | sum(attribute='value')
+global:
+  summary: "{{ first.name }}: {{ total }}"
+---
+Summary: {{ summary }}
+---
+name,value
+Alice,100
+Bob,30
+Charlie,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['first'], dict)
+        assert GLOBAL_VARS['total'] == 210
+        assert GLOBAL_VARS['summary'] == 'Alice: 210'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Summary: Alice: 210' in output
