@@ -32,135 +32,184 @@ GLOBAL_VARS['first_row'] = {'name': 'Alice', 'value': 100}  # 辞書
 
 ### 基本方針
 
-**純粋な式（`{{ expr }}` のみ）の場合は `compile_expression()` で評価し、型を保持する。**
+**`global:` セクション内に `bind:` サブセクションを導入し、式を評価して型を保持する。**
+
+通常の変数はテンプレート展開（常に文字列）、`bind:` 内の変数は式として評価（型保持）。
+
+### 構文
+
+```yaml
+global:
+  # 通常の変数（テンプレート展開 → 文字列）
+  date_str: "{{ year }}-01-01"
+  query: "SELECT * FROM data WHERE value > {{ threshold }}"
+
+  # 式を評価して束縛（型保持）
+  bind:
+    first_row: data | first
+    total: data | sum(attribute='value')
+    high_values: |
+      data
+      | selectattr('value', 'gt', 50)
+      | list
+```
+
+### 処理順序
+
+**出現順に処理される。** 記述順 = 処理順。
+
+```yaml
+global:
+  year: 2024                        # 1. 処理
+  start_date: "{{ year }}-01-01"    # 2. year を参照可能
+  bind:
+    total: data | sum(attribute='value')  # 3. year, start_date を参照可能
+    first: data | first                    # 4. total も参照可能
+  end_date: "{{ year }}-12-31"      # 5. total, first を参照可能
+```
+
+### なぜ `bind` か
+
+| 名前 | ニュアンス |
+|------|-----------|
+| `expr` | 「これは式です」（結果については言及しない） |
+| `eval` | 「これを評価します」（Python eval の連想、セキュリティ懸念） |
+| `bind` | 「結果を変数に束縛します」（型保持を暗示、関数型言語の概念） |
+
+`bind` は「式を評価して、その結果（型を含めて）を変数に結びつける」という動作を最もよく表現している。
+
+## 実装方法
+
+### Jinja2 の評価方法
 
 Jinja2 には2つの評価方法がある:
 
 1. `template.render()` - 常に文字列を返す
 2. `env.compile_expression()` - 式の結果をそのまま返す（型を保持）
 
-### 判定ロジック
+`bind:` セクションでは `compile_expression()` を使用する。
+
+### 実装コード
 
 ```python
-import re
-
-def _extract_pure_expression(template_str: str) -> Optional[str]:
-    """Extract expression from pure expression template.
-
-    A pure expression is a template containing only a single {{ expr }} with
-    no surrounding text or control structures.
-
-    Args:
-        template_str: Template string to analyze
-
-    Returns:
-        The expression string if pure expression, None otherwise
-
-    Examples:
-        "{{ data | first }}" -> "data | first"
-        "{{ year }}-01-01" -> None (has surrounding text)
-        "{{ a }} {{ b }}" -> None (multiple expressions)
-        "{%- set x = 1 -%}{{ x }}" -> None (has control structure)
-    """
-    stripped = template_str.strip()
-
-    # Reject if contains control structures
-    if '{%' in stripped:
-        return None
-
-    # Count delimiters (simple count is sufficient for well-formed templates)
-    if stripped.count('{{') != 1 or stripped.count('}}') != 1:
-        return None
-
-    # Match entire string as single expression
-    match = re.match(r'^{{\s*(.+?)\s*}}$', stripped, re.DOTALL)
-    if match:
-        return match.group(1)
-    return None
-```
-
-### 評価関数
-
-```python
-def _evaluate_global_value(
-    value_str: str,
+def _evaluate_bind_expression(
+    expr_str: str,
     context: Dict[str, Any],
     env: Environment
 ) -> Any:
-    """Evaluate global variable value with type preservation.
-
-    Processing logic:
-    1. Non-string values: return as-is
-    2. Plain strings (no template syntax): return as-is
-    3. Pure expressions ({{ expr }} only): evaluate and preserve type
-    4. Compound templates: render as string
+    """Evaluate expression and preserve type.
 
     Args:
-        value_str: Value to evaluate (may contain Jinja2 syntax)
+        expr_str: Jinja2 expression (without {{ }})
         context: Template rendering context
         env: Jinja2 Environment
 
     Returns:
-        Evaluated value with appropriate type
+        Evaluated value with original type preserved
     """
-    if not isinstance(value_str, str):
-        return value_str
+    try:
+        compiled = env.compile_expression(expr_str)
+        result = compiled(**context)
+        _debug("Evaluated bind expression '%s' -> %r (type: %s)",
+               expr_str, result, type(result).__name__)
+        return result
+    except Exception as e:
+        _debug("Bind expression evaluation failed for '%s': %s", expr_str, e)
+        raise
 
-    if not _has_template_syntax(value_str):
-        return value_str
 
-    # Check for pure expression
-    expr_str = _extract_pure_expression(value_str)
-    if expr_str:
-        try:
-            # Prepend control structures for macro access
-            control_structures_str = '\n'.join(CONTROL_STRUCTURES_PARTS)
-            if control_structures_str:
-                # For expressions using macros, we need to render first
-                # to make macros available, then compile the expression
-                pass  # Fall through to compile_expression
+def _expand_global_variables(
+    config: Dict[str, Any],
+    with_vars: Dict[str, Any],
+    data: Optional[Any] = None
+) -> None:
+    """Expand global variables with access to loaded data.
 
-            compiled = env.compile_expression(expr_str)
-            result = compiled(**context)
-            _debug("Evaluated pure expression '%s' -> %r (type: %s)",
-                   expr_str, result, type(result).__name__)
-            return result
-        except Exception as e:
-            _debug("Expression evaluation failed for '%s': %s, falling back to render",
-                   expr_str, e)
-            # Fall through to template rendering
+    Processes variables in order of appearance. Regular variables are
+    template-expanded (string result), bind variables are expression-evaluated
+    (type preserved).
+    """
+    if 'global' not in config:
+        return
 
-    # Compound template: render as string
-    return _render_template(value_str, context).lstrip('\n')
+    env = _get_jinja_env()
+
+    for key, value in config['global'].items():
+        if key == 'bind' and isinstance(value, dict):
+            # Process bind section: evaluate expressions with type preservation
+            for bind_key, bind_expr in value.items():
+                context = _build_render_context(with_vars, data)
+                expr_str = bind_expr.strip() if isinstance(bind_expr, str) else str(bind_expr)
+                result = _evaluate_bind_expression(expr_str, context, env)
+                GLOBAL_VARS[bind_key] = result
+                _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
+        elif isinstance(value, str) and _has_template_syntax(value):
+            # Regular variable: template expansion (string result)
+            context = _build_render_context(with_vars, data)
+            rendered = _render_template(value, context)
+            value = rendered.lstrip('\n')
+            GLOBAL_VARS[key] = value
+            _debug("Expanded global variable '%s': %s", key, value)
+        else:
+            # Plain value
+            GLOBAL_VARS[key] = value
+
+    _debug("Global variables: %s", GLOBAL_VARS)
 ```
 
 ## 動作例
 
-### 純粋な式（型を保持）
+### 入力
 
-| 入力 | 結果 | 型 |
-|------|------|-----|
-| `{{ data \| first }}` | `{'name': 'Alice', 'value': 100}` | dict |
-| `{{ data \| length }}` | `2` | int |
-| `{{ data }}` | `[...]` | list |
-| `{{ year }}` | `2024` | int |
-| `{{ data \| sum(attribute='value') }}` | `300` | int |
+```yaml
+---
+format: csv
+global:
+  year: 2024
+  date_str: "{{ year }}-01-01"
+  bind:
+    first_row: data | first
+    total: data | sum(attribute='value')
+    count: data | length
+    high_values: |
+      data
+      | selectattr('value', 'gt', 50)
+      | list
+---
+First: {{ first_row.name }} ({{ first_row.value }})
+Total: {{ total }}
+Count: {{ count }}
+High value count: {{ high_values | length }}
+---
+name,value
+Alice,100
+Bob,30
+Charlie,80
+```
 
-### 複合テンプレート（文字列）
+### 結果
 
-| 入力 | 結果 | 型 |
-|------|------|-----|
-| `{{ year }}-01-01` | `'2024-01-01'` | str |
-| `Hello {{ name }}` | `'Hello World'` | str |
-| `{{ a }} and {{ b }}` | `'Alice and Bob'` | str |
-| `{%- set x = 1 -%}{{ x }}` | `'1'` | str |
+```python
+GLOBAL_VARS = {
+    'year': 2024,                    # int (YAML parsing)
+    'date_str': '2024-01-01',        # str (template expansion)
+    'first_row': {'name': 'Alice', 'value': 100},  # dict (bind)
+    'total': 210,                    # int (bind)
+    'count': 3,                      # int (bind)
+    'high_values': [                 # list (bind)
+        {'name': 'Alice', 'value': 100},
+        {'name': 'Charlie', 'value': 80}
+    ],
+}
+```
 
-### プレーン文字列
-
-| 入力 | 結果 | 型 |
-|------|------|-----|
-| `plain string` | `'plain string'` | str |
-| `2024-01-01` | `'2024-01-01'` | str |
+出力:
+```
+First: Alice (100)
+Total: 210
+Count: 3
+High value count: 2
+```
 
 ## ユースケース
 
@@ -168,7 +217,6 @@ def _evaluate_global_value(
 
 現在の回避策:
 ```yaml
-# テンプレート本文内で {% set %} を使用
 ---
 {%- set 今年度 = data | selectattr('年度', 'eq', '今年度') | first -%}
 {%- set 前年度 = data | selectattr('年度', 'eq', '前年度') | first -%}
@@ -178,8 +226,9 @@ def _evaluate_global_value(
 提案後:
 ```yaml
 global:
-  今年度: "{{ data | selectattr('年度', 'eq', '今年度') | first }}"
-  前年度: "{{ data | selectattr('年度', 'eq', '前年度') | first }}"
+  bind:
+    今年度: data | selectattr('年度', 'eq', '今年度') | first
+    前年度: data | selectattr('年度', 'eq', '前年度') | first
 ---
 報告件数: {{ 今年度.報告件数 }}
 ```
@@ -191,8 +240,9 @@ global:
 ---
 format: csv
 global:
-  summary: "{{ data | first }}"
-  total: "{{ data | sum(attribute='value') }}"
+  bind:
+    summary: data | first
+    total: data | sum(attribute='value')
 ---
 ---
 name,value
@@ -201,149 +251,107 @@ Bob,200
 ```
 
 ```yaml
-# Block 2: Use stored data
+# Block 2: Use stored data (no data loading needed)
 ---
-format: json
 ---
 Summary name: {{ summary.name }}
 Total value: {{ total }}
+```
+
+### ユースケース 3: 条件分岐で使用
+
+```yaml
+global:
+  bind:
+    has_data: data | length > 0
+    first_item: data | first | default(none)
 ---
-[]
+{% if has_data %}
+First item: {{ first_item.name }}
+{% else %}
+No data available.
+{% endif %}
 ```
 
 ## 後方互換性
 
-### 影響を受けるケース
+### 影響
 
-従来（すべて文字列）:
-```python
-GLOBAL_VARS['total_count'] = '3'      # str
-GLOBAL_VARS['year'] = '2024'          # str
+- **既存のコード**: 影響なし（`bind:` は新機能）
+- **`global:` の通常変数**: 動作変更なし（常に文字列）
+
+### `bind` という変数名を使いたい場合
+
+```yaml
+global:
+  bind: "some string"  # 値が辞書でないので、変数として扱われる
 ```
 
-新動作（型を保持）:
-```python
-GLOBAL_VARS['total_count'] = 3        # int
-GLOBAL_VARS['year'] = 2024            # int
-```
-
-### 実用上の影響
-
-- **テンプレート内での使用**: 影響なし（Jinja2 が自動で文字列変換）
-- **Python コード内での直接参照**: 型が変わるため注意が必要
-  - 例: `GLOBAL_VARS['count'] + ' items'` → TypeError
-
-ただし、`global` 変数は通常テンプレート内で使用されるため、
-Jinja2 の自動変換により実用上の問題は少ない。
-
-### テストへの影響
-
-`test_variables.py` の一部のアサーションを修正する必要がある:
-
-```python
-# 従来
-assert GLOBAL_VARS['total_count'] == '3'
-
-# 新動作
-assert GLOBAL_VARS['total_count'] == 3
-```
+判定ルール: `bind` キーの値が辞書（mapping）の場合のみ特別扱い。
 
 ## エッジケースの考慮
 
-### 1. 制御構文を含む式
+### 1. None や空リストの結果
 
 ```yaml
 global:
-  value: "{%- set x = data | first -%}{{ x }}"
+  bind:
+    empty_result: data | selectattr('value', 'gt', 1000) | first | default(none)
 ```
 
-`{%` を含むため複合テンプレートとして扱い、文字列を返す。
-これは意図的な動作であり、制御構文の副作用を考慮した設計。
+`None` がそのまま保持され、テンプレートで `{% if empty_result %}` で判定可能。
 
-### 2. マクロを使用する式
+### 2. 複数行の式
 
 ```yaml
 global:
-  result: "{{ MY_MACRO(data) }}"
+  bind:
+    complex_filter: |
+      data
+      | selectattr('category', 'eq', 'A')
+      | selectattr('value', 'gt', 50)
+      | sort(attribute='value', reverse=true)
+      | list
 ```
 
-`compile_expression()` はマクロを直接評価できないため、
-エラー時は `render()` にフォールバックして文字列を返す。
+YAML のリテラルブロック (`|`) で複数行の式を記述可能。
 
-**注意**: マクロの結果で型を保持したい場合は、マクロ内で処理を完結させるか、
-テンプレート本文で `{% set %}` を使用する必要がある。
-
-### 3. 文字列リテラル内の `{{`
+### 3. マクロの使用
 
 ```yaml
 global:
-  msg: "{{ 'text with {{ inside' }}"
+  bind:
+    result: MY_MACRO(data)  # preamble や named template で定義されたマクロ
 ```
 
-正規表現 `^{{\s*(.+?)\s*}}$` は最初の `}}` でマッチするため、
-この場合は `compile_expression()` で評価される。
-式 `'text with {{ inside'` は有効な Jinja2 文字列リテラルとして評価可能。
+`compile_expression()` はマクロを直接評価できない可能性がある。
+その場合はエラーを発生させ、テンプレート本文で `{% set %}` を使用するよう案内する。
 
-### 4. None や空リストの結果
+## テスト計画
 
-```yaml
-global:
-  empty_result: "{{ data | selectattr('value', 'gt', 1000) | first }}"
-```
+1. **基本機能**
+   - `bind:` で辞書が保持される
+   - `bind:` でリストが保持される
+   - `bind:` で整数が保持される
+   - `bind:` で None が保持される
 
-`first` フィルタが `None` を返す場合、その `None` がそのまま保持される。
-これは意図的な動作であり、後続のテンプレートで `{% if empty_result %}` などで
-判定可能になる。
+2. **処理順序**
+   - 通常変数 → bind の順で参照可能
+   - bind 内で先に定義した変数を参照可能
 
-## 実装箇所
+3. **後方互換性**
+   - 通常の `global:` 変数は文字列のまま
+   - `bind:` がない場合は従来通り動作
 
-`pandoc_embedz/filter.py` の `_expand_global_variables()` 関数を修正:
-
-```python
-def _expand_global_variables(
-    config: Dict[str, Any],
-    with_vars: Dict[str, Any],
-    data: Optional[Any] = None
-) -> None:
-    """Expand global variables with access to loaded data.
-
-    Args:
-        config: Configuration dictionary containing 'global' key
-        with_vars: Local variables from 'with' section
-        data: Loaded data (available for template expansion)
-
-    Side effects:
-        Updates GLOBAL_VARS dictionary
-    """
-    if 'global' not in config:
-        return
-
-    env = _get_jinja_env()
-    for key, value in config['global'].items():
-        if isinstance(value, str) and _has_template_syntax(value):
-            context = _build_render_context(with_vars, data)
-            value = _evaluate_global_value(value, context, env)
-            _debug("Expanded global variable '%s': %r (type: %s)",
-                   key, value, type(value).__name__)
-        GLOBAL_VARS[key] = value
-    _debug("Global variables: %s", GLOBAL_VARS)
-```
-
-## 結論
-
-- **技術的に実現可能**: `compile_expression()` を使用することで型を保持できる
-- **後方互換性**: 軽微な影響があるが、実用上は問題ない
-- **ユーザー体験の向上**: `global` でデータ構造を共有でき、コードがシンプルになる
-- **自然な動作**: 「式として評価すればいい」という直感的な期待に沿う
-- **堅牢性**: エラー時はフォールバック、デバッグモードで詳細出力
+4. **エッジケース**
+   - `bind: "string"` は変数として扱われる
+   - 複数行の式が正しく評価される
+   - エラー時に適切なメッセージ
 
 ## 次のステップ
 
-1. `_extract_pure_expression()` 関数を実装
-2. `_evaluate_global_value()` 関数を実装
-3. `_expand_global_variables()` を修正
-4. テストを追加・修正
-   - 型保持のテスト（dict, list, int, None）
-   - フォールバックのテスト
-   - エッジケースのテスト
+1. `_evaluate_bind_expression()` 関数を実装
+2. `_expand_global_variables()` を修正
+3. テストを追加
+4. ドキュメント（README.md, CLAUDE.md）を更新
 5. CHANGELOG を更新
