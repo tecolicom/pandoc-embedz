@@ -16,10 +16,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Evaluates Jinja2 expressions and preserves result type (dict, list, int, bool, None)
   - Enables property access on bound variables: `{{ first_row.name }}`
   - Uses `compile_expression()` instead of `render()` for type preservation
-  - Supports both top-level `bind:` and nested `global: { bind: }` syntax
   - Supports nested structures with recursive expression evaluation
   - Processing order: with → query → bind → global
-  - Example (top-level with nested structure):
+  - Example:
     ```yaml
     bind:
       first: data | first
@@ -27,12 +26,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         name: first.name
         value: first.value
         is_high: first.value > 100
-    ```
-  - Example (inside global):
-    ```yaml
-    global:
-      bind:
-        first_row: data | first
     ```
 - Recursive template expansion in nested `global:` structures
   - Templates in nested dicts and lists are now expanded

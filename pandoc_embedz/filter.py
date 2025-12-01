@@ -5,7 +5,7 @@ This filter allows you to embed data from various formats (CSV, TSV, JSON, YAML,
 into your Markdown documents using Jinja2 template syntax within code blocks.
 """
 
-from typing import Dict, Any, Tuple, Optional, Union, List
+from typing import Dict, Any, Tuple, Optional, Union, List, Callable
 import panflute as pf
 from jinja2 import Environment, FunctionLoader, TemplateNotFound
 import pandas as pd
@@ -323,7 +323,7 @@ def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
 def _process_nested_structure(
     value: Any,
     context: Dict[str, Any],
-    processor: callable
+    processor: Callable[[str, Dict[str, Any]], Any]
 ) -> Any:
     """Recursively process nested structures (dict/list) with a string processor.
 
@@ -386,7 +386,7 @@ def _expand_global_variables(
 ) -> None:
     """Expand global variables with access to loaded data
 
-    Processes variables in order of appearance:
+    Processing order: bind: -> global:
     - bind: evaluates expressions with type preservation
     - global: expands templates to strings
 
@@ -409,22 +409,17 @@ def _expand_global_variables(
 
     env = _get_jinja_env()
 
-    # Process top-level bind: FIRST (so global: can reference bound variables)
+    # Process bind: first (so global: can reference bound variables)
     if 'bind' in config and isinstance(config['bind'], dict):
         _process_bind_section(config['bind'], with_vars, data, env)
 
-    # Process global: section if present
+    # Process global: section
     if 'global' in config:
         for key, value in config['global'].items():
-            if key == 'bind' and isinstance(value, dict):
-                # Process bind subsection within global
-                _process_bind_section(value, with_vars, data, env)
-            else:
-                # Regular variable: recursively expand templates in nested structures
-                context = _build_render_context(with_vars, data)
-                expanded = _process_nested_structure(value, context, expand_template)
-                GLOBAL_VARS[key] = expanded
-                _debug("Set global variable '%s': %r", key, expanded)
+            context = _build_render_context(with_vars, data)
+            expanded = _process_nested_structure(value, context, expand_template)
+            GLOBAL_VARS[key] = expanded
+            _debug("Set global variable '%s': %r", key, expanded)
 
     if GLOBAL_VARS:
         _debug("Global variables: %s", GLOBAL_VARS)
