@@ -320,12 +320,49 @@ def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
     return with_vars
 
 
+def _evaluate_bind_expression(
+    expr_str: str,
+    context: Dict[str, Any],
+    env: Environment
+) -> Any:
+    """Evaluate expression and preserve type.
+
+    Uses Jinja2's compile_expression() to evaluate the expression and
+    return the result with its original type preserved (dict, list, int, etc.)
+    instead of converting to string.
+
+    Args:
+        expr_str: Jinja2 expression (without {{ }})
+        context: Template rendering context
+        env: Jinja2 Environment
+
+    Returns:
+        Evaluated value with original type preserved
+
+    Raises:
+        Exception: If expression evaluation fails
+    """
+    try:
+        compiled = env.compile_expression(expr_str)
+        result = compiled(**context)
+        _debug("Evaluated bind expression '%s' -> %r (type: %s)",
+               expr_str, result, type(result).__name__)
+        return result
+    except Exception as e:
+        _debug("Bind expression evaluation failed for '%s': %s", expr_str, e)
+        raise
+
+
 def _expand_global_variables(
     config: Dict[str, Any],
     with_vars: Dict[str, Any],
     data: Optional[Any] = None
 ) -> None:
     """Expand global variables with access to loaded data
+
+    Processes variables in order of appearance. Regular variables are
+    template-expanded (string result), bind: variables are expression-evaluated
+    (type preserved).
 
     Args:
         config: Configuration dictionary containing 'global' key
@@ -338,13 +375,29 @@ def _expand_global_variables(
     if 'global' not in config:
         return
 
+    env = _get_jinja_env()
+
     for key, value in config['global'].items():
-        if isinstance(value, str) and _has_template_syntax(value):
+        if key == 'bind' and isinstance(value, dict):
+            # Process bind section: evaluate expressions with type preservation
+            for bind_key, bind_expr in value.items():
+                context = _build_render_context(with_vars, data)
+                expr_str = bind_expr.strip() if isinstance(bind_expr, str) else str(bind_expr)
+                result = _evaluate_bind_expression(expr_str, context, env)
+                GLOBAL_VARS[bind_key] = result
+                _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
+        elif isinstance(value, str) and _has_template_syntax(value):
+            # Regular variable: template expansion (string result)
             context = _build_render_context(with_vars, data)
             rendered = _render_template(value, context)
             value = rendered.lstrip('\n')
+            GLOBAL_VARS[key] = value
             _debug("Expanded global variable '%s': %s", key, value)
-        GLOBAL_VARS[key] = value
+        else:
+            # Plain value
+            GLOBAL_VARS[key] = value
+            _debug("Set global variable '%s': %r", key, value)
+
     _debug("Global variables: %s", GLOBAL_VARS)
 
 def _prepare_data_loading(

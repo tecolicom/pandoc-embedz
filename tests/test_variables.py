@@ -1100,3 +1100,317 @@ Charlie,80"""
 
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'Filtered total: 180' in output
+
+
+class TestGlobalBind:
+    """Tests for global bind: subsection with type preservation"""
+
+    def test_bind_preserves_dict_type(self):
+        """Test bind: preserves dict type from data | first"""
+        code = """---
+format: csv
+global:
+  bind:
+    first_row: data | first
+---
+Name: {{ first_row.name }}, Value: {{ first_row.value }}
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Verify type is dict, not string
+        assert isinstance(GLOBAL_VARS['first_row'], dict)
+        assert GLOBAL_VARS['first_row']['name'] == 'Alice'
+        assert GLOBAL_VARS['first_row']['value'] == 100
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Name: Alice, Value: 100' in output
+
+    def test_bind_preserves_list_type(self):
+        """Test bind: preserves list type"""
+        code = """---
+format: csv
+global:
+  bind:
+    all_rows: data | list
+---
+Count: {{ all_rows | length }}
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Verify type is list, not string
+        assert isinstance(GLOBAL_VARS['all_rows'], list)
+        assert len(GLOBAL_VARS['all_rows']) == 2
+
+    def test_bind_preserves_int_type(self):
+        """Test bind: preserves int type from aggregation"""
+        code = """---
+format: csv
+global:
+  bind:
+    total: data | sum(attribute='value')
+    count: data | length
+---
+Total: {{ total }}, Count: {{ count }}
+---
+name,value
+Alice,100
+Bob,80
+Charlie,120"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Verify types are int, not string
+        assert isinstance(GLOBAL_VARS['total'], (int, float))
+        assert GLOBAL_VARS['total'] == 300
+        assert isinstance(GLOBAL_VARS['count'], int)
+        assert GLOBAL_VARS['count'] == 3
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Total: 300' in output
+        assert 'Count: 3' in output
+
+    def test_bind_preserves_none_type(self):
+        """Test bind: preserves None when no match found"""
+        code = """---
+format: csv
+global:
+  bind:
+    no_match: data | selectattr('value', 'gt', 1000) | first | default(none)
+---
+Has match: {{ no_match is not none }}
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Verify None is preserved
+        assert GLOBAL_VARS['no_match'] is None
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Has match: False' in output
+
+    def test_bind_preserves_bool_type(self):
+        """Test bind: preserves bool type from comparison"""
+        code = """---
+format: csv
+global:
+  bind:
+    has_data: data | length > 0
+    is_empty: data | length == 0
+---
+Has data: {{ has_data }}, Is empty: {{ is_empty }}
+---
+name,value
+Alice,100"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Verify bool types
+        assert isinstance(GLOBAL_VARS['has_data'], bool)
+        assert GLOBAL_VARS['has_data'] is True
+        assert isinstance(GLOBAL_VARS['is_empty'], bool)
+        assert GLOBAL_VARS['is_empty'] is False
+
+    def test_bind_with_filtered_list(self):
+        """Test bind: with selectattr filter preserves list"""
+        code = """---
+format: csv
+global:
+  bind:
+    high_values: data | selectattr('value', 'gt', 50) | list
+---
+High value count: {{ high_values | length }}
+First high: {{ high_values[0].name }}
+---
+name,value
+Alice,100
+Bob,30
+Charlie,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Verify filtered list
+        assert isinstance(GLOBAL_VARS['high_values'], list)
+        assert len(GLOBAL_VARS['high_values']) == 2
+        assert GLOBAL_VARS['high_values'][0]['name'] == 'Alice'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'High value count: 2' in output
+        assert 'First high: Alice' in output
+
+    def test_bind_processing_order(self):
+        """Test bind: variables are processed in order and can reference earlier ones"""
+        code = """---
+format: csv
+global:
+  year: 2024
+  date_str: "{{ year }}-01-01"
+  bind:
+    total: data | sum(attribute='value')
+    first: data | first
+---
+Year: {{ year }}, Date: {{ date_str }}, Total: {{ total }}, First: {{ first.name }}
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Regular variables are still strings
+        assert GLOBAL_VARS['year'] == 2024  # YAML int
+        assert GLOBAL_VARS['date_str'] == '2024-01-01'  # template string
+        # bind variables preserve types
+        assert isinstance(GLOBAL_VARS['total'], (int, float))
+        assert isinstance(GLOBAL_VARS['first'], dict)
+
+    def test_bind_available_in_subsequent_block(self):
+        """Test bind: variables are available in later blocks"""
+        # First block: bind data
+        code1 = """---
+format: csv
+global:
+  bind:
+    summary: data | first
+    total: data | sum(attribute='value')
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Verify types
+        assert isinstance(GLOBAL_VARS['summary'], dict)
+        assert isinstance(GLOBAL_VARS['total'], (int, float))
+
+        # Second block: use bound variables
+        code2 = """---
+format: json
+---
+Summary: {{ summary.name }} ({{ summary.value }})
+Total: {{ total }}
+---
+[]"""
+
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Summary: Alice (100)' in output
+        assert 'Total: 300' in output
+
+    def test_bind_multiline_expression(self):
+        """Test bind: with multiline expression"""
+        code = """---
+format: csv
+global:
+  bind:
+    filtered: |
+      data
+      | selectattr('value', 'gt', 50)
+      | list
+---
+Filtered count: {{ filtered | length }}
+---
+name,value
+Alice,100
+Bob,30
+Charlie,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['filtered'], list)
+        assert len(GLOBAL_VARS['filtered']) == 2
+
+    def test_bind_as_plain_variable_when_not_dict(self):
+        """Test bind: as plain variable when value is not dict"""
+        code = """---
+global:
+  bind: "this is a string"
+---
+Bind value: {{ bind }}
+---
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # When bind value is not dict, it should be treated as regular variable
+        assert GLOBAL_VARS['bind'] == 'this is a string'
+
+    def test_bind_can_reference_previous_global(self):
+        """Test bind: can reference previously defined global variables"""
+        # First block: define threshold
+        code1 = """---
+global:
+  threshold: 60
+---
+"""
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: use threshold in bind expression
+        code2 = """---
+format: csv
+global:
+  bind:
+    filtered: data | selectattr('value', 'gt', threshold) | list
+---
+Filtered: {{ filtered | length }} items
+---
+name,value
+Alice,100
+Bob,50
+Charlie,80"""
+
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['filtered'], list)
+        # Alice(100) and Charlie(80) are > 60
+        assert len(GLOBAL_VARS['filtered']) == 2
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Filtered: 2 items' in output
