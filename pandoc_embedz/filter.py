@@ -379,6 +379,33 @@ def _expand_template_recursive(
         return value
 
 
+def _evaluate_bind_recursive(
+    value: Any,
+    context: Dict[str, Any],
+    env: Environment
+) -> Any:
+    """Recursively evaluate expressions in nested structures with type preservation.
+
+    Args:
+        value: Value to evaluate (can be str, dict, list, or other)
+        context: Template rendering context
+        env: Jinja2 Environment
+
+    Returns:
+        Evaluated value with type preserved
+    """
+    if isinstance(value, str):
+        expr_str = value.strip()
+        return _evaluate_bind_expression(expr_str, context, env)
+    elif isinstance(value, dict):
+        return {k: _evaluate_bind_recursive(v, context, env) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [_evaluate_bind_recursive(item, context, env) for item in value]
+    else:
+        # Non-string primitives (int, float, bool, None) pass through unchanged
+        return value
+
+
 def _process_bind_section(
     bind_config: Dict[str, Any],
     with_vars: Dict[str, Any],
@@ -398,8 +425,7 @@ def _process_bind_section(
     """
     for bind_key, bind_expr in bind_config.items():
         context = _build_render_context(with_vars, data)
-        expr_str = bind_expr.strip() if isinstance(bind_expr, str) else str(bind_expr)
-        result = _evaluate_bind_expression(expr_str, context, env)
+        result = _evaluate_bind_recursive(bind_expr, context, env)
         GLOBAL_VARS[bind_key] = result
         _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
 

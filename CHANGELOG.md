@@ -17,11 +17,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Enables property access on bound variables: `{{ first_row.name }}`
   - Uses `compile_expression()` instead of `render()` for type preservation
   - Supports both top-level `bind:` and nested `global: { bind: }` syntax
-  - Example (top-level):
+  - Supports nested structures with recursive expression evaluation
+  - Processing order: with → query → bind → global
+  - Example (top-level with nested structure):
     ```yaml
     bind:
-      first_row: data | first
-      total: data | sum(attribute='value')
+      first: data | first
+      info:
+        name: first.name
+        value: first.value
+        is_high: first.value > 100
     ```
   - Example (inside global):
     ```yaml

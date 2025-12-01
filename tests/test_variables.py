@@ -1767,3 +1767,61 @@ Charlie,80"""
 
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'Summary: Alice: 210' in output
+
+    def test_top_level_bind_nested_structure(self):
+        """Test top-level bind: with nested dict structure"""
+        code = """---
+format: csv
+bind:
+  first: data | first
+  info:
+    name: first.name
+    value: first.value
+    doubled: first.value * 2
+---
+Name: {{ info.name }}, Value: {{ info.value }}, Doubled: {{ info.doubled }}
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['info'], dict)
+        assert GLOBAL_VARS['info']['name'] == 'Alice'
+        assert GLOBAL_VARS['info']['value'] == 100
+        assert GLOBAL_VARS['info']['doubled'] == 200
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Name: Alice, Value: 100, Doubled: 200' in output
+
+    def test_top_level_bind_deeply_nested(self):
+        """Test top-level bind: with deeply nested structure preserving types"""
+        code = """---
+format: csv
+bind:
+  first: data | first
+  report:
+    summary:
+      name: first.name
+      stats:
+        value: first.value
+        is_high: first.value > 50
+---
+High value: {{ report.summary.stats.is_high }}
+---
+name,value
+Alice,100
+Bob,80"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['report']['summary']['name'] == 'Alice'
+        assert GLOBAL_VARS['report']['summary']['stats']['value'] == 100
+        assert GLOBAL_VARS['report']['summary']['stats']['is_high'] is True
