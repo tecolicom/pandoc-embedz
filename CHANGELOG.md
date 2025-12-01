@@ -23,6 +23,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         first_row: data | first
         total: data | sum(attribute='value')
     ```
+- Recursive template expansion in nested `global:` structures
+  - Templates in nested dicts and lists are now expanded
+  - Enables structured data definitions with computed values:
+    ```yaml
+    global:
+      bind:
+        row: data | first
+      summary:
+        name: "{{ row.name }}"
+        value: "{{ row.value }}"
+    ```
 
 ### Changed
 - Reordered pipeline processing to enable data access in global variables

@@ -1414,3 +1414,176 @@ Charlie,80"""
 
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'Filtered: 2 items' in output
+
+
+class TestNestedGlobalExpansion:
+    """Tests for recursive template expansion in nested global structures"""
+
+    def test_nested_dict_template_expansion(self):
+        """Test template expansion in nested dict structure"""
+        code = """---
+global:
+  year: 2024
+  report:
+    title: "Annual Report {{ year }}"
+    period:
+      start: "{{ year }}-04-01"
+      end: "{{ year + 1 }}-03-31"
+---
+Title: {{ report.title }}
+Period: {{ report.period.start }} to {{ report.period.end }}
+---
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['report']['title'] == 'Annual Report 2024'
+        assert GLOBAL_VARS['report']['period']['start'] == '2024-04-01'
+        assert GLOBAL_VARS['report']['period']['end'] == '2025-03-31'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Title: Annual Report 2024' in output
+        assert 'Period: 2024-04-01 to 2025-03-31' in output
+
+    def test_nested_dict_with_bind(self):
+        """Test nested dict can reference bind variables"""
+        code = """---
+format: csv
+global:
+  bind:
+    first_row: data | first
+    total: data | sum(attribute='value')
+  summary:
+    name: "{{ first_row.name }}"
+    value: "{{ first_row.value }}"
+    total: "{{ total }}"
+---
+Summary: {{ summary.name }} has {{ summary.value }}, total is {{ summary.total }}
+---
+name,value
+Alice,100
+Bob,200
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['summary']['name'] == 'Alice'
+        assert GLOBAL_VARS['summary']['value'] == '100'
+        assert GLOBAL_VARS['summary']['total'] == '300'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Summary: Alice has 100, total is 300' in output
+
+    def test_deeply_nested_structure(self):
+        """Test deeply nested structure expansion"""
+        code = """---
+global:
+  base: 10
+  level1:
+    value: "{{ base }}"
+    level2:
+      value: "{{ base * 2 }}"
+      level3:
+        value: "{{ base * 3 }}"
+---
+L1: {{ level1.value }}, L2: {{ level1.level2.value }}, L3: {{ level1.level2.level3.value }}
+---
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['level1']['value'] == '10'
+        assert GLOBAL_VARS['level1']['level2']['value'] == '20'
+        assert GLOBAL_VARS['level1']['level2']['level3']['value'] == '30'
+
+    def test_list_in_nested_dict(self):
+        """Test template expansion in list within nested dict"""
+        code = """---
+global:
+  year: 2024
+  config:
+    years:
+      - "{{ year - 2 }}"
+      - "{{ year - 1 }}"
+      - "{{ year }}"
+---
+Years: {{ config.years | join(', ') }}
+---
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['config']['years'] == ['2022', '2023', '2024']
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Years: 2022, 2023, 2024' in output
+
+    def test_nested_dict_available_in_subsequent_block(self):
+        """Test nested dict defined in one block is available in later blocks"""
+        # First block: define nested structure with bind
+        code1 = """---
+format: csv
+global:
+  bind:
+    first: data | first
+  info:
+    name: "{{ first.name }}"
+    value: "{{ first.value }}"
+---
+---
+name,value
+Alice,100
+Bob,200
+"""
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert GLOBAL_VARS['info']['name'] == 'Alice'
+        assert GLOBAL_VARS['info']['value'] == '100'
+
+        # Second block: use the nested structure
+        code2 = """---
+---
+Info: {{ info.name }} = {{ info.value }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Info: Alice = 100' in output
+
+    def test_plain_values_in_nested_dict_unchanged(self):
+        """Test plain values (no template syntax) are preserved"""
+        code = """---
+global:
+  config:
+    name: plain text
+    count: 42
+    enabled: true
+    items:
+      - one
+      - two
+---
+Name: {{ config.name }}, Count: {{ config.count }}
+---
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['config']['name'] == 'plain text'
+        assert GLOBAL_VARS['config']['count'] == 42
+        assert GLOBAL_VARS['config']['enabled'] is True
+        assert GLOBAL_VARS['config']['items'] == ['one', 'two']

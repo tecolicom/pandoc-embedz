@@ -353,6 +353,32 @@ def _evaluate_bind_expression(
         raise
 
 
+def _expand_template_recursive(
+    value: Any,
+    context: Dict[str, Any]
+) -> Any:
+    """Recursively expand Jinja2 templates in nested structures.
+
+    Args:
+        value: Value to expand (can be str, dict, list, or other)
+        context: Template rendering context
+
+    Returns:
+        Expanded value with same structure
+    """
+    if isinstance(value, str):
+        if _has_template_syntax(value):
+            rendered = _render_template(value, context)
+            return rendered.lstrip('\n')
+        return value
+    elif isinstance(value, dict):
+        return {k: _expand_template_recursive(v, context) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [_expand_template_recursive(item, context) for item in value]
+    else:
+        return value
+
+
 def _expand_global_variables(
     config: Dict[str, Any],
     with_vars: Dict[str, Any],
@@ -362,7 +388,7 @@ def _expand_global_variables(
 
     Processes variables in order of appearance. Regular variables are
     template-expanded (string result), bind: variables are expression-evaluated
-    (type preserved).
+    (type preserved). Nested dicts and lists are recursively expanded.
 
     Args:
         config: Configuration dictionary containing 'global' key
@@ -386,17 +412,12 @@ def _expand_global_variables(
                 result = _evaluate_bind_expression(expr_str, context, env)
                 GLOBAL_VARS[bind_key] = result
                 _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
-        elif isinstance(value, str) and _has_template_syntax(value):
-            # Regular variable: template expansion (string result)
-            context = _build_render_context(with_vars, data)
-            rendered = _render_template(value, context)
-            value = rendered.lstrip('\n')
-            GLOBAL_VARS[key] = value
-            _debug("Expanded global variable '%s': %s", key, value)
         else:
-            # Plain value
-            GLOBAL_VARS[key] = value
-            _debug("Set global variable '%s': %r", key, value)
+            # Regular variable: recursively expand templates in nested structures
+            context = _build_render_context(with_vars, data)
+            expanded = _expand_template_recursive(value, context)
+            GLOBAL_VARS[key] = expanded
+            _debug("Set global variable '%s': %r", key, expanded)
 
     _debug("Global variables: %s", GLOBAL_VARS)
 
