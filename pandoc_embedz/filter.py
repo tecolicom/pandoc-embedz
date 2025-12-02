@@ -116,12 +116,14 @@ def _merge_config_sources(
     merged = deep_merge_dicts(merged, yaml_copy)
     return merged
 
-def _filter_to_dict(data: List[Dict[str, Any]], key: str) -> Dict[Any, Dict[str, Any]]:
+def _filter_to_dict(data: List[Dict[str, Any]], key: str,
+                    strict: bool = True) -> Dict[Any, Dict[str, Any]]:
     """Convert a list of dicts to a dict keyed by a specified field.
 
     Args:
         data: List of dictionaries
         key: Field name to use as dictionary key
+        strict: If True (default), raise ValueError on duplicate keys
 
     Returns:
         Dictionary with values from 'key' field as keys
@@ -130,9 +132,20 @@ def _filter_to_dict(data: List[Dict[str, Any]], key: str) -> Dict[Any, Dict[str,
         data | to_dict('year')
         [{'year': 2023, 'value': 100}, {'year': 2024, 'value': 200}]
         -> {2023: {'year': 2023, 'value': 100}, 2024: {'year': 2024, 'value': 200}}
+
+        data | to_dict('year', strict=False)
+        Allows duplicate keys (last value wins)
     """
     if not isinstance(data, list):
         raise TypeError(f"to_dict expects a list, got {type(data).__name__}")
+    if strict:
+        result = {}
+        for row in data:
+            k = row[key]
+            if k in result:
+                raise ValueError(f"to_dict: duplicate key '{k}' in field '{key}'")
+            result[k] = row
+        return result
     return {row[key]: row for row in data}
 
 

@@ -2158,6 +2158,48 @@ bind:
         with pytest.raises(TypeError, match="to_dict expects a list"):
             process_embedz(elem, doc)
 
+    def test_to_dict_strict_by_default(self):
+        """Test to_dict filter raises on duplicate keys by default"""
+        code = """---
+format: csv
+bind:
+  by_name: data | to_dict('name')
+---
+{{ by_name }}
+---
+name,value
+Alice,100
+Alice,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        with pytest.raises(ValueError, match="to_dict: duplicate key 'Alice' in field 'name'"):
+            process_embedz(elem, doc)
+
+    def test_to_dict_strict_false_allows_duplicates(self):
+        """Test to_dict filter with strict=False allows duplicate keys"""
+        code = """---
+format: csv
+bind:
+  by_name: data | to_dict('name', strict=False)
+---
+Alice value: {{ by_name['Alice'].value }}
+---
+name,value
+Alice,100
+Alice,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Last value wins
+        assert GLOBAL_VARS['by_name']['Alice']['value'] == 200
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice value: 200' in output
+
 
 class TestAliasFeature:
     """Tests for alias: feature"""

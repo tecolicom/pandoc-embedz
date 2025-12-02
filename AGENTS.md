@@ -500,6 +500,13 @@ bind:
 # Result: {2023: {'year': 2023, 'value': 100}, 2024: {'year': 2024, 'value': 200}}
 ```
 
+**Strict mode (default):** Raises `ValueError` on duplicate keys:
+```yaml
+bind:
+  by_id: data | to_dict('id')                # error if duplicate ids
+  by_id: data | to_dict('id', strict=False)  # allows duplicates (last wins)
+```
+
 **Use case:** Access data by a specific key (e.g., year, ID) instead of iterating through a list with `selectattr`.
 
 ### Alias Feature

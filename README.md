@@ -766,6 +766,13 @@ year,value
 
 This is useful for accessing data by a specific key (e.g., year, ID) instead of iterating through a list. The `to_dict` filter takes the field name as an argument and returns a dictionary where keys are the field values.
 
+By default, `to_dict` raises an error if duplicate keys are found (strict mode). To allow duplicates (last value wins), use `strict=False`:
+
+```python
+data | to_dict('year')                # raises ValueError on duplicate keys
+data | to_dict('year', strict=False)  # allows duplicates, last value wins
+```
+
 **Alias feature** - add alternative keys to dictionaries:
 
 ````markdown
