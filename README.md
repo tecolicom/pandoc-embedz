@@ -931,14 +931,14 @@ Reference tables for formats, syntax, and configuration knobs.
 
 #### Code Block Syntax
 
-#### Basic Structure
+##### Basic Structure
 
-An embedz code block consists of up to three parts:
+An embedz code block can have up to three sections separated by `---`:
 
 ````markdown
 ```embedz
 ---
-YAML configuration (optional)
+YAML configuration
 ---
 Jinja2 template
 ---
@@ -946,19 +946,47 @@ Inline data (optional)
 ```
 ````
 
-Or using attribute syntax:
+- **First `---`**: Opens YAML header
+- **Second `---`**: Closes YAML header, begins template section
+- **Third `---`**: Separates template from inline data (optional)
+
+##### Content Interpretation Rules
+
+How content is interpreted depends on whether `---` is present and what attributes are specified:
+
+| Attributes | Has `---` | Content Interpretation |
+|------------|-----------|------------------------|
+| (any) | Yes | Standard: YAML → template → data |
+| `data` + `template`/`as` | No | **YAML configuration** |
+| `template`/`as` only | No | Inline data |
+| `define` | No | Template definition |
+| (none) or `data` only | No | Template |
+
+**Key point**: When both `data` and `template`/`as` are specified as attributes, the block content (without `---`) is parsed as YAML configuration. This enables concise syntax:
 
 ````markdown
-```{.embedz attribute=value ...}
-Jinja2 template
+```{.embedz data=products.csv as=item-list}
+with:
+  title: Product Catalog
 ```
 ````
 
-#### Block Interpretation
+This is equivalent to:
 
-How a code block is processed depends on its configuration:
+````markdown
+```embedz
+---
+data: products.csv
+template: item-list
+with:
+  title: Product Catalog
+---
+```
+````
 
-#### 1. Data Processing Block (most common)
+##### Block Types
+
+###### 1. Data Processing Block (most common)
 
 Loads data and renders it with a template:
 
@@ -975,7 +1003,7 @@ data: file.csv
 
 **Processing**: Loads `file.csv` → makes it available as `data` → renders template → outputs result
 
-#### 2. Template Definition
+###### 2. Template Definition
 
 Defines a reusable template with `define:`:
 
@@ -989,7 +1017,7 @@ Defines a reusable template with `define:`:
 
 **Processing**: Stores template as "my-template" → no output
 
-#### 3. Template Usage
+###### 3. Template Usage
 
 Uses a previously defined template with `template:` (or `as:` for short):
 
@@ -1000,14 +1028,25 @@ data: file.csv
 template: my-template
 ---
 ```
+````
 
 Or with attribute syntax (using `as=` for brevity):
 
+````markdown
 ```{.embedz data=file.csv as=my-template}
 ```
 ````
 
-**With inline data** (note the two `---` separators):
+With YAML configuration via attributes:
+
+````markdown
+```{.embedz data=file.csv as=my-template}
+with:
+  title: Report
+```
+````
+
+**With inline data** (note the three `---` separators):
 
 ````markdown
 ```embedz
@@ -1022,9 +1061,9 @@ format: json
 
 The structure is: YAML header → first `---` → (empty template section) → second `---` → inline data.
 
-**Processing**: Loads `file.csv` → applies "my-template" → outputs result
+**Processing**: Loads data → applies "my-template" → outputs result
 
-#### 4. Inline Data
+###### 4. Inline Data
 
 Data embedded directly in the block:
 
@@ -1046,7 +1085,7 @@ format: json
 
 **Processing**: Parses inline JSON → makes it available as `data` → renders template → outputs result
 
-#### 5. Variable Definition
+###### 5. Variable Definition
 
 Sets global variables without output:
 
@@ -1075,9 +1114,9 @@ Prepared by {{ author }}
 ```
 ````
 
-#### Configuration Options
+##### Configuration Options
 
-#### YAML Header
+###### YAML Header
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -1098,7 +1137,7 @@ Prepared by {{ author }}
 **Backward Compatibility:**
 - `name` parameter (deprecated): Still works but shows a warning. Use `define` instead.
 
-#### Attribute Syntax
+###### Attribute Syntax
 
 Attributes can be used instead of or in combination with YAML:
 
@@ -1112,7 +1151,7 @@ Attributes can be used instead of or in combination with YAML:
 
 Need to avoid repeating YAML headers? Attributes also accept `config=/path/file.yaml` (repeat as needed) to load shared settings outside the block body.
 
-#### Data Variable
+###### Data Variable
 
 Template content can access:
 
