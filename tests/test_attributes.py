@@ -785,7 +785,7 @@ global:
 bind:
   test: "'value'"
 ---
-""")
+""", encoding='utf-8')
 
         result = load_config_file(str(config_file))
 
@@ -892,7 +892,7 @@ bind:
 alias:
   のアレ: ラベル
 ---
-""")
+""", encoding='utf-8')
 
         result = load_config_file(str(config_file))
 
