@@ -562,7 +562,23 @@ data: vulnerabilities.csv
 
 ### Variable Scoping
 
-Control variable visibility with `with` (local) and `global` (document-wide):
+pandoc-embedz provides four mechanisms for managing variables:
+
+| Mechanism | Scope | Type Handling | Use Case |
+|-----------|-------|---------------|----------|
+| `with:` | Block-local | As-is | Input parameters, local constants |
+| `bind:` | Document-wide | Type-preserving (dict, list, int, bool) | Extracting data, computations |
+| `global:` | Document-wide | String (templates expanded) | Labels, messages, query strings |
+| `preamble:` | Document-wide | Jinja2 control structures | Macros, `{% set %}` variables |
+
+**Processing order**: preamble → with → query → data load → bind → global → render
+
+- `with:` variables are available in `query:` and all subsequent stages
+- `bind:` evaluates after data loading, preserving expression result types
+- `global:` evaluates after `bind:`, can reference both data and bind results
+- All document-wide variables persist across blocks
+
+**Global variables** with `global:` (document-wide, string values):
 
 ````markdown
 # Set global variables
@@ -663,6 +679,69 @@ Charlie,120
 > **Note**: Variables in `query:` can use `with:` from the same block or `global:` from previous blocks.
 > Global variables in the same block are expanded **after** data loading,
 > so they can reference `data` but cannot be used in that block's `query:`.
+
+**Type-preserving bindings** with `bind:` - evaluate expressions while preserving types:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  first_row: data | first
+  total: data | sum(attribute='value')
+  has_data: data | length > 0
+---
+Name: {{ first_row.name }}, Total: {{ total }}, Has data: {{ has_data }}
+---
+name,value
+Alice,100
+Bob,200
+```
+````
+
+Unlike `global:` which converts values to strings, `bind:` preserves the original type (dict, list, int, bool, None), enabling property access like `{{ first_row.name }}`.
+
+**Nested structures** are supported in both `bind:` and `global:`:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  first: data | first
+  stats:
+    name: first.name
+    value: first.value
+    doubled: first.value * 2
+---
+{{ stats.name }}: {{ stats.value }} (doubled: {{ stats.doubled }})
+---
+name,value
+Alice,100
+```
+````
+
+**Dot notation** for setting nested values:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  record: data | first
+  record.note: "'Added by bind'"   # Adds 'note' key to record dict
+global:
+  record.label: Description        # Adds 'label' key (no quotes needed)
+---
+{{ record.name }}: {{ record.note }}, {{ record.label }}
+---
+name,value
+Alice,100
+```
+````
+
+> **Note**: In `bind:`, values are Jinja2 expressions (quotes needed for string literals).
+> In `global:`, values are plain strings unless they contain `{{` or `{%`.
 
 ### Preamble & Macro Sharing
 
@@ -949,7 +1028,8 @@ Prepared by {{ author }}
 | `define` | Template name (for definition) | `define: report-template` |
 | `template` (or `as`) | Template to use (both aliases work, `template` preferred in YAML, `as` shorter for attributes) | `template: report-template` or `as: report-template` |
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
-| `global` | Global variables (document-scoped) | `global: {author: "John"}` |
+| `bind` | Type-preserving bindings (evaluates expressions, preserves dict/list/int/bool types) | `bind: {first: data \| first}` |
+| `global` | Global variables (document-scoped, string values) | `global: {author: "John"}` |
 | `preamble` | Control structures for entire document (macros, `{% set %}`, imports) | `preamble: \|`<br>`  {% set title = 'Report' %}` |
 | `header` | CSV/TSV has header row (default: true) | `header: false` |
 | `table` | SQLite table name (required for sqlite format) | `table: users` |

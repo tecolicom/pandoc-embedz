@@ -349,8 +349,9 @@ Global variables can now reference loaded data. The processing order is:
 1. Prepare preamble and with variables
 2. Expand query (using existing global variables from previous blocks)
 3. Load data
-4. **Expand global variables (with access to loaded data)**
-5. Render template
+4. **Expand bind expressions (type-preserving)**
+5. **Expand global variables (with access to loaded data and bind results)**
+6. Render template
 
 **Example:**
 ```yaml
@@ -392,6 +393,69 @@ global:
   min_value: 80
 ---
 ```
+
+---
+
+### Type-Preserving Bindings with bind:
+
+**Status:** ✅ Implemented
+
+The `bind:` section evaluates Jinja2 expressions while preserving their result type (dict, list, int, bool, None). Unlike `global:`, values are not converted to strings.
+
+**Processing order:** with → query → data load → bind → global → render
+
+**Example:**
+```yaml
+---
+format: csv
+bind:
+  first: data | first           # dict type preserved
+  total: data | sum(attribute='value')  # int type preserved
+  has_data: data | length > 0   # bool type preserved
+---
+Name: {{ first.name }}, Total: {{ total }}
+---
+name,value
+Alice,100
+Bob,200
+```
+
+**Nested structures:**
+```yaml
+bind:
+  first: data | first
+  stats:
+    name: first.name
+    value: first.value
+    doubled: first.value * 2
+```
+
+### Dot Notation for Nested Values
+
+**Status:** ✅ Implemented
+
+Both `bind:` and `global:` support dot notation in keys to set nested values:
+
+```yaml
+bind:
+  record: data | first
+  record.note: "'Added note'"    # Adds 'note' key to record dict
+global:
+  record.label: Description text  # Adds 'label' key (no quotes needed)
+```
+
+**Key differences:**
+- `bind:` values are Jinja2 expressions (string literals need quotes)
+- `global:` values are plain strings (unless containing `{{` or `{%`)
+
+**Creates intermediate dicts:**
+```yaml
+global:
+  config.settings.name: My App   # Creates config → settings → name
+```
+
+**Error handling:**
+- Raises `ValueError` if parent exists but is not a dictionary
 
 ---
 

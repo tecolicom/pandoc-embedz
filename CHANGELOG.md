@@ -27,6 +27,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         value: first.value
         is_high: first.value > 100
     ```
+- Dot notation support for `bind:` and `global:` keys
+  - Set nested values using dot-separated keys: `record.memo: "'note'"`
+  - Adds keys to existing dictionaries created by earlier bindings
+  - Creates intermediate dictionaries if not present
+  - Example:
+    ```yaml
+    bind:
+      record: data | first
+      record.note: "'Added note'"  # Adds 'note' key to record dict
+    global:
+      record.label: Description    # Adds 'label' key (no quotes needed in global)
+    ```
 - Recursive template expansion in nested `global:` structures
   - Templates in nested dicts and lists are now expanded
   - Enables structured data definitions with computed values:

@@ -350,6 +350,45 @@ def _process_nested_structure(
         return value
 
 
+def _set_nested_value(target: Dict[str, Any], key: str, value: Any) -> None:
+    """Set a value in a nested dictionary using dot-separated key.
+
+    If key contains dots, it is interpreted as a path to a nested location.
+    Intermediate dictionaries are created if they don't exist.
+    If a parent exists and is a dictionary, the value is added/updated.
+
+    Args:
+        target: The dictionary to update
+        key: The key, possibly dot-separated (e.g., "foo.bar.baz")
+        value: The value to set
+
+    Examples:
+        _set_nested_value(d, "foo", 1)           # d["foo"] = 1
+        _set_nested_value(d, "foo.bar", 2)       # d["foo"]["bar"] = 2
+        _set_nested_value(d, "foo.bar.baz", 3)   # d["foo"]["bar"]["baz"] = 3
+    """
+    if '.' not in key:
+        target[key] = value
+        return
+
+    parts = key.split('.')
+    current = target
+
+    # Navigate to parent, creating intermediate dicts as needed
+    for part in parts[:-1]:
+        if part not in current:
+            current[part] = {}
+        elif not isinstance(current[part], dict):
+            # Parent exists but is not a dict - cannot add nested key
+            raise ValueError(
+                f"Cannot set '{key}': '{part}' is not a dictionary"
+            )
+        current = current[part]
+
+    # Set the final value
+    current[parts[-1]] = value
+
+
 def _process_bind_section(
     bind_config: Dict[str, Any],
     with_vars: Dict[str, Any],
@@ -357,6 +396,11 @@ def _process_bind_section(
     env: Environment
 ) -> None:
     """Process bind section: evaluate expressions with type preservation.
+
+    Keys can use dot notation to set nested values:
+        bind:
+          foo: data | first           # GLOBAL_VARS["foo"] = ...
+          foo.bar: foo.value          # GLOBAL_VARS["foo"]["bar"] = ...
 
     Args:
         bind_config: Dictionary of variable names to expressions
@@ -381,7 +425,7 @@ def _process_bind_section(
     for bind_key, bind_expr in bind_config.items():
         context = _build_render_context(with_vars, data)
         result = _process_nested_structure(bind_expr, context, eval_expression, bind_key)
-        GLOBAL_VARS[bind_key] = result
+        _set_nested_value(GLOBAL_VARS, bind_key, result)
         _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
 
 
@@ -424,7 +468,7 @@ def _expand_global_variables(
         for key, value in config['global'].items():
             context = _build_render_context(with_vars, data)
             expanded = _process_nested_structure(value, context, expand_template)
-            GLOBAL_VARS[key] = expanded
+            _set_nested_value(GLOBAL_VARS, key, expanded)
             _debug("Set global variable '%s': %r", key, expanded)
 
     if GLOBAL_VARS:

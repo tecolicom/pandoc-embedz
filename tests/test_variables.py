@@ -1667,3 +1667,290 @@ Charlie,80"""
 
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'Filtered: 2 items' in output
+
+
+class TestBindDotNotation:
+    """Tests for bind: with dot notation to set nested values"""
+
+    def test_bind_dot_notation_sets_nested_value(self):
+        """Test bind: key with dot notation sets nested value in existing dict"""
+        code = """---
+format: csv
+bind:
+  record: data | first
+  record.memo: "'added memo'"
+---
+Name: {{ record.name }}, Memo: {{ record.memo }}
+---
+name,value
+Alice,100"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['record'], dict)
+        assert GLOBAL_VARS['record']['name'] == 'Alice'
+        assert GLOBAL_VARS['record']['value'] == 100
+        assert GLOBAL_VARS['record']['memo'] == 'added memo'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Name: Alice, Memo: added memo' in output
+
+    def test_bind_dot_notation_creates_intermediate_dicts(self):
+        """Test bind: dot notation creates intermediate dicts if not present"""
+        code = """---
+format: csv
+bind:
+  result.stats.count: data | length
+  result.stats.total: data | sum(attribute='value')
+---
+Count: {{ result.stats.count }}, Total: {{ result.stats.total }}
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['result'], dict)
+        assert isinstance(GLOBAL_VARS['result']['stats'], dict)
+        assert GLOBAL_VARS['result']['stats']['count'] == 2
+        assert GLOBAL_VARS['result']['stats']['total'] == 300
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Count: 2, Total: 300' in output
+
+    def test_bind_dot_notation_add_to_existing_dict(self):
+        """Test bind: dot notation adds key to existing dict"""
+        code = """---
+format: csv
+bind:
+  first: data | first
+  first.doubled: first.value * 2
+  first.label: "'Primary'"
+---
+{{ first.name }}: {{ first.value }} (x2={{ first.doubled }}, label={{ first.label }})
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['first']['name'] == 'Alice'
+        assert GLOBAL_VARS['first']['value'] == 100
+        assert GLOBAL_VARS['first']['doubled'] == 200
+        assert GLOBAL_VARS['first']['label'] == 'Primary'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100 (x2=200, label=Primary)' in output
+
+    def test_bind_dot_notation_deeply_nested(self):
+        """Test bind: dot notation with deeply nested path"""
+        code = """---
+format: csv
+bind:
+  report.summary.data.first: data | first
+  report.summary.data.count: data | length
+---
+First: {{ report.summary.data.first.name }}, Count: {{ report.summary.data.count }}
+---
+name,value
+Alice,100
+Bob,200
+Charlie,300"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['report']['summary']['data']['first']['name'] == 'Alice'
+        assert GLOBAL_VARS['report']['summary']['data']['count'] == 3
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'First: Alice, Count: 3' in output
+
+    def test_bind_dot_notation_available_in_subsequent_block(self):
+        """Test bind: with dot notation is available in later blocks"""
+        # First block: set nested value
+        code1 = """---
+format: csv
+bind:
+  record: data | first
+  record.note: "'First record'"
+---
+---
+name,value
+Alice,100"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert GLOBAL_VARS['record']['name'] == 'Alice'
+        assert GLOBAL_VARS['record']['note'] == 'First record'
+
+        # Second block: use the nested value
+        code2 = """---
+---
+Record: {{ record.name }} - {{ record.note }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Record: Alice - First record' in output
+
+    def test_bind_dot_notation_error_on_non_dict_parent(self):
+        """Test bind: dot notation raises error when parent is not dict"""
+        code = """---
+format: csv
+bind:
+  count: data | length
+  count.child: "'should fail'"
+---
+---
+name,value
+Alice,100"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="Cannot set 'count.child': 'count' is not a dictionary"):
+            process_embedz(elem, doc)
+
+    def test_bind_dot_notation_with_japanese_keys(self):
+        """Test bind: dot notation works with Japanese keys"""
+        code = """---
+format: csv
+bind:
+  今年度: data | first
+  今年度.説明: "'今年度のデータ'"
+---
+今年度: {{ 今年度.name }}, 説明: {{ 今年度.説明 }}
+---
+name,value
+Alice,100"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['今年度']['name'] == 'Alice'
+        assert GLOBAL_VARS['今年度']['説明'] == '今年度のデータ'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '今年度: Alice' in output
+        assert '説明: 今年度のデータ' in output
+
+
+class TestGlobalDotNotation:
+    """Tests for global: with dot notation to set nested values"""
+
+    def test_global_dot_notation_adds_to_bind_dict(self):
+        """Test global: dot notation adds key to dict created by bind:"""
+        code = """---
+format: csv
+bind:
+  record: data | first
+global:
+  record.memo: Added by global
+---
+Name: {{ record.name }}, Memo: {{ record.memo }}
+---
+name,value
+Alice,100"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['record']['name'] == 'Alice'
+        assert GLOBAL_VARS['record']['value'] == 100
+        assert GLOBAL_VARS['record']['memo'] == 'Added by global'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Name: Alice, Memo: Added by global' in output
+
+    def test_global_dot_notation_creates_intermediate_dicts(self):
+        """Test global: dot notation creates intermediate dicts"""
+        code = """---
+global:
+  config.settings.name: Test App
+  config.settings.version: 1.0
+---
+App: {{ config.settings.name }} v{{ config.settings.version }}
+---
+"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['config']['settings']['name'] == 'Test App'
+        assert GLOBAL_VARS['config']['settings']['version'] == 1.0
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'App: Test App v1.0' in output
+
+    def test_global_dot_notation_with_bind_nested_structure(self):
+        """Test global: dot notation works with bind: nested structure"""
+        code = """---
+format: csv
+bind:
+  stats:
+    count: data | length
+    total: data | sum(attribute='value')
+global:
+  stats.label: Summary Statistics
+---
+{{ stats.label }}: Count={{ stats.count }}, Total={{ stats.total }}
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['stats']['count'] == 2
+        assert GLOBAL_VARS['stats']['total'] == 300
+        assert GLOBAL_VARS['stats']['label'] == 'Summary Statistics'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Summary Statistics: Count=2, Total=300' in output
+
+    def test_global_dot_notation_error_on_non_dict_parent(self):
+        """Test global: dot notation raises error when parent is not dict"""
+        code = """---
+format: csv
+bind:
+  count: data | length
+global:
+  count.child: should fail
+---
+---
+name,value
+Alice,100"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="Cannot set 'count.child': 'count' is not a dictionary"):
+            process_embedz(elem, doc)
