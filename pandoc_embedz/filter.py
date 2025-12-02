@@ -323,24 +323,28 @@ def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
 def _process_nested_structure(
     value: Any,
     context: Dict[str, Any],
-    processor: Callable[[str, Dict[str, Any]], Any]
+    processor: Callable[[str, Dict[str, Any], str], Any],
+    path: str = ""
 ) -> Any:
     """Recursively process nested structures (dict/list) with a string processor.
 
     Args:
         value: Value to process (can be str, dict, list, or other)
         context: Template rendering context
-        processor: Function to process string values, signature: (str, context) -> Any
+        processor: Function to process string values, signature: (str, context, path) -> Any
+        path: Current path in the nested structure (e.g., "foo.bar.baz")
 
     Returns:
         Processed value with same structure
     """
     if isinstance(value, str):
-        return processor(value, context)
+        return processor(value, context, path)
     elif isinstance(value, dict):
-        return {k: _process_nested_structure(v, context, processor) for k, v in value.items()}
+        return {k: _process_nested_structure(v, context, processor,
+                    f"{path}.{k}" if path else k) for k, v in value.items()}
     elif isinstance(value, list):
-        return [_process_nested_structure(item, context, processor) for item in value]
+        return [_process_nested_structure(item, context, processor,
+                    f"{path}[{i}]") for i, item in enumerate(value)]
     else:
         # Non-string primitives (int, float, bool, None) pass through unchanged
         return value
@@ -363,18 +367,20 @@ def _process_bind_section(
     Side effects:
         Updates GLOBAL_VARS dictionary
     """
-    def eval_expression(expr_str: str, ctx: Dict[str, Any]) -> Any:
+    def eval_expression(expr_str: str, ctx: Dict[str, Any], path: str) -> Any:
         """Evaluate expression and preserve type."""
         expr_str = expr_str.strip()
         compiled = env.compile_expression(expr_str)
         result = compiled(**ctx)
         _debug("Evaluated expression '%s' -> %r (type: %s)",
                expr_str, result, type(result).__name__)
+        if result is None:
+            sys.stderr.write(f"Warning: bind '{path}' evaluated to None: '{expr_str}'\n")
         return result
 
     for bind_key, bind_expr in bind_config.items():
         context = _build_render_context(with_vars, data)
-        result = _process_nested_structure(bind_expr, context, eval_expression)
+        result = _process_nested_structure(bind_expr, context, eval_expression, bind_key)
         GLOBAL_VARS[bind_key] = result
         _debug("Bound '%s': %r (type: %s)", bind_key, result, type(result).__name__)
 
@@ -400,7 +406,7 @@ def _expand_global_variables(
     Side effects:
         Updates GLOBAL_VARS dictionary
     """
-    def expand_template(text: str, ctx: Dict[str, Any]) -> str:
+    def expand_template(text: str, ctx: Dict[str, Any], path: str) -> str:
         """Expand template if it contains Jinja2 syntax."""
         if _has_template_syntax(text):
             rendered = _render_template(text, ctx)
