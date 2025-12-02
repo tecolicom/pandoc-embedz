@@ -958,6 +958,7 @@ How content is interpreted depends on whether `---` is present and what attribut
 |------------|-----------|------------------------|
 | (any) | Yes | Standard: YAML → template → data |
 | `data` + `template`/`as` | No | **YAML configuration** |
+| `data=` + `template`/`as` | No | **YAML configuration** (no data loaded) |
 | `template`/`as` only | No | Inline data |
 | `define` | No | Template definition |
 | (none) or `data` only | No | Template |
@@ -981,6 +982,16 @@ template: item-list
 with:
   title: Product Catalog
 ---
+```
+````
+
+**Tip**: Use `data=` (empty value) when you want YAML configuration without loading any data file:
+
+````markdown
+```{.embedz data= as=report}
+with:
+  title: Quarterly Report
+  year: 2024
 ```
 ````
 
