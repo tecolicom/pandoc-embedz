@@ -90,11 +90,38 @@ def _ensure_dict(value: Any, source: str) -> Dict[str, Any]:
 
 
 def load_config_file(file_path: str) -> Dict[str, Any]:
-    """Load YAML configuration from an external file."""
+    """Load YAML configuration from an external file.
+
+    Supports multiple YAML documents in a single file (separated by ---).
+    Documents are merged in order, with later documents overriding earlier ones.
+
+    Example:
+        ---
+        global:
+          今年度: 2023
+        ---
+        bind:
+          前年度: 今年度 - 1
+        ---
+
+    Args:
+        file_path: Path to the YAML configuration file
+
+    Returns:
+        Merged configuration dictionary from all documents
+    """
     validated_path = validate_file_path(file_path)
     with open(validated_path, 'r', encoding='utf-8') as handle:
-        data = yaml.safe_load(handle)
-    return _ensure_dict(data, f"Config file '{file_path}'")
+        content = handle.read()
+
+    # Use safe_load_all to parse multiple YAML documents
+    merged: Dict[str, Any] = {}
+    for doc in yaml.safe_load_all(content):
+        if doc is not None:
+            validated = _ensure_dict(doc, f"Config file '{file_path}'")
+            merged = deep_merge_dicts(merged, validated)
+
+    return merged
 
 
 def deep_merge_dicts(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:

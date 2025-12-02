@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `bind:` evaluates after data loading, preserving result types
   - `global:` evaluates after `bind:`, can reference data and bind results
   - `alias:` adds alternative keys to all dicts after global processing
+- Multi-document YAML support for config files
+  - Config files can contain multiple YAML documents separated by `---`
+  - Documents are merged in order, with later documents overriding earlier ones
+  - Sections can be written in any order; processing order is fixed
+  - Enables logical grouping of settings within a single file
 
 ## [0.9.2] - 2025-11-28
 

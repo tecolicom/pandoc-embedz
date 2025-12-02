@@ -1212,6 +1212,26 @@ This makes it easy to share data sources, variable defaults, and macro preambles
 > blocks. Standalone templates should provide inline data through `data: |` YAML blocks or
 > external files, because everything after the front matter is treated as template text.
 
+#### Multi-Document YAML Files
+
+Config files support multiple YAML documents separated by `---`. Documents are merged in order, with later documents overriding earlier ones:
+
+```yaml
+# config/settings.yaml
+---
+global:
+  fiscal_year: 2024
+---
+bind:
+  prev_year: fiscal_year - 1
+---
+preamble: |
+  {% macro format_yen(n) %}{{ "{:,}".format(n) }}円{% endmacro %}
+---
+```
+
+Since the processing order is fixed (`preamble → with → query → data → bind → global → alias → render`), you can write sections in any order within the file. In this example, `bind:` can reference `fiscal_year` from `global:`, and both can use macros from `preamble:`, regardless of document order. This allows organizing settings into logical groups within a single file.
+
 ### Why Not a Generic Jinja CLI?
 
 Compared to one-off “render this template with Jinja” tools, `pandoc-embedz` is purpose-built for document pipelines:

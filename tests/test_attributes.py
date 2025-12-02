@@ -761,3 +761,171 @@ as: template2
             process_embedz(elem, pf.Doc())
 
         assert "conflicting" in str(excinfo.value).lower() or "both" in str(excinfo.value).lower()
+
+
+class TestMultiDocumentYAML:
+    """Tests for multi-document YAML config files"""
+
+    def setup_method(self):
+        """Clear global state before each test"""
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+    def test_load_multi_document_yaml(self, tmp_path):
+        """Test loading YAML file with multiple documents"""
+        from pandoc_embedz.config import load_config_file
+
+        config_file = tmp_path / "multi.yaml"
+        config_file.write_text("""---
+global:
+  今年度: 2023
+---
+global:
+  前年度: 2022
+bind:
+  test: "'value'"
+---
+""")
+
+        result = load_config_file(str(config_file))
+
+        # Both globals should be merged
+        assert 'global' in result
+        assert result['global']['今年度'] == 2023
+        assert result['global']['前年度'] == 2022
+        # bind from second doc should be present
+        assert 'bind' in result
+        assert result['bind']['test'] == "'value'"
+
+    def test_multi_document_deep_merge(self, tmp_path):
+        """Test that nested dicts are deep merged across documents"""
+        from pandoc_embedz.config import load_config_file
+
+        config_file = tmp_path / "deep.yaml"
+        config_file.write_text("""---
+global:
+  settings:
+    name: Test
+    version: 1
+---
+global:
+  settings:
+    author: John
+---
+""")
+
+        result = load_config_file(str(config_file))
+
+        # settings should have all three keys
+        assert result['global']['settings']['name'] == 'Test'
+        assert result['global']['settings']['version'] == 1
+        assert result['global']['settings']['author'] == 'John'
+
+    def test_multi_document_later_overrides_earlier(self, tmp_path):
+        """Test that later documents override earlier ones for same keys"""
+        from pandoc_embedz.config import load_config_file
+
+        config_file = tmp_path / "override.yaml"
+        config_file.write_text("""---
+global:
+  value: first
+---
+global:
+  value: second
+---
+""")
+
+        result = load_config_file(str(config_file))
+
+        # Later value should win
+        assert result['global']['value'] == 'second'
+
+    def test_single_document_still_works(self, tmp_path):
+        """Test that single document YAML still works"""
+        from pandoc_embedz.config import load_config_file
+
+        config_file = tmp_path / "single.yaml"
+        config_file.write_text("""global:
+  today: 2023
+  quarter: 4
+""")
+
+        result = load_config_file(str(config_file))
+
+        assert result['global']['today'] == 2023
+        assert result['global']['quarter'] == 4
+
+    def test_empty_documents_ignored(self, tmp_path):
+        """Test that empty documents are ignored"""
+        from pandoc_embedz.config import load_config_file
+
+        config_file = tmp_path / "empty.yaml"
+        config_file.write_text("""---
+---
+global:
+  value: test
+---
+---
+""")
+
+        result = load_config_file(str(config_file))
+
+        assert result['global']['value'] == 'test'
+
+    def test_multi_document_with_different_sections(self, tmp_path):
+        """Test multi-document with different section types"""
+        from pandoc_embedz.config import load_config_file
+
+        config_file = tmp_path / "sections.yaml"
+        config_file.write_text("""---
+# First document: preamble and global
+preamble: |
+  {% macro test() %}Hello{% endmacro %}
+global:
+  greeting: "{{ test() }}"
+---
+# Second document: bind section
+bind:
+  data_value: 100 + 200
+---
+# Third document: alias
+alias:
+  のアレ: ラベル
+---
+""")
+
+        result = load_config_file(str(config_file))
+
+        assert 'preamble' in result
+        assert 'global' in result
+        assert 'bind' in result
+        assert 'alias' in result
+        assert result['alias']['のアレ'] == 'ラベル'
+
+    def test_multi_document_config_in_embedz(self, tmp_path):
+        """Test using multi-document config file with embedz block"""
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text("""---
+global:
+  title: "Test Report"
+---
+global:
+  author: "John Doe"
+---
+""")
+
+        # Use config in embedz block
+        code = f"""---
+config: {config_file}
+---
+Title: {{{{ title }}}}, Author: {{{{ author }}}}
+"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert result is not None
+        result_text = pf.stringify(pf.Doc(*result))
+        assert 'Test Report' in result_text
+        assert 'John Doe' in result_text

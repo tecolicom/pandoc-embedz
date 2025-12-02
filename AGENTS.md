@@ -285,6 +285,30 @@ SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 - Preamble prepended to all templates via `CONTROL_STRUCTURES_STR`
 - Macros from named templates auto-added to control structures
 
+### Multi-Document YAML Config Files
+
+Config files support multiple YAML documents separated by `---`:
+
+```yaml
+# config/settings.yaml
+---
+global:
+  fiscal_year: 2024
+---
+bind:
+  prev_year: fiscal_year - 1
+---
+preamble: |
+  {% macro format_yen(n) %}{{ "{:,}".format(n) }}円{% endmacro %}
+---
+```
+
+**Key points:**
+- Documents are merged in order; later documents override earlier ones
+- Sections can be written in any order; processing order is fixed (`preamble → with → query → data → bind → global → alias → render`)
+- Enables logical grouping of settings within a single file
+- Implementation: `load_config_file()` in `config.py` uses `yaml.safe_load_all()`
+
 ### Parameter Aliasing
 
 **User-facing parameters:**
