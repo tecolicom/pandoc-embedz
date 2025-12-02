@@ -77,27 +77,35 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
   - [CSV File (Auto-detected)](#csv-file-auto-detected)
   - [JSON Structure](#json-structure)
   - [Inline Data](#inline-data)
-  - [Standard Input](#standard-input)
   - [Conditionals](#conditionals)
   - [Template Reuse](#template-reuse)
+- [Code Block Syntax](#code-block-syntax)
+  - [Basic Structure](#basic-structure)
+  - [Content Interpretation Rules](#content-interpretation-rules)
+  - [Block Types](#block-types)
+- [Variable Scoping](#variable-scoping)
+  - [Local Variables with `with:`](#local-variables-with-with)
+  - [Global Variables with `global:`](#global-variables-with-global)
+  - [Type-Preserving Bindings with `bind:`](#type-preserving-bindings-with-bind)
+  - [Alias Feature](#alias-feature)
 - [Advanced Features](#advanced-features)
   - [SQL Queries on CSV/TSV](#sql-queries-on-csvtsv)
   - [SQLite Database](#sqlite-database)
   - [Multi-Table Data](#multi-table-data)
   - [Template Macros](#template-macros)
-  - [Variable Scoping](#variable-scoping)
   - [Preamble & Macro Sharing](#preamble--macro-sharing)
+- [Standalone Rendering](#standalone-rendering)
+  - [External Config Files](#external-config-files)
 - [Reference](#reference)
   - [Usage Patterns](#usage-patterns)
     - [Template Inclusion](#template-inclusion)
-  - [Tables & Options](#tables--options)
-    - [Supported Formats](#supported-formats)
-    - [Code Block Syntax](#code-block-syntax)
-    - [Configuration Options](#configuration-options)
-    - [Data Variable](#data-variable)
+  - [Supported Formats](#supported-formats)
+  - [Configuration Options](#configuration-options)
+  - [Data Variable](#data-variable)
   - [Template Content](#template-content)
-- [Standalone Rendering](#standalone-rendering)
-  - [External Config Files](#external-config-files)
+  - [Jinja2 Filters](#jinja2-filters)
+    - [Builtin Filters](#builtin-filters)
+    - [Custom Filters](#custom-filters)
 - [Best Practices](#best-practices)
   - [CSV Output Escaping](#csv-output-escaping)
   - [File Extension Recommendations](#file-extension-recommendations)
@@ -180,44 +188,6 @@ format: json
 ```
 ````
 
-### Standard Input
-
-Read data from stdin in standalone mode:
-
-**Using template file:**
-
-````markdown
-```embedz
----
-format: lines
----
-{% for row in data %}
-- {{ row }}
-{% endfor %}
-```
-````
-
-```bash
-seq 10 | pandoc-embedz -s template.md
-```
-
-In standalone mode, if no `data:` is specified and stdin is available (piped or redirected), data is automatically read from stdin.
-
-**Using inline template (-t option):**
-
-```bash
-# Lines format
-seq 10 | pandoc-embedz -s -t '{% for n in data %}- {{ n }}\n{% endfor %}' -f lines
-
-# CSV format
-echo -e "name,value\nApple,10" | pandoc-embedz -s -t '{% for row in data %}{{ row.name }}: {{ row.value }}\n{% endfor %}' -f csv
-
-# JSON format
-echo '[{"name":"Apple"}]' | pandoc-embedz -s -t '{{ data[0].name }}' -f json
-```
-
-The `-t/--template` option allows you to specify the template text directly on the command line, and `-f/--format` specifies the data format (defaults to csv if not specified).
-
 ### Conditionals
 
 Use Jinja2 `if`/`elif`/`else` to show different content based on data values:
@@ -268,23 +238,362 @@ with:
 ```
 ````
 
-**With inline data:**
+See [Block Types](#block-types) for more details on template definition, usage with inline data, and other block patterns.
+
+## Code Block Syntax
+
+Understanding the structure of embedz code blocks helps you use all features effectively.
+
+### Basic Structure
+
+An embedz code block can have up to three sections separated by `---`:
 
 ````markdown
 ```embedz
 ---
-template: item-list
-format: json
-with:
-  title: Product List
+YAML configuration
 ---
-
+Jinja2 template
 ---
-[{"name": "Widget", "value": "$10"}, {"name": "Gadget", "value": "$20"}]
+Inline data (optional)
 ```
 ````
 
-Note the **three `---` separators**: the first opens the YAML header, the second closes it, and the third marks the beginning of the inline data section.
+- **First `---`**: Opens YAML header
+- **Second `---`**: Closes YAML header, begins template section
+- **Third `---`**: Separates template from inline data (optional)
+
+### Content Interpretation Rules
+
+How content is interpreted depends on whether `---` is present and what attributes are specified:
+
+| Attributes | Has `---` | Content Interpretation |
+|------------|-----------|------------------------|
+| (any) | Yes | Standard: YAML → template → data |
+| `data` + `template`/`as` | No | **YAML configuration** |
+| `data=` + `template`/`as` | No | **YAML configuration** (no data loaded) |
+| `template`/`as` only | No | Inline data |
+| `define` | No | Template definition |
+| (none) or `data` only | No | Template |
+
+**Key point**: When both `data` and `template`/`as` are specified as attributes, the block content (without `---`) is parsed as YAML configuration. This enables concise syntax:
+
+````markdown
+```{.embedz data=products.csv as=item-list}
+with:
+  title: Product Catalog
+```
+````
+
+This is equivalent to:
+
+````markdown
+```embedz
+---
+data: products.csv
+template: item-list
+with:
+  title: Product Catalog
+---
+```
+````
+
+**Tip**: Use `data=` (empty value) when you want YAML configuration without loading any data file:
+
+````markdown
+```{.embedz data= as=report}
+with:
+  title: Quarterly Report
+  year: 2024
+```
+````
+
+### Block Types
+
+#### 1. Data Processing Block (most common)
+
+Loads data and renders it with a template:
+
+````markdown
+```embedz
+---
+data: file.csv
+---
+{% for row in data %}
+- {{ row.name }}
+{% endfor %}
+```
+````
+
+**Processing**: Loads `file.csv` → makes it available as `data` → renders template → outputs result
+
+#### 2. Template Definition
+
+Defines a reusable template with `define:`:
+
+````markdown
+```{.embedz define=my-template}
+{% for item in data %}
+- {{ item.value }}
+{% endfor %}
+```
+````
+
+**Processing**: Stores template as "my-template" → no output
+
+#### 3. Template Usage
+
+Uses a previously defined template with `template:` (or `as:` for short):
+
+````markdown
+```embedz
+---
+data: file.csv
+template: my-template
+---
+```
+````
+
+Or with attribute syntax (using `as=` for brevity):
+
+````markdown
+```{.embedz data=file.csv as=my-template}
+```
+````
+
+With YAML configuration via attributes:
+
+````markdown
+```{.embedz data=file.csv as=my-template}
+with:
+  title: Report
+```
+````
+
+**With inline data** (note the three `---` separators):
+
+````markdown
+```embedz
+---
+template: my-template
+format: json
+---
+---
+[{"value": "item1"}, {"value": "item2"}]
+```
+````
+
+The structure is: YAML header → first `---` → (empty template section) → second `---` → inline data.
+
+**Processing**: Loads data → applies "my-template" → outputs result
+
+#### 4. Inline Data
+
+Data embedded directly in the block:
+
+````markdown
+```embedz
+---
+format: json
+---
+{% for item in data %}
+- {{ item.name }}
+{% endfor %}
+---
+[
+  {"name": "Alice"},
+  {"name": "Bob"}
+]
+```
+````
+
+**Processing**: Parses inline JSON → makes it available as `data` → renders template → outputs result
+
+#### 5. Variable Definition
+
+Sets global variables without output:
+
+````markdown
+```embedz
+---
+global:
+  author: John Doe
+  version: 1.0
+---
+```
+````
+
+**Processing**: Sets global variables → no output
+
+Need to render a snippet that just uses globals/locals? Simply omit `data:`—any `.embedz`
+block with template content now renders even when no dataset is provided:
+
+````markdown
+```embedz
+---
+with:
+  author: Jane Doe
+---
+Prepared by {{ author }}
+```
+````
+
+## Variable Scoping
+
+Understanding how variables work is essential for building complex templates. pandoc-embedz provides four mechanisms for managing variables:
+
+| Mechanism | Scope | Type Handling | Use Case |
+|-----------|-------|---------------|----------|
+| `with:` | Block-local | As-is | Input parameters, local constants |
+| `bind:` | Document-wide | Type-preserving (dict, list, int, bool) | Extracting data, computations |
+| `global:` | Document-wide | String (templates expanded) | Labels, messages, query strings |
+| `alias:` | Document-wide | Key aliasing | Alternative key names for dicts |
+| `preamble:` | Document-wide | Jinja2 control structures | Macros, `{% set %}` variables |
+
+**Processing order**: preamble → with → query → data load → bind → global → alias → render
+
+- `with:` variables are available in `query:` and all subsequent stages
+- `bind:` evaluates after data loading, preserving expression result types
+- `global:` evaluates after `bind:`, can reference both data and bind results
+- All document-wide variables persist across blocks
+
+### Local Variables with `with:`
+
+Block-scoped variables for parameters and constants:
+
+````markdown
+```embedz
+---
+data: products.csv
+with:
+  tax_rate: 0.08
+  currency: USD
+---
+{% for item in data %}
+- {{ item.name }}: {{ currency }} {{ (item.price * (1 + tax_rate)) | round(2) }}
+{% endfor %}
+```
+````
+
+### Global Variables with `global:`
+
+Document-wide variables (string values, templates expanded):
+
+````markdown
+# Set global variables
+```embedz
+---
+global:
+  author: John Doe
+  version: 1.0
+---
+```
+
+# Use in any subsequent block
+```embedz
+---
+data: report.csv
+---
+# Report by {{ global.author }}
+Version {{ global.version }}
+
+{% for row in data %}
+- {{ row.item }}
+{% endfor %}
+```
+````
+
+> **Note**: The `global.` prefix is optional. You can use `{{ author }}` instead of `{{ global.author }}`.
+
+### Type-Preserving Bindings with `bind:`
+
+Evaluate expressions while preserving their result types (dict, list, int, bool):
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  first_row: data | first
+  total: data | sum(attribute='value')
+  has_data: data | length > 0
+---
+Name: {{ first_row.name }}, Total: {{ total }}, Has data: {{ has_data }}
+---
+name,value
+Alice,100
+Bob,200
+```
+````
+
+Unlike `global:` which converts values to strings, `bind:` preserves the original type, enabling property access like `{{ first_row.name }}`.
+
+**Nested structures** are supported:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  first: data | first
+  stats:
+    name: first.name
+    value: first.value
+    doubled: first.value * 2
+---
+{{ stats.name }}: {{ stats.value }} (doubled: {{ stats.doubled }})
+---
+name,value
+Alice,100
+```
+````
+
+**Dot notation** for setting nested values:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  record: data | first
+  record.note: "'Added by bind'"   # Adds 'note' key to record dict
+global:
+  record.label: Description        # Adds 'label' key (no quotes needed)
+---
+{{ record.name }}: {{ record.note }}, {{ record.label }}
+---
+name,value
+Alice,100
+```
+````
+
+> **Note**: In `bind:`, values are Jinja2 expressions (quotes needed for string literals).
+> In `global:`, values are plain strings unless they contain `{{` or `{%`.
+
+### Alias Feature
+
+The `alias:` section adds alternative keys to all dictionaries:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  item:
+    label: |-
+      "Item description"
+    value: 100
+alias:
+  description: label  # 'description' becomes an alias for 'label'
+---
+{{ item.description }}: {{ item.value }}
+---
+name,value
+dummy,0
+```
+````
+
+Aliases are applied recursively to all nested dictionaries and do not overwrite existing keys.
 
 ## Advanced Features
 
@@ -561,245 +870,7 @@ data: vulnerabilities.csv
 - **Macros**: Accept parameters, more flexible, explicit imports required
 - **Include**: Simpler, uses current context automatically, no parameters
 
-### Variable Scoping
-
-pandoc-embedz provides four mechanisms for managing variables:
-
-| Mechanism | Scope | Type Handling | Use Case |
-|-----------|-------|---------------|----------|
-| `with:` | Block-local | As-is | Input parameters, local constants |
-| `bind:` | Document-wide | Type-preserving (dict, list, int, bool) | Extracting data, computations |
-| `global:` | Document-wide | String (templates expanded) | Labels, messages, query strings |
-| `alias:` | Document-wide | Key aliasing | Alternative key names for dicts |
-| `preamble:` | Document-wide | Jinja2 control structures | Macros, `{% set %}` variables |
-
-**Processing order**: preamble → with → query → data load → bind → global → alias → render
-
-- `with:` variables are available in `query:` and all subsequent stages
-- `bind:` evaluates after data loading, preserving expression result types
-- `global:` evaluates after `bind:`, can reference both data and bind results
-- All document-wide variables persist across blocks
-
-**Global variables** with `global:` (document-wide, string values):
-
-````markdown
-# Set global variables
-```embedz
----
-global:
-  author: John Doe
-  version: 1.0
----
-```
-
-# Use in any subsequent block
-```embedz
----
-data: report.csv
----
-# Report by {{ global.author }}
-Version {{ global.version }}
-
-{% for row in data %}
-- {{ row.item }}
-{% endfor %}
-```
-````
-
-**Local variables** with `with` are block-scoped:
-
-````markdown
-```embedz
----
-data: products.csv
-with:
-  tax_rate: 0.08
-  currency: USD
----
-{% for item in data %}
-- {{ item.name }}: {{ currency }} {{ (item.price * (1 + tax_rate)) | round(2) }}
-{% endfor %}
-```
-````
-
-**Preamble section** for document-wide control structures (macros, variables):
-
-````markdown
-```embedz
----
-preamble: |
-  {% set fiscal_year = 2024 %}
-  {% set title = 'Annual Report' %}
-  {% macro BETWEEN(start, end) -%}
-  SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
-  {%- endmacro %}
-global:
-  start_date: "{{ fiscal_year }}-04-01"
-  end_date: "{{ fiscal_year + 1 }}-03-31"
-  heading: "{{ title }} (FY{{ fiscal_year }})"
-  yearly_query: "{{ BETWEEN(start_date, end_date) }}"
----
-```
-
-```embedz
----
-data: sales.csv
-query: "{{ yearly_query }}"
----
-## {{ heading }}
-{% for row in data %}
-- {{ row.date }}: {{ row.amount }}
-{% endfor %}
-```
-````
-
-The `preamble` section defines control structures that are available throughout the entire document:
-- **Macros**: Define once, use everywhere
-- **Variables** (`{% set %}`): Template-level variables shared across all blocks (and can feed `global`)
-- **Imports**: Import templates or macros for use in subsequent blocks
-
-**Global variables from loaded data** - set global variables based on query results:
-
-````markdown
-```embedz
----
-format: csv
-query: SELECT * FROM data WHERE value > 80
-global:
-  filtered_count: "{{ data | length }}"
-  total_value: "{{ data | sum(attribute='value') }}"
----
-Filtered count: {{ filtered_count }}, Total: {{ total_value }}
----
-name,value
-Alice,100
-Bob,80
-Charlie,120
-```
-````
-
-> **Note**: Variables in `query:` can use `with:` from the same block or `global:` from previous blocks.
-> Global variables in the same block are expanded **after** data loading,
-> so they can reference `data` but cannot be used in that block's `query:`.
-
-**Type-preserving bindings** with `bind:` - evaluate expressions while preserving types:
-
-````markdown
-```embedz
----
-format: csv
-bind:
-  first_row: data | first
-  total: data | sum(attribute='value')
-  has_data: data | length > 0
----
-Name: {{ first_row.name }}, Total: {{ total }}, Has data: {{ has_data }}
----
-name,value
-Alice,100
-Bob,200
-```
-````
-
-Unlike `global:` which converts values to strings, `bind:` preserves the original type (dict, list, int, bool, None), enabling property access like `{{ first_row.name }}`.
-
-**Nested structures** are supported in both `bind:` and `global:`:
-
-````markdown
-```embedz
----
-format: csv
-bind:
-  first: data | first
-  stats:
-    name: first.name
-    value: first.value
-    doubled: first.value * 2
----
-{{ stats.name }}: {{ stats.value }} (doubled: {{ stats.doubled }})
----
-name,value
-Alice,100
-```
-````
-
-**Dot notation** for setting nested values:
-
-````markdown
-```embedz
----
-format: csv
-bind:
-  record: data | first
-  record.note: "'Added by bind'"   # Adds 'note' key to record dict
-global:
-  record.label: Description        # Adds 'label' key (no quotes needed)
----
-{{ record.name }}: {{ record.note }}, {{ record.label }}
----
-name,value
-Alice,100
-```
-````
-
-> **Note**: In `bind:`, values are Jinja2 expressions (quotes needed for string literals).
-> In `global:`, values are plain strings unless they contain `{{` or `{%`.
-
-**Custom filter `to_dict`** - convert a list to a dictionary keyed by a field:
-
-````markdown
-```embedz
----
-format: csv
-bind:
-  by_year: data | to_dict('year')
-  current: by_year[2024]
-  previous: by_year[2023]
----
-Current: {{ current.value }}, Previous: {{ previous.value }}
----
-year,value
-2023,100
-2024,200
-```
-````
-
-This is useful for accessing data by a specific key (e.g., year, ID) instead of iterating through a list. The `to_dict` filter takes the field name as an argument and returns a dictionary where keys are the field values.
-
-By default, `to_dict` raises an error if duplicate keys are found (strict mode). To allow duplicates (last value wins), use `strict=False`:
-
-```python
-data | to_dict('year')                # raises ValueError on duplicate keys
-data | to_dict('year', strict=False)  # allows duplicates, last value wins
-```
-
-**Alias feature** - add alternative keys to dictionaries:
-
-````markdown
-```embedz
----
-format: csv
-bind:
-  item:
-    label: |-
-      "Item description"
-    value: 100
-alias:
-  description: label  # 'description' becomes an alias for 'label'
----
-{{ item.description }}: {{ item.value }}
----
-name,value
-dummy,0
-```
-````
-
-The `alias` section adds alternative keys to all dictionaries in GLOBAL_VARS. When a source key (e.g., `label`) exists in a dict, the alias key (e.g., `description`) is automatically added with the same value. This is useful for:
-- Providing user-friendly names for data access
-- Supporting multiple naming conventions
-- Adding localized key names alongside original ones
-
-Aliases are applied recursively to all nested dictionaries and do not overwrite existing keys.
+See [Template Inclusion](#template-inclusion) for detailed `{% include %}` examples.
 
 ### Preamble & Macro Sharing
 
@@ -910,11 +981,7 @@ data: vulnerabilities.csv
 ```
 ````
 
-### Tables & Options
-
-Reference tables for formats, syntax, and configuration knobs.
-
-#### Supported Formats
+### Supported Formats
 
 | Format     | Extension        | Description                                                               |
 |------------|------------------|---------------------------------------------------------------------------|
@@ -929,205 +996,9 @@ Reference tables for formats, syntax, and configuration knobs.
 
 **Note**: SSV (Space-Separated Values) treats consecutive spaces and tabs as a single delimiter, making it ideal for manually aligned data. Both `ssv` and `spaces` can be used interchangeably.
 
-#### Code Block Syntax
+### Configuration Options
 
-##### Basic Structure
-
-An embedz code block can have up to three sections separated by `---`:
-
-````markdown
-```embedz
----
-YAML configuration
----
-Jinja2 template
----
-Inline data (optional)
-```
-````
-
-- **First `---`**: Opens YAML header
-- **Second `---`**: Closes YAML header, begins template section
-- **Third `---`**: Separates template from inline data (optional)
-
-##### Content Interpretation Rules
-
-How content is interpreted depends on whether `---` is present and what attributes are specified:
-
-| Attributes | Has `---` | Content Interpretation |
-|------------|-----------|------------------------|
-| (any) | Yes | Standard: YAML → template → data |
-| `data` + `template`/`as` | No | **YAML configuration** |
-| `data=` + `template`/`as` | No | **YAML configuration** (no data loaded) |
-| `template`/`as` only | No | Inline data |
-| `define` | No | Template definition |
-| (none) or `data` only | No | Template |
-
-**Key point**: When both `data` and `template`/`as` are specified as attributes, the block content (without `---`) is parsed as YAML configuration. This enables concise syntax:
-
-````markdown
-```{.embedz data=products.csv as=item-list}
-with:
-  title: Product Catalog
-```
-````
-
-This is equivalent to:
-
-````markdown
-```embedz
----
-data: products.csv
-template: item-list
-with:
-  title: Product Catalog
----
-```
-````
-
-**Tip**: Use `data=` (empty value) when you want YAML configuration without loading any data file:
-
-````markdown
-```{.embedz data= as=report}
-with:
-  title: Quarterly Report
-  year: 2024
-```
-````
-
-##### Block Types
-
-###### 1. Data Processing Block (most common)
-
-Loads data and renders it with a template:
-
-````markdown
-```embedz
----
-data: file.csv
----
-{% for row in data %}
-- {{ row.name }}
-{% endfor %}
-```
-````
-
-**Processing**: Loads `file.csv` → makes it available as `data` → renders template → outputs result
-
-###### 2. Template Definition
-
-Defines a reusable template with `define:`:
-
-````markdown
-```{.embedz define=my-template}
-{% for item in data %}
-- {{ item.value }}
-{% endfor %}
-```
-````
-
-**Processing**: Stores template as "my-template" → no output
-
-###### 3. Template Usage
-
-Uses a previously defined template with `template:` (or `as:` for short):
-
-````markdown
-```embedz
----
-data: file.csv
-template: my-template
----
-```
-````
-
-Or with attribute syntax (using `as=` for brevity):
-
-````markdown
-```{.embedz data=file.csv as=my-template}
-```
-````
-
-With YAML configuration via attributes:
-
-````markdown
-```{.embedz data=file.csv as=my-template}
-with:
-  title: Report
-```
-````
-
-**With inline data** (note the three `---` separators):
-
-````markdown
-```embedz
----
-template: my-template
-format: json
----
----
-[{"value": "item1"}, {"value": "item2"}]
-```
-````
-
-The structure is: YAML header → first `---` → (empty template section) → second `---` → inline data.
-
-**Processing**: Loads data → applies "my-template" → outputs result
-
-###### 4. Inline Data
-
-Data embedded directly in the block:
-
-````markdown
-```embedz
----
-format: json
----
-{% for item in data %}
-- {{ item.name }}
-{% endfor %}
----
-[
-  {"name": "Alice"},
-  {"name": "Bob"}
-]
-```
-````
-
-**Processing**: Parses inline JSON → makes it available as `data` → renders template → outputs result
-
-###### 5. Variable Definition
-
-Sets global variables without output:
-
-````markdown
-```embedz
----
-global:
-  author: John Doe
-  version: 1.0
----
-```
-````
-
-**Processing**: Sets global variables → no output
-
-Need to render a snippet that just uses globals/locals? Simply omit `data:`—any `.embedz`
-block with template content now renders even when no dataset is provided:
-
-````markdown
-```embedz
----
-with:
-  author: Jane Doe
----
-Prepared by {{ author }}
-```
-````
-
-##### Configuration Options
-
-###### YAML Header
+#### YAML Header
 
 | Key | Description | Example |
 |-----|-------------|---------|
@@ -1148,7 +1019,7 @@ Prepared by {{ author }}
 **Backward Compatibility:**
 - `name` parameter (deprecated): Still works but shows a warning. Use `define` instead.
 
-###### Attribute Syntax
+#### Attribute Syntax
 
 Attributes can be used instead of or in combination with YAML:
 
@@ -1162,7 +1033,7 @@ Attributes can be used instead of or in combination with YAML:
 
 Need to avoid repeating YAML headers? Attributes also accept `config=/path/file.yaml` (repeat as needed) to load shared settings outside the block body.
 
-###### Data Variable
+### Data Variable
 
 Template content can access:
 
@@ -1173,7 +1044,7 @@ Template content can access:
 - Variables from `with:` (local scope)
 - Variables from `global:` (document scope)
 
-#### Template Content
+### Template Content
 
 Uses Jinja2 syntax with full feature support:
 
@@ -1189,6 +1060,94 @@ For detailed Jinja2 template syntax and features, see the [Jinja2 documentation]
 **Note on output format:**
 - **Filter mode** (`.embedz` code blocks): Template output is interpreted as Markdown and passed back to Pandoc for further processing. You can use Markdown syntax (`**bold**`, `- lists`, `[links]()`, etc.) and LaTeX commands (`\textbf{}`, etc.) in your templates.
 - **Standalone mode** (`-s` flag): Template output is plain text and not processed. Use this for generating CSV, JSON, configuration files, or any non-Markdown content.
+
+### Jinja2 Filters
+
+Filters transform values using the pipe (`|`) syntax: `{{ value | filter }}`.
+
+#### Builtin Filters
+
+Jinja2 provides many useful filters. Here are common ones for data processing:
+
+| Filter | Description | Example |
+|--------|-------------|---------|
+| `first` | First item of a list | `{{ data \| first }}` |
+| `last` | Last item of a list | `{{ data \| last }}` |
+| `length` | Number of items | `{{ data \| length }}` |
+| `sum` | Sum of values | `{{ data \| sum(attribute='value') }}` |
+| `sort` | Sort a list | `{{ data \| sort(attribute='name') }}` |
+| `selectattr` | Filter by attribute | `{{ data \| selectattr('active', 'true') }}` |
+| `map` | Extract attribute | `{{ data \| map(attribute='name') \| list }}` |
+| `join` | Join items | `{{ items \| join(', ') }}` |
+| `default` | Default value | `{{ value \| default('N/A') }}` |
+| `round` | Round number | `{{ price \| round(2) }}` |
+
+**Examples:**
+
+```jinja2
+{# Get total sales #}
+{{ data | sum(attribute='amount') }}
+
+{# Filter high-value items #}
+{% for item in data | selectattr('value', 'gt', 100) %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}
+
+{# Sort by date descending #}
+{% for row in data | sort(attribute='date', reverse=true) %}
+- {{ row.date }}: {{ row.title }}
+{% endfor %}
+
+{# Format number with comma #}
+{{ amount | int | string | default('0') }}
+```
+
+See [Jinja2 Builtin Filters](https://jinja.palletsprojects.com/en/latest/templates/#builtin-filters) for the complete list.
+
+#### Custom Filters
+
+pandoc-embedz provides additional filters:
+
+**`to_dict(key, strict=True)`** - convert a list of dictionaries to a dictionary keyed by a specified field.
+
+This is useful when you need to access specific records by key (e.g., year, ID, name) instead of iterating through the entire list. Common use cases:
+
+- **Year-over-year comparisons**: Access this year's and last year's data directly
+- **Lookup tables**: Create a mapping from ID to record for quick access
+- **Cross-referencing**: Join data from different sources by a common key
+
+```jinja2
+{{ data | to_dict('year') }}
+{# Input:  [{'year': 2023, 'value': 100}, {'year': 2024, 'value': 200}]
+   Output: {2023: {'year': 2023, 'value': 100}, 2024: {'year': 2024, 'value': 200}} #}
+```
+
+**Example - Year-over-year comparison:**
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+  current: by_year[2024]
+  previous: by_year[2023]
+  growth: (current.value - previous.value) / previous.value * 100
+---
+2024: {{ current.value }} ({{ growth | round(1) }}% vs 2023)
+---
+year,value
+2023,100
+2024,120
+```
+````
+
+**Strict mode** (default): Raises `ValueError` if duplicate keys are found, ensuring data integrity:
+
+```jinja2
+data | to_dict('id')                {# raises error if duplicate IDs exist #}
+data | to_dict('id', strict=False)  {# allows duplicates, last value wins #}
+```
 
 ## Standalone Rendering
 
