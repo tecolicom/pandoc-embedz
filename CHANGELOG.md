@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.2] - 2025-12-03
+
+### Changed
+- `to_dict` filter now defaults to strict mode
+  - Raises `ValueError` on duplicate keys by default
+  - Use `strict=False` to allow duplicates (last value wins)
+  - Example: `data | to_dict('year')` raises error if duplicate years exist
+
+### Improved
+- Documentation for code block content interpretation rules
+  - Added table explaining how content is parsed based on attributes and `---` presence
+  - Documented `data=` (empty value) for YAML configuration without loading data
+  - Fixed heading levels for proper hierarchy in Reference section
+
+### Fixed
+- Windows test failures by specifying UTF-8 encoding
+
 ## [0.10.1] - 2025-12-02
 
 ### Added
