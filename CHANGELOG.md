@@ -5,56 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.10.0]
 
 ### Added
-- Global variables can now reference loaded data using Jinja2 templates
-  - `global:` section is expanded after data loading, enabling `{{ data | length }}` etc.
-  - Computed values are available in subsequent blocks
-  - Processing order: preamble → with → query → data load → global → render
 - New `bind:` section for type-preserving expression evaluation
   - Evaluates Jinja2 expressions and preserves result type (dict, list, int, bool, None)
   - Enables property access on bound variables: `{{ first_row.name }}`
-  - Uses `compile_expression()` instead of `render()` for type preservation
   - Supports nested structures with recursive expression evaluation
-  - Processing order: with → query → bind → global
   - Example:
     ```yaml
     bind:
       first: data | first
-      info:
+      stats:
         name: first.name
         value: first.value
         is_high: first.value > 100
     ```
 - Dot notation support for `bind:` and `global:` keys
-  - Set nested values using dot-separated keys: `record.memo: "'note'"`
+  - Set nested values using dot-separated keys: `record.note: "'note'"`
   - Adds keys to existing dictionaries created by earlier bindings
   - Creates intermediate dictionaries if not present
   - Example:
     ```yaml
     bind:
       record: data | first
-      record.note: "'Added note'"  # Adds 'note' key to record dict
+      record.note: "'Added note'"
     global:
-      record.label: Description    # Adds 'label' key (no quotes needed in global)
+      record.label: Description
     ```
-- Recursive template expansion in nested `global:` structures
-  - Templates in nested dicts and lists are now expanded
-  - Enables structured data definitions with computed values:
-    ```yaml
-    global:
-      bind:
-        row: data | first
-      summary:
-        name: "{{ row.name }}"
-        value: "{{ row.value }}"
-    ```
-
-### Changed
-- Reordered pipeline processing to enable data access in global variables
-  - `with:` variables are processed before query (usable in query)
-  - `global:` variables are processed after data loading (can reference data)
+- Global variables can now reference loaded data
+  - `global:` section is expanded after data loading
+  - Enables expressions like `{{ data | length }}` in global variables
+  - Recursive template expansion in nested structures
+- Processing order: preamble → with → query → data load → bind → global → render
+  - `with:` variables are available in `query:` and all subsequent stages
+  - `bind:` evaluates after data loading, preserving result types
+  - `global:` evaluates after `bind:`, can reference data and bind results
 
 ## [0.9.2] - 2025-11-28
 
