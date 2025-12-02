@@ -116,6 +116,26 @@ def _merge_config_sources(
     merged = deep_merge_dicts(merged, yaml_copy)
     return merged
 
+def _filter_to_dict(data: List[Dict[str, Any]], key: str) -> Dict[Any, Dict[str, Any]]:
+    """Convert a list of dicts to a dict keyed by a specified field.
+
+    Args:
+        data: List of dictionaries
+        key: Field name to use as dictionary key
+
+    Returns:
+        Dictionary with values from 'key' field as keys
+
+    Example:
+        data | to_dict('year')
+        [{'year': 2023, 'value': 100}, {'year': 2024, 'value': 200}]
+        -> {2023: {'year': 2023, 'value': 100}, 2024: {'year': 2024, 'value': 200}}
+    """
+    if not isinstance(data, list):
+        raise TypeError(f"to_dict expects a list, got {type(data).__name__}")
+    return {row[key]: row for row in data}
+
+
 def _get_jinja_env() -> Environment:
     """Get or create global Jinja2 Environment with access to saved templates
 
@@ -125,6 +145,8 @@ def _get_jinja_env() -> Environment:
     global GLOBAL_ENV
     if GLOBAL_ENV is None:
         GLOBAL_ENV = Environment(loader=FunctionLoader(load_template_from_saved))
+        # Register custom filters
+        GLOBAL_ENV.filters['to_dict'] = _filter_to_dict
     return GLOBAL_ENV
 
 def _render_template(template_str: str, context: Dict[str, Any]) -> str:
@@ -389,6 +411,38 @@ def _set_nested_value(target: Dict[str, Any], key: str, value: Any) -> None:
     current[parts[-1]] = value
 
 
+def _apply_aliases(alias_config: Dict[str, str]) -> None:
+    """Apply aliases to all dicts in GLOBAL_VARS.
+
+    For each alias mapping (e.g., {'のアレ': 'ラベル'}), recursively walk
+    through GLOBAL_VARS and add the alias key wherever the source key exists.
+
+    Args:
+        alias_config: Dictionary mapping alias names to source names
+                      e.g., {'のアレ': 'ラベル'}
+
+    Side effects:
+        Modifies dicts in GLOBAL_VARS by adding alias keys
+    """
+    def add_aliases_recursive(obj: Any) -> None:
+        """Recursively add aliases to all dicts in obj."""
+        if isinstance(obj, dict):
+            # First, add aliases to this dict
+            for alias_name, source_name in alias_config.items():
+                if source_name in obj and alias_name not in obj:
+                    obj[alias_name] = obj[source_name]
+                    _debug("Added alias '%s' -> '%s': %r", alias_name, source_name, obj[source_name])
+            # Then, recurse into nested values
+            for value in obj.values():
+                add_aliases_recursive(value)
+        elif isinstance(obj, list):
+            for item in obj:
+                add_aliases_recursive(item)
+
+    add_aliases_recursive(GLOBAL_VARS)
+    _debug("Applied aliases: %s", alias_config)
+
+
 def _process_bind_section(
     bind_config: Dict[str, Any],
     with_vars: Dict[str, Any],
@@ -470,6 +524,10 @@ def _expand_global_variables(
             expanded = _process_nested_structure(value, context, expand_template)
             _set_nested_value(GLOBAL_VARS, key, expanded)
             _debug("Set global variable '%s': %r", key, expanded)
+
+    # Process alias: section (add aliases to all dicts in GLOBAL_VARS)
+    if 'alias' in config and isinstance(config['alias'], dict):
+        _apply_aliases(config['alias'])
 
     if GLOBAL_VARS:
         _debug("Global variables: %s", GLOBAL_VARS)

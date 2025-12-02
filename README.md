@@ -21,7 +21,8 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 🧩 **Template Inclusion**: Nest templates within templates with `{% include %}`
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
 - 📋 **Preamble Section**: Define control structures (macros, variables) for entire document
-- 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), and preamble (`preamble:`) management
+- 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), type-preserving (`bind:`), and preamble (`preamble:`) management
+- 🔑 **Custom Filters**: `to_dict` for list-to-dictionary conversion, `alias` for alternative key names
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 - 🧾 **Standalone Rendering**: `pandoc-embedz --standalone file1.tex file2.md` expands whole templates (Markdown/LaTeX) without running full Pandoc
 
@@ -569,9 +570,10 @@ pandoc-embedz provides four mechanisms for managing variables:
 | `with:` | Block-local | As-is | Input parameters, local constants |
 | `bind:` | Document-wide | Type-preserving (dict, list, int, bool) | Extracting data, computations |
 | `global:` | Document-wide | String (templates expanded) | Labels, messages, query strings |
+| `alias:` | Document-wide | Key aliasing | Alternative key names for dicts |
 | `preamble:` | Document-wide | Jinja2 control structures | Macros, `{% set %}` variables |
 
-**Processing order**: preamble → with → query → data load → bind → global → render
+**Processing order**: preamble → with → query → data load → bind → global → alias → render
 
 - `with:` variables are available in `query:` and all subsequent stages
 - `bind:` evaluates after data loading, preserving expression result types
@@ -742,6 +744,55 @@ Alice,100
 
 > **Note**: In `bind:`, values are Jinja2 expressions (quotes needed for string literals).
 > In `global:`, values are plain strings unless they contain `{{` or `{%`.
+
+**Custom filter `to_dict`** - convert a list to a dictionary keyed by a field:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+  current: by_year[2024]
+  previous: by_year[2023]
+---
+Current: {{ current.value }}, Previous: {{ previous.value }}
+---
+year,value
+2023,100
+2024,200
+```
+````
+
+This is useful for accessing data by a specific key (e.g., year, ID) instead of iterating through a list. The `to_dict` filter takes the field name as an argument and returns a dictionary where keys are the field values.
+
+**Alias feature** - add alternative keys to dictionaries:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  item:
+    label: |-
+      "Item description"
+    value: 100
+alias:
+  description: label  # 'description' becomes an alias for 'label'
+---
+{{ item.description }}: {{ item.value }}
+---
+name,value
+dummy,0
+```
+````
+
+The `alias` section adds alternative keys to all dictionaries in GLOBAL_VARS. When a source key (e.g., `label`) exists in a dict, the alias key (e.g., `description`) is automatically added with the same value. This is useful for:
+- Providing user-friendly names for data access
+- Supporting multiple naming conventions
+- Adding localized key names alongside original ones
+
+Aliases are applied recursively to all nested dictionaries and do not overwrite existing keys.
 
 ### Preamble & Macro Sharing
 
@@ -1030,6 +1081,7 @@ Prepared by {{ author }}
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
 | `bind` | Type-preserving bindings (evaluates expressions, preserves dict/list/int/bool types) | `bind: {first: data \| first}` |
 | `global` | Global variables (document-scoped, string values) | `global: {author: "John"}` |
+| `alias` | Add alternative keys to all dicts (applied after bind/global) | `alias: {description: label}` |
 | `preamble` | Control structures for entire document (macros, `{% set %}`, imports) | `preamble: \|`<br>`  {% set title = 'Report' %}` |
 | `header` | CSV/TSV has header row (default: true) | `header: false` |
 | `table` | SQLite table name (required for sqlite format) | `table: users` |

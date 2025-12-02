@@ -457,6 +457,55 @@ global:
 **Error handling:**
 - Raises `ValueError` if parent exists but is not a dictionary
 
+### Custom Filter: to_dict
+
+**Status:** ✅ Implemented
+
+Converts a list of dictionaries to a dictionary keyed by a specified field:
+
+```yaml
+bind:
+  by_year: data | to_dict('year')
+  current: by_year[2024]
+  previous: by_year[2023]
+```
+
+**Example:**
+```python
+# Input: [{'year': 2023, 'value': 100}, {'year': 2024, 'value': 200}]
+# Result: {2023: {'year': 2023, 'value': 100}, 2024: {'year': 2024, 'value': 200}}
+```
+
+**Use case:** Access data by a specific key (e.g., year, ID) instead of iterating through a list with `selectattr`.
+
+### Alias Feature
+
+**Status:** ✅ Implemented
+
+The `alias:` section adds alternative keys to all dictionaries in GLOBAL_VARS:
+
+```yaml
+bind:
+  item:
+    label: |-
+      "Item description"
+    value: 100
+alias:
+  description: label  # 'description' becomes an alias for 'label'
+```
+
+**Processing:**
+1. After bind and global processing completes
+2. Recursively walks all dicts in GLOBAL_VARS
+3. For each alias mapping (e.g., `description: label`):
+   - If source key (`label`) exists and alias key (`description`) doesn't exist
+   - Adds alias key with same value
+
+**Use cases:**
+- Providing user-friendly names for data access
+- Supporting multiple naming conventions (e.g., Japanese and English keys)
+- Separating data definition (formal names) from usage (friendly names)
+
 ---
 
 ## Real-World Usage Patterns

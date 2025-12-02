@@ -37,10 +37,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `global:` section is expanded after data loading
   - Enables expressions like `{{ data | length }}` in global variables
   - Recursive template expansion in nested structures
-- Processing order: preamble → with → query → data load → bind → global → render
+- Custom Jinja2 filter `to_dict` for list-to-dictionary conversion
+  - Converts list of dicts to a dictionary keyed by specified field
+  - Example: `data | to_dict('year')` converts `[{'year': 2023, ...}]` to `{2023: {...}}`
+  - Useful for accessing data by key instead of iterating with `selectattr`
+- New `alias:` section for adding alternative keys to dictionaries
+  - Adds alias keys to all dicts in GLOBAL_VARS recursively
+  - Example: `alias: {description: label}` makes `item.description` work when `item.label` exists
+  - Does not overwrite existing keys
+  - Applied after bind and global processing
+- Processing order: preamble → with → query → data load → bind → global → alias → render
   - `with:` variables are available in `query:` and all subsequent stages
   - `bind:` evaluates after data loading, preserving result types
   - `global:` evaluates after `bind:`, can reference data and bind results
+  - `alias:` adds alternative keys to all dicts after global processing
 
 ## [0.9.2] - 2025-11-28
 

@@ -1954,3 +1954,396 @@ Alice,100"""
 
         with pytest.raises(ValueError, match="Cannot set 'count.child': 'count' is not a dictionary"):
             process_embedz(elem, doc)
+
+
+class TestToDictFilter:
+    """Tests for to_dict custom Jinja2 filter"""
+
+    def test_to_dict_basic(self):
+        """Test to_dict filter converts list of dicts to keyed dict"""
+        code = """---
+format: csv
+bind:
+  by_name: data | to_dict('name')
+---
+Alice value: {{ by_name['Alice'].value }}
+Bob value: {{ by_name['Bob'].value }}
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['by_name'], dict)
+        assert 'Alice' in GLOBAL_VARS['by_name']
+        assert 'Bob' in GLOBAL_VARS['by_name']
+        assert GLOBAL_VARS['by_name']['Alice']['value'] == 100
+        assert GLOBAL_VARS['by_name']['Bob']['value'] == 200
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice value: 100' in output
+        assert 'Bob value: 200' in output
+
+    def test_to_dict_with_numeric_key(self):
+        """Test to_dict filter with numeric key field"""
+        code = """---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+---
+2023 value: {{ by_year[2023].value }}
+2024 value: {{ by_year[2024].value }}
+---
+year,value
+2023,100
+2024,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['by_year'], dict)
+        assert 2023 in GLOBAL_VARS['by_year']
+        assert 2024 in GLOBAL_VARS['by_year']
+        assert GLOBAL_VARS['by_year'][2023]['value'] == 100
+        assert GLOBAL_VARS['by_year'][2024]['value'] == 200
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '2023 value: 100' in output
+        assert '2024 value: 200' in output
+
+    def test_to_dict_with_variable_access(self):
+        """Test to_dict filter with variable key access"""
+        code = """---
+format: csv
+with:
+  target_year: 2024
+bind:
+  by_year: data | to_dict('year')
+  target_data: by_year[target_year]
+---
+Target year value: {{ target_data.value }}
+---
+year,value
+2023,100
+2024,200
+2025,300"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['target_data'], dict)
+        assert GLOBAL_VARS['target_data']['value'] == 200
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Target year value: 200' in output
+
+    def test_to_dict_with_global_fiscal_year(self):
+        """Test to_dict filter with fiscal_year global variable"""
+        # First block: set fiscal_year
+        code1 = """---
+global:
+  fiscal_year: 2024
+---
+"""
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: use fiscal_year to access dict
+        code2 = """---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+  current: by_year[fiscal_year]
+  previous: by_year[fiscal_year - 1]
+---
+Current: {{ current.value }}, Previous: {{ previous.value }}
+---
+year,value
+2023,100
+2024,200
+2025,300"""
+
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['current']['value'] == 200
+        assert GLOBAL_VARS['previous']['value'] == 100
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Current: 200, Previous: 100' in output
+
+    def test_to_dict_with_japanese_key(self):
+        """Test to_dict filter with Japanese key field"""
+        code = """---
+format: csv
+bind:
+  年度別: data | to_dict('年度')
+---
+2023年度: {{ 年度別[2023].報告件数 }}件
+---
+年度,報告件数,調整件数
+2023,65690,19720
+2024,70000,20000"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert isinstance(GLOBAL_VARS['年度別'], dict)
+        assert 2023 in GLOBAL_VARS['年度別']
+        assert GLOBAL_VARS['年度別'][2023]['報告件数'] == 65690
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '2023年度: 65690件' in output
+
+    def test_to_dict_available_in_subsequent_block(self):
+        """Test to_dict result is available in subsequent blocks"""
+        # First block: create dict
+        code1 = """---
+format: csv
+bind:
+  items: data | to_dict('id')
+---
+---
+id,name
+1,Alice
+2,Bob"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert isinstance(GLOBAL_VARS['items'], dict)
+        assert GLOBAL_VARS['items'][1]['name'] == 'Alice'
+
+        # Second block: use the dict
+        code2 = """---
+---
+Item 1: {{ items[1].name }}
+Item 2: {{ items[2].name }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Item 1: Alice' in output
+        assert 'Item 2: Bob' in output
+
+    def test_to_dict_error_on_non_list(self):
+        """Test to_dict filter raises error on non-list input"""
+        code = """---
+format: json
+bind:
+  bad: data | to_dict('key')
+---
+---
+{"not": "a list"}"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(TypeError, match="to_dict expects a list"):
+            process_embedz(elem, doc)
+
+
+class TestAliasFeature:
+    """Tests for alias: feature"""
+
+    def test_alias_basic(self):
+        """Test alias adds alternative key to dicts"""
+        code = """---
+format: csv
+bind:
+  item:
+    ラベル: |-
+      "テスト項目"
+    value: 100
+alias:
+  のアレ: ラベル
+---
+{{ item.のアレ }}: {{ item.value }}
+---
+name,value
+dummy,0"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert 'ラベル' in GLOBAL_VARS['item']
+        assert 'のアレ' in GLOBAL_VARS['item']
+        assert GLOBAL_VARS['item']['のアレ'] == 'テスト項目'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'テスト項目: 100' in output
+
+    def test_alias_nested(self):
+        """Test alias works on nested dicts"""
+        code = """---
+format: csv
+bind:
+  parent:
+    ラベル: |-
+      "親項目"
+    child:
+      ラベル: |-
+        "子項目"
+alias:
+  のアレ: ラベル
+---
+{{ parent.のアレ }} > {{ parent.child.のアレ }}
+---
+name,value
+dummy,0"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['parent']['のアレ'] == '親項目'
+        assert GLOBAL_VARS['parent']['child']['のアレ'] == '子項目'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '親項目' in output and '子項目' in output
+
+    def test_alias_does_not_overwrite(self):
+        """Test alias does not overwrite existing key"""
+        code = """---
+format: csv
+bind:
+  item:
+    ラベル: |-
+      "元の値"
+    のアレ: |-
+      "既存の値"
+alias:
+  のアレ: ラベル
+---
+{{ item.のアレ }}
+---
+name,value
+dummy,0"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Should keep the existing value, not overwrite with alias
+        assert GLOBAL_VARS['item']['のアレ'] == '既存の値'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '既存の値' in output
+
+    def test_alias_multiple(self):
+        """Test multiple aliases"""
+        code = """---
+format: csv
+bind:
+  item:
+    label: |-
+      "Item Label"
+    description: |-
+      "Item Description"
+alias:
+  ラベル: label
+  説明: description
+---
+{{ item.ラベル }}: {{ item.説明 }}
+---
+name,value
+dummy,0"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['item']['ラベル'] == 'Item Label'
+        assert GLOBAL_VARS['item']['説明'] == 'Item Description'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Item Label: Item Description' in output
+
+    def test_alias_available_in_subsequent_block(self):
+        """Test aliases are available in subsequent blocks"""
+        # First block: define with alias
+        code1 = """---
+format: csv
+bind:
+  item:
+    ラベル: |-
+      "テスト"
+alias:
+  のアレ: ラベル
+---
+---
+name,value
+dummy,0"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert GLOBAL_VARS['item']['のアレ'] == 'テスト'
+
+        # Second block: use the alias
+        code2 = """---
+---
+{{ item.のアレ }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'テスト' in output
+
+    def test_alias_with_real_data(self):
+        """Test alias with real incident-like data structure"""
+        code = """---
+format: csv
+bind:
+  インシデント:
+    ラベル: |-
+      "インシデント件数"
+    今年度: 26365
+    報告:
+      ラベル: |-
+        "報告件数"
+      今年度: 65690
+alias:
+  のアレ: ラベル
+---
+{{ インシデント.のアレ }}は{{ インシデント.今年度 }}件、{{ インシデント.報告.のアレ }}は{{ インシデント.報告.今年度 }}件
+---
+name,value
+dummy,0"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert GLOBAL_VARS['インシデント']['のアレ'] == 'インシデント件数'
+        assert GLOBAL_VARS['インシデント']['報告']['のアレ'] == '報告件数'
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'インシデント件数は26365件' in output
+        assert '報告件数は65690件' in output
