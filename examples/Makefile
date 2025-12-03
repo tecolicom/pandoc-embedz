@@ -8,7 +8,7 @@
 #   make simple    - simple.md のみを Markdown として出力
 #   make simple.html - simple.md を HTML に変換
 
-SOURCES = simple.md macros.md template_inclusion.md indent_control.md
+SOURCES = simple.md macros.md template_inclusion.md indent_control.md variables.md
 FILTER = pandoc-embedz
 
 # 出力ディレクトリ
