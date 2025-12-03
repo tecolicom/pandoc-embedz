@@ -106,7 +106,6 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
   - [Jinja2 Filters](#jinja2-filters)
     - [Builtin Filters](#builtin-filters)
     - [Custom Filters](#custom-filters)
-  - [Variable Reference in `data=`](#variable-reference-in-data)
 - [Best Practices](#best-practices)
   - [CSV Output Escaping](#csv-output-escaping)
   - [File Extension Recommendations](#file-extension-recommendations)
@@ -1036,14 +1035,69 @@ Need to avoid repeating YAML headers? Attributes also accept `config=/path/file.
 
 ### Data Variable
 
-Template content can access:
+The `data` variable provides access to loaded data in templates.
 
-- `data`: The loaded dataset (from file or inline)
-  - Single file: `data` is a list of rows (or dict for JSON/YAML)
-  - Multi-table without query: `data` is a dict, access via `data.table_name`
-  - Multi-table with query: `data` is a list of SQL query results
+#### Data Sources
+
+Data can be loaded from:
+
+- **File**: `data=products.csv` loads from file
+- **Inline**: Data section after the second `---` delimiter
+- **Variable reference**: `data=varname` uses a `bind:` variable (dict or list)
+- **SQL query**: `query:` filters/transforms loaded data via SQL
+
+#### Data Structure
+
+The structure of `data` depends on the source:
+
+- Single file/inline: `data` is a list of rows (or dict for JSON/YAML)
+- Multi-table without query: `data` is a dict, access via `data.table_name`
+- Multi-table with query: `data` is a list of SQL query results
+- Variable reference: Same structure as the referenced variable
+
+#### Variable Reference
+
+You can reference `bind:` variables (dict or list) directly in the `data=` attribute:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+---
+---
+year,value
+2023,100
+2024,200
+```
+
+```{.embedz data=by_year}
+2024 value: {{ data[2024].value }}
+```
+````
+
+**Resolution rules:**
+
+1. If `data=` contains `/` or `.` → treated as file path
+2. If the name exists in `bind:` variables as dict or list → use that variable
+3. Otherwise → attempt to load as file
+
+**Use cases:**
+
+- **Reuse processed data**: Load data once, transform with `to_dict`, use in multiple blocks
+- **Share data across templates**: Define data structure in one block, reference in others
+- **Avoid redundant file loading**: Process large datasets once, reference the result
+
+> **Note**: Variable reference and inline data cannot be combined. Use either `data=varname` or inline data after `---`, not both.
+
+#### Other Variables
+
+Template content can also access:
+
 - Variables from `with:` (local scope)
 - Variables from `global:` (document scope)
+- Variables from `bind:` (type-preserving, document scope)
 
 ### Template Content
 
@@ -1149,66 +1203,6 @@ year,value
 data | to_dict('id')                {# raises error if duplicate IDs exist #}
 data | to_dict('id', strict=False)  {# allows duplicates, last value wins #}
 ```
-
-### Variable Reference in `data=`
-
-You can reference variables defined in `bind:` directly in the `data=` attribute:
-
-````markdown
-```embedz
----
-format: csv
-bind:
-  by_year: data | to_dict('year')
----
----
-year,value
-2023,100
-2024,200
-```
-
-```{.embedz data=by_year}
-2024 value: {{ data[2024].value }}
-```
-````
-
-**Resolution rules:**
-
-1. If `data=` contains `/` or `.` → treated as file path
-2. If the name exists in `GLOBAL_VARS` as dict or list → use that variable
-3. Otherwise → attempt to load as file
-
-**Use cases:**
-
-- **Reuse processed data**: Load data once, transform with `to_dict`, use in multiple blocks
-- **Share data across templates**: Define data structure in one block, reference in others
-- **Avoid redundant file loading**: Process large datasets once, reference the result
-
-**Example - Sales report with year-keyed data:**
-
-````markdown
-```embedz
----
-format: csv
-bind:
-  sales_by_year: data | to_dict('year')
----
----
-year,revenue,units
-2023,50000,1200
-2024,62000,1500
-```
-
-```{.embedz data=sales_by_year}
----
-with:
-  label: revenue
----
-2024 {{ label }}: {{ data[2024][label] }}
-```
-````
-
-> **Note**: Variable reference and inline data cannot be combined. Use either `data=varname` or inline data after `---`, not both.
 
 ## Standalone Rendering
 
