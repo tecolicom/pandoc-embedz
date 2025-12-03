@@ -509,6 +509,42 @@ bind:
 
 **Use case:** Access data by a specific key (e.g., year, ID) instead of iterating through a list with `selectattr`.
 
+### Variable Reference in data=
+
+**Status:** ✅ Implemented
+
+The `data=` attribute can reference variables from `GLOBAL_VARS` (defined via `bind:`):
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+---
+---
+year,value
+2023,100
+2024,200
+```
+
+```{.embedz data=by_year}
+2024: {{ data[2024].value }}
+```
+````
+
+**Resolution rules:**
+1. Contains `/` or `.` → file path (not variable lookup)
+2. Exists in `GLOBAL_VARS` as dict or list → use variable
+3. Otherwise → attempt file loading
+
+**Implementation:** `_resolve_data_variable()` in `filter.py`
+
+**Key points:**
+- Variable reference and inline data cannot be combined (raises `ValueError`)
+- Only `dict` and `list` types are resolved; strings fall back to file loading
+- Use `./filename` to force file loading when variable name conflicts
+
 ### Alias Feature
 
 **Status:** ✅ Implemented

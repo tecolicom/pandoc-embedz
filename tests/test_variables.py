@@ -2389,3 +2389,273 @@ dummy,0"""
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'インシデント件数は26365件' in output
         assert '報告件数は65690件' in output
+
+
+class TestDataVariableReference:
+    """Tests for data= referencing GLOBAL_VARS variables"""
+
+    def test_data_references_bind_list(self):
+        """Test data= can reference a list from bind:"""
+        # First block: create data variable
+        code1 = """---
+format: csv
+bind:
+  my_data: data | list
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert isinstance(GLOBAL_VARS['my_data'], list)
+        assert len(GLOBAL_VARS['my_data']) == 2
+
+        # Second block: reference the variable with data=
+        code2 = """---
+---
+{% for item in data %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'my_data'})
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output
+        assert 'Bob: 200' in output
+
+    def test_data_references_bind_dict(self):
+        """Test data= can reference a dict from bind:"""
+        # First block: create data variable as dict
+        code1 = """---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+---
+---
+year,value
+2023,100
+2024,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert isinstance(GLOBAL_VARS['by_year'], dict)
+
+        # Second block: reference the dict variable with data=
+        code2 = """---
+---
+2023: {{ data[2023].value }}
+2024: {{ data[2024].value }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'by_year'})
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '2023: 100' in output
+        assert '2024: 200' in output
+
+    def test_data_with_file_path_still_loads_file(self):
+        """Test data= with path-like value loads file (not variable)"""
+        # First block: create variable that happens to have file-like name
+        code1 = """---
+format: json
+bind:
+  test_data: data | list
+---
+---
+[{"name": "FromVar"}]"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Referencing with ./test_data should try to load file (and fail)
+        # Since it's a path, it won't look up GLOBAL_VARS
+        code2 = """---
+format: json
+---
+{{ data }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': './nonexistent'})
+
+        with pytest.raises((FileNotFoundError, ValueError)):
+            process_embedz(elem2, doc)
+
+    def test_data_with_extension_loads_file(self):
+        """Test data= with extension loads file (not variable)"""
+        # Create variable named like a file
+        code1 = """---
+global:
+  test: ignored
+bind:
+  data_csv: data | list
+---
+---
+"""
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # data.csv should try to load file (has extension)
+        code2 = """---
+---
+{{ data }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'data.csv'})
+
+        with pytest.raises((FileNotFoundError, ValueError)):
+            process_embedz(elem2, doc)
+
+    def test_data_variable_not_found_falls_back_to_file(self):
+        """Test data= with non-existent variable tries to load as file"""
+        code = """---
+---
+{{ data }}
+---
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'], attributes={'data': 'nonexistent_var'})
+        doc = pf.Doc()
+
+        # Should try to load as file and fail
+        with pytest.raises((FileNotFoundError, ValueError)):
+            process_embedz(elem, doc)
+
+    def test_data_variable_with_template(self):
+        """Test data= variable works with template (as=)"""
+        # Define template
+        template_code = """{% for item in data %}
+- {{ item.name }}
+{% endfor %}"""
+
+        elem1 = pf.CodeBlock(template_code, classes=['embedz'], attributes={'define': 'item-list'})
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Create data variable
+        code2 = """---
+format: csv
+bind:
+  items: data | list
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Use template with variable data
+        code3 = """---
+---
+---
+"""
+        elem3 = pf.CodeBlock(code3, classes=['embedz'], attributes={'data': 'items', 'as': 'item-list'})
+        result = process_embedz(elem3, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice' in output
+        assert 'Bob' in output
+
+    def test_data_variable_ignores_string_type(self):
+        """Test data= ignores string-type global variables"""
+        # Create a string global variable
+        code1 = """---
+global:
+  my_string: just a string value
+---
+"""
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert GLOBAL_VARS['my_string'] == 'just a string value'
+
+        # Try to use it as data - should fail since strings are not dict/list
+        code2 = """---
+---
+{{ data }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'my_string'})
+
+        # Should try to load as file (string type is ignored)
+        with pytest.raises((FileNotFoundError, ValueError)):
+            process_embedz(elem2, doc)
+
+    def test_data_variable_with_yaml_config(self):
+        """Test data= variable specified in YAML config"""
+        # First block: create data variable
+        code1 = """---
+format: csv
+bind:
+  report_data: data | list
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: reference via YAML data:
+        code2 = """---
+data: report_data
+---
+{% for item in data %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output
+        assert 'Bob: 200' in output
+
+    def test_data_variable_with_inline_data_raises_error(self):
+        """Test data= variable with inline data raises error"""
+        # First block: create data variable
+        code1 = """---
+format: csv
+bind:
+  my_data: data | list
+---
+---
+name,value
+Alice,100"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: try to use both variable and inline data
+        code2 = """---
+data: my_data
+---
+{{ data }}
+---
+name,value
+Bob,200"""
+
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+
+        with pytest.raises(ValueError, match="Cannot specify both data= variable reference and inline data"):
+            process_embedz(elem2, doc)

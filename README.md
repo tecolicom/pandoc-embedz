@@ -106,6 +106,7 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
   - [Jinja2 Filters](#jinja2-filters)
     - [Builtin Filters](#builtin-filters)
     - [Custom Filters](#custom-filters)
+  - [Variable Reference in `data=`](#variable-reference-in-data)
 - [Best Practices](#best-practices)
   - [CSV Output Escaping](#csv-output-escaping)
   - [File Extension Recommendations](#file-extension-recommendations)
@@ -1148,6 +1149,66 @@ year,value
 data | to_dict('id')                {# raises error if duplicate IDs exist #}
 data | to_dict('id', strict=False)  {# allows duplicates, last value wins #}
 ```
+
+### Variable Reference in `data=`
+
+You can reference variables defined in `bind:` directly in the `data=` attribute:
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+---
+---
+year,value
+2023,100
+2024,200
+```
+
+```{.embedz data=by_year}
+2024 value: {{ data[2024].value }}
+```
+````
+
+**Resolution rules:**
+
+1. If `data=` contains `/` or `.` → treated as file path
+2. If the name exists in `GLOBAL_VARS` as dict or list → use that variable
+3. Otherwise → attempt to load as file
+
+**Use cases:**
+
+- **Reuse processed data**: Load data once, transform with `to_dict`, use in multiple blocks
+- **Share data across templates**: Define data structure in one block, reference in others
+- **Avoid redundant file loading**: Process large datasets once, reference the result
+
+**Example - Sales report with year-keyed data:**
+
+````markdown
+```embedz
+---
+format: csv
+bind:
+  sales_by_year: data | to_dict('year')
+---
+---
+year,revenue,units
+2023,50000,1200
+2024,62000,1500
+```
+
+```{.embedz data=sales_by_year}
+---
+with:
+  label: revenue
+---
+2024 {{ label }}: {{ data[2024][label] }}
+```
+````
+
+> **Note**: Variable reference and inline data cannot be combined. Use either `data=varname` or inline data after `---`, not both.
 
 ## Standalone Rendering
 

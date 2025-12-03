@@ -545,6 +545,45 @@ def _expand_global_variables(
     if GLOBAL_VARS:
         _debug("Global variables: %s", GLOBAL_VARS)
 
+
+def _resolve_data_variable(
+    data_value: Optional[Union[str, Dict[str, Any]]]
+) -> Optional[Union[List[Any], Dict[str, Any]]]:
+    """Resolve data= value as a variable reference from GLOBAL_VARS.
+
+    Called before _load_embedz_data to check if data= refers to an existing
+    variable instead of a file path. Only dict/list variables (typically from
+    bind:) can be referenced; string variables (from global:) are ignored.
+
+    Args:
+        data_value: The value from data= attribute (string or dict for multi-table)
+
+    Returns:
+        The variable's data (dict or list) if found, None to proceed with file loading
+
+    Resolution rules:
+        1. Non-string or None -> None (proceed to file loading)
+        2. Contains '/' or '.' -> None (treat as file path)
+        3. Exists in GLOBAL_VARS as dict/list -> return that object
+        4. Otherwise -> None (will attempt file loading, may fail)
+    """
+    if not isinstance(data_value, str):
+        return None
+
+    if '/' in data_value or '.' in data_value:
+        return None
+
+    if data_value in GLOBAL_VARS:
+        obj = GLOBAL_VARS[data_value]
+        if isinstance(obj, (dict, list)):
+            _debug("Resolved data='%s' as variable: %s", data_value, type(obj).__name__)
+            return obj
+        _debug("Variable '%s' exists but is not dict/list (type: %s), treating as file path",
+               data_value, type(obj).__name__)
+
+    return None
+
+
 def _prepare_data_loading(
     config: Dict[str, Any],
     with_vars: Dict[str, Any]
@@ -648,9 +687,19 @@ def _execute_embedz_pipeline(
     )
 
     _debug("Step 5: Loading data")
-    data = _load_embedz_data(
-        data_file, data_part, config, data_format, has_header, load_kwargs
-    )
+    data = _resolve_data_variable(data_file)
+    if data is not None:
+        if data_part:
+            raise ValueError(
+                "Cannot specify both data= variable reference and inline data. "
+                "Use either 'data: varname' or provide inline data after '---', not both."
+            )
+        # Skip _load_embedz_data - variable provides the data directly
+    else:
+        # _load_embedz_data handles its own data_file+data_part validation
+        data = _load_embedz_data(
+            data_file, data_part, config, data_format, has_header, load_kwargs
+        )
 
     _debug("Step 6: Expanding global variables (with data access)")
     _expand_global_variables(config, with_vars, data)
