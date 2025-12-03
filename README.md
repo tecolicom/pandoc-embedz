@@ -477,7 +477,7 @@ with:
 
 ### Global Variables with `global:`
 
-Document-wide variables (string values, templates expanded):
+Document-wide variables. Values containing `{{` or `{%` are expanded as templates; the result is always a **string**.
 
 ````markdown
 # Set global variables
@@ -504,6 +504,8 @@ Version {{ global.version }}
 ````
 
 > **Note**: The `global.` prefix is optional. You can use `{{ author }}` instead of `{{ global.author }}`.
+
+> **Important**: All `global:` values become strings after expansion. For type-preserving values (dict, list, int, bool), use `bind:` instead.
 
 ### Type-Preserving Bindings with `bind:`
 
