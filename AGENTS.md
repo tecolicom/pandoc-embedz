@@ -125,9 +125,16 @@ All debug messages are prefixed with `[DEBUG]` and written to stderr.
 - Follow current git log style: capitalized verb phrase, no terminal periods
 - PRs should target `main` with summary and test results
 - Before modifying files: summarize plan, wait for confirmation, then proceed
-- Tag commits with assistant info: `(via Claude Code / Sonnet 4.5)`
+- Tag commits with model info: `(via Claude Code / Opus 4.5)` - use actual model name
+- Do NOT include emoji line or `Co-Authored-By` line in commit messages
+
+**IMPORTANT:** Before executing commits, always show the commit message to user and wait for confirmation.
 
 ### Release Process (Minilla-style)
+
+**IMPORTANT:** Before executing releases, always show the user:
+- CHANGELOG entry and version number for review
+- Wait for user confirmation before proceeding
 
 **Workflow:**
 1. Edit code and add CHANGELOG entry:
@@ -138,9 +145,11 @@ All debug messages are prefixed with `[DEBUG]` and written to stderr.
    - New feature description
    ```
 
-2. Preview release: `make release-n` (dry run, shows commands)
+2. Show CHANGELOG entry to user and confirm version number
 
-3. Execute release: `make release`
+3. Preview release: `make release-n` (dry run, shows commands)
+
+4. Execute release: `make release` (only after user confirmation)
    - Extracts version from CHANGELOG.md (single source of truth)
    - Auto-updates `pyproject.toml` and `__init__.py`
    - Runs all tests
