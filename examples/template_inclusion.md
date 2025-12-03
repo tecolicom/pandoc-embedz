@@ -1,10 +1,10 @@
-# Template Inclusion Examples
+# テンプレートインクルードの使い方
 
-This document demonstrates the template inclusion feature, which allows you to nest templates within other templates for more modular content generation.
+このドキュメントでは、テンプレートを他のテンプレート内にネストして、よりモジュラーなコンテンツ生成を行う方法を説明します。
 
-## Basic Example
+## 基本的な例
 
-First, define some reusable format templates:
+まず、再利用可能な書式テンプレートを定義します：
 
 ```embedz
 ---
@@ -20,56 +20,56 @@ define: title-format
 **{{ item.title }}**
 ```
 
-Now combine them to create formatted entries:
+これらを組み合わせて整形されたエントリを作成します：
 
 ```embedz
 ---
 format: json
 ---
-## Incident Report
+## インシデントレポート
 {% for item in data %}
 - {% include 'date-format' with context %} - {% include 'title-format' with context %}
 {% endfor %}
 ---
 [
-  {"date": "2024-01-15", "title": "Apache HTTP Server vulnerability"},
-  {"date": "2024-01-20", "title": "OpenSSL certificate validation issue"},
-  {"date": "2024-02-03", "title": "WordPress plugin XSS vulnerability"}
+  {"date": "2024-01-15", "title": "Apache HTTP Server の脆弱性"},
+  {"date": "2024-01-20", "title": "OpenSSL 証明書検証の問題"},
+  {"date": "2024-02-03", "title": "WordPress プラグインの XSS 脆弱性"}
 ]
 ```
 
-## Conditional Templates
+## 条件分岐を含むテンプレート
 
-Define a template that uses conditionals:
+条件分岐を使用するテンプレートを定義します：
 
 ```embedz
 ---
 define: severity-badge
 ---
-{% if item.severity == "high" %}🔴 High{% elif item.severity == "medium" %}🟡 Medium{% else %}🟢 Low{% endif %}
+{% if item.severity == "high" %}🔴 高{% elif item.severity == "medium" %}🟡 中{% else %}🟢 低{% endif %}
 ```
 
-Use it to show severity levels:
+重要度レベルを表示するために使用します：
 
 ```embedz
 ---
 format: json
 ---
-### Vulnerability List
+### 脆弱性リスト
 {% for item in data %}
 - {% include 'severity-badge' with context %} - {{ item.title }}
 {% endfor %}
 ---
 [
-  {"title": "Critical memory corruption", "severity": "high"},
-  {"title": "Information disclosure", "severity": "medium"},
-  {"title": "Minor configuration error", "severity": "low"}
+  {"title": "重大なメモリ破壊", "severity": "high"},
+  {"title": "情報漏洩", "severity": "medium"},
+  {"title": "軽微な設定エラー", "severity": "low"}
 ]
 ```
 
-## Nested Template Composition
+## ネストしたテンプレート構成
 
-Create multiple levels of template composition:
+複数レベルのテンプレート構成を作成します：
 
 ```embedz
 ---
@@ -85,27 +85,27 @@ define: incident-entry
 {% include 'status-icon' with context %} {{ item.date }} - {{ item.title }}
 ```
 
-Use the composite template:
+合成テンプレートを使用します：
 
 ```embedz
 ---
 format: json
 ---
-## Incident Tracking
+## インシデント追跡
 {% for item in data %}
 - {% include 'incident-entry' with context %}
 {% endfor %}
 ---
 [
-  {"date": "2024-01-10", "title": "Database performance issue", "status": "resolved"},
-  {"date": "2024-01-15", "title": "API rate limiting", "status": "investigating"},
-  {"date": "2024-01-20", "title": "Email delivery delay", "status": "pending"}
+  {"date": "2024-01-10", "title": "データベースパフォーマンス問題", "status": "resolved"},
+  {"date": "2024-01-15", "title": "API レート制限", "status": "investigating"},
+  {"date": "2024-01-20", "title": "メール配信遅延", "status": "pending"}
 ]
 ```
 
-## Table Formatting
+## テーブルの書式設定
 
-Define a template for table rows:
+テーブル行用のテンプレートを定義します：
 
 ```embedz
 ---
@@ -114,36 +114,36 @@ define: table-row
 {{ "| " }}{{ item.name }}{{ " | " }}{{ item.count }}{{ " | " }}{{ item.percentage }}{{ "% |" }}
 ```
 
-Generate a table:
+テーブルを生成します：
 
 ```embedz
 ---
 format: json
 ---
-| Category | Count | Percentage |
-|:---------|------:|-----------:|
+| カテゴリ | 件数 | 割合 |
+|:---------|-----:|-----:|
 {% for item in data -%}
 {% include 'table-row' with context %}
 {% endfor -%}
 ---
 [
-  {"name": "Web Applications", "count": 45, "percentage": 35},
-  {"name": "Network Services", "count": 32, "percentage": 25},
-  {"name": "Operating Systems", "count": 28, "percentage": 22},
-  {"name": "IoT Devices", "count": 23, "percentage": 18}
+  {"name": "Web アプリケーション", "count": 45, "percentage": 35},
+  {"name": "ネットワークサービス", "count": 32, "percentage": 25},
+  {"name": "オペレーティングシステム", "count": 28, "percentage": 22},
+  {"name": "IoT デバイス", "count": 23, "percentage": 18}
 ]
 ```
 
-## Converting with Pandoc
+## with context について
 
-To convert this document:
+`{% include 'template-name' with context %}` の `with context` 句は、現在のループ変数（`item` など）をインクルードされるテンプレートに渡します。これがないと、テンプレート内で `item` を参照できません。
+
+## 変換コマンド
 
 ```bash
+# PDF に変換
 pandoc template_inclusion.md --filter pandoc-embedz -o template_inclusion.pdf
-```
 
-Or to HTML:
-
-```bash
+# HTML に変換
 pandoc template_inclusion.md --filter pandoc-embedz -o template_inclusion.html
 ```
