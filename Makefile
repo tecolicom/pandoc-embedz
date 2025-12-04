@@ -1,8 +1,14 @@
 .ONESHELL:
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
-.PHONY: release release-n
+.PHONY: release release-n clean clean-n
 .SILENT: release release-n
+
+clean:
+	@for f in $$(git clean -fdX --dry-run | grep -v '\.claude/' | sed 's/^Would remove //'); do rm -rf "$$f"; done || true
+
+clean-n:
+	@git clean -fdX --dry-run | grep -v '\.claude/' || true
 
 release:
 	DRYRUN="$(strip $(DRYRUN))"
