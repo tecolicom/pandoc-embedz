@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.12.0] - 2025-12-04
+
 ### Added
 - `transpose` option for `to_dict` filter
   - Adds column-keyed dictionaries for dual access patterns
