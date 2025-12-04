@@ -117,16 +117,20 @@ def _merge_config_sources(
     return merged
 
 def _filter_to_dict(data: List[Dict[str, Any]], key: str,
-                    strict: bool = True) -> Dict[Any, Dict[str, Any]]:
+                    strict: bool = True,
+                    transpose: bool = False) -> Dict[Any, Dict[str, Any]]:
     """Convert a list of dicts to a dict keyed by a specified field.
 
     Args:
         data: List of dictionaries
         key: Field name to use as dictionary key
         strict: If True (default), raise ValueError on duplicate keys
+        transpose: If True, also add column-keyed dicts for dual access
 
     Returns:
-        Dictionary with values from 'key' field as keys
+        Dictionary with values from 'key' field as keys.
+        If transpose=True, also includes column names as keys mapping to
+        {key_value: column_value} dicts.
 
     Example:
         data | to_dict('year')
@@ -135,6 +139,11 @@ def _filter_to_dict(data: List[Dict[str, Any]], key: str,
 
         data | to_dict('year', strict=False)
         Allows duplicate keys (last value wins)
+
+        data | to_dict('year', transpose=True)
+        -> {2023: {'year': 2023, 'value': 100}, 2024: {...},
+            'value': {2023: 100, 2024: 200}}
+        Enables both result[2023].value and result.value[2023] access patterns
     """
     if not isinstance(data, list):
         raise TypeError(f"to_dict expects a list, got {type(data).__name__}")
@@ -145,8 +154,31 @@ def _filter_to_dict(data: List[Dict[str, Any]], key: str,
             if k in result:
                 raise ValueError(f"to_dict: duplicate key '{k}' in field '{key}'")
             result[k] = row
-        return result
-    return {row[key]: row for row in data}
+    else:
+        result = {row[key]: row for row in data}
+
+    if transpose and data:
+        # Add column-keyed dicts for each field (except the key field)
+        columns = [col for col in data[0].keys() if col != key]
+        for col in columns:
+            result[col] = {row[key]: row[col] for row in data}
+
+    return result
+
+
+def _filter_raise(message: str) -> None:
+    """Raise an error with a custom message.
+
+    Usage in template:
+        {{ "error message" | raise }}
+
+    Args:
+        message: Error message to display
+
+    Raises:
+        ValueError: Always raises with the given message
+    """
+    raise ValueError(message)
 
 
 def _get_jinja_env() -> Environment:
@@ -160,6 +192,7 @@ def _get_jinja_env() -> Environment:
         GLOBAL_ENV = Environment(loader=FunctionLoader(load_template_from_saved))
         # Register custom filters
         GLOBAL_ENV.filters['to_dict'] = _filter_to_dict
+        GLOBAL_ENV.filters['raise'] = _filter_raise
     return GLOBAL_ENV
 
 def _render_template(template_str: str, context: Dict[str, Any]) -> str:
@@ -563,25 +596,55 @@ def _resolve_data_variable(
 
     Resolution rules:
         1. Non-string or None -> None (proceed to file loading)
-        2. Contains '/' or '.' -> None (treat as file path)
-        3. Exists in GLOBAL_VARS as dict/list -> return that object
-        4. Otherwise -> None (will attempt file loading, may fail)
+        2. Starts with './' or '/' -> None (explicit file path)
+        3. Try to resolve as variable (supports dot notation for nested access)
+        4. If resolved to dict/list -> return that object
+        5. Otherwise -> None (will attempt file loading, may fail)
     """
     if not isinstance(data_value, str):
         return None
 
-    if '/' in data_value or '.' in data_value:
+    # Explicit file path: starts with './' or '/'
+    if data_value.startswith('./') or data_value.startswith('/'):
         return None
 
-    if data_value in GLOBAL_VARS:
-        obj = GLOBAL_VARS[data_value]
+    # Try to resolve variable (supports dot notation like "IR年度別.報告件数")
+    obj = _resolve_nested_variable(data_value, GLOBAL_VARS)
+    if obj is not None:
         if isinstance(obj, (dict, list)):
             _debug("Resolved data='%s' as variable: %s", data_value, type(obj).__name__)
             return obj
-        _debug("Variable '%s' exists but is not dict/list (type: %s), treating as file path",
+        _debug("Variable '%s' resolved but is not dict/list (type: %s), treating as file path",
                data_value, type(obj).__name__)
 
     return None
+
+
+def _resolve_nested_variable(
+    path: str,
+    context: Dict[str, Any]
+) -> Optional[Any]:
+    """Resolve a dot-notated variable path from context.
+
+    Args:
+        path: Variable path like "foo" or "foo.bar.baz"
+        context: Dictionary to look up variables from
+
+    Returns:
+        The resolved value, or None if not found
+    """
+    parts = path.split('.')
+    obj = context.get(parts[0])
+    if obj is None:
+        return None
+
+    for part in parts[1:]:
+        if isinstance(obj, dict) and part in obj:
+            obj = obj[part]
+        else:
+            return None
+
+    return obj
 
 
 def _prepare_data_loading(

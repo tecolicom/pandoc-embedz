@@ -2200,6 +2200,136 @@ Alice,200"""
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'Alice value: 200' in output
 
+    def test_to_dict_transpose(self):
+        """Test to_dict filter with transpose=True for dual access"""
+        code = """---
+format: csv
+bind:
+  by_year: data | to_dict('year', transpose=True)
+---
+Row access: {{ by_year[2023].value }}
+Column access: {{ by_year.value[2023] }}
+---
+year,value,count
+2023,100,10
+2024,200,20"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        # Row access still works
+        assert 2023 in GLOBAL_VARS['by_year']
+        assert GLOBAL_VARS['by_year'][2023]['value'] == 100
+        # Column access now available
+        assert 'value' in GLOBAL_VARS['by_year']
+        assert 'count' in GLOBAL_VARS['by_year']
+        assert GLOBAL_VARS['by_year']['value'][2023] == 100
+        assert GLOBAL_VARS['by_year']['value'][2024] == 200
+        assert GLOBAL_VARS['by_year']['count'][2023] == 10
+
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Row access: 100' in output
+        assert 'Column access: 100' in output
+
+    def test_to_dict_transpose_without_key_column(self):
+        """Test that transpose excludes the key column from column-keyed dicts"""
+        code = """---
+format: csv
+bind:
+  by_year: data | to_dict('year', transpose=True)
+---
+Check: {{ by_year.value[2023] }}
+---
+year,value
+2023,100
+2024,200"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem, doc)
+
+        # 'year' should not be in the column-keyed dicts (it's the key)
+        assert 'year' not in GLOBAL_VARS['by_year'] or not isinstance(GLOBAL_VARS['by_year'].get('year'), dict)
+        # 'value' should be there
+        assert 'value' in GLOBAL_VARS['by_year']
+        assert isinstance(GLOBAL_VARS['by_year']['value'], dict)
+
+
+class TestRaiseFilter:
+    """Tests for raise custom Jinja2 filter"""
+
+    def test_raise_filter_basic(self):
+        """Test raise filter raises ValueError with message"""
+        code = """---
+---
+{{ "Test error message" | raise }}
+---
+dummy"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="Test error message"):
+            process_embedz(elem, doc)
+
+    def test_raise_filter_conditional(self):
+        """Test raise filter with conditional check"""
+        code = """---
+with:
+  label: ""
+---
+{%- if not label -%}
+{{ "label is required" | raise }}
+{%- endif -%}
+Value: {{ label }}
+---
+dummy"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="label is required"):
+            process_embedz(elem, doc)
+
+    def test_raise_filter_not_triggered(self):
+        """Test raise filter is not triggered when condition is false"""
+        code = """---
+with:
+  label: "test"
+---
+{%- if not label -%}
+{{ "label is required" | raise }}
+{%- endif -%}
+Value: {{ label }}
+---
+dummy"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Value: test' in output
+
+    def test_raise_filter_with_is_not_defined(self):
+        """Test raise filter with 'is not defined' check"""
+        code = """---
+---
+{%- if undefined_var is not defined -%}
+{{ "undefined_var is required" | raise }}
+{%- endif -%}
+---
+dummy"""
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="undefined_var is required"):
+            process_embedz(elem, doc)
+
 
 class TestAliasFeature:
     """Tests for alias: feature"""
@@ -2658,4 +2788,128 @@ Bob,200"""
         elem2 = pf.CodeBlock(code2, classes=['embedz'])
 
         with pytest.raises(ValueError, match="Cannot specify both data= variable reference and inline data"):
+            process_embedz(elem2, doc)
+
+    def test_data_variable_dot_notation(self):
+        """Test data= with dot notation for nested access"""
+        # First block: create transposed data
+        code1 = """---
+format: csv
+bind:
+  by_year: data | to_dict('year', transpose=True)
+---
+---
+year,value,count
+2023,100,10
+2024,200,20"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert isinstance(GLOBAL_VARS['by_year'], dict)
+        assert 'value' in GLOBAL_VARS['by_year']
+
+        # Second block: use dot notation to access nested dict
+        code2 = """---
+---
+2023: {{ data[2023] }}
+2024: {{ data[2024] }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'by_year.value'})
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '2023: 100' in output
+        assert '2024: 200' in output
+
+    def test_data_variable_dot_notation_deep(self):
+        """Test data= with multi-level dot notation"""
+        # First block: create nested structure using global (not bind)
+        # bind tries to evaluate values as expressions, global preserves them
+        code1 = """---
+global:
+  root:
+    level1:
+      level2:
+        items:
+          - name: Alice
+            value: 100
+          - name: Bob
+            value: 200
+---
+"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert isinstance(GLOBAL_VARS['root']['level1']['level2']['items'], list)
+
+        # Second block: use deep dot notation
+        code2 = """---
+---
+{% for item in data %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'root.level1.level2.items'})
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output
+        assert 'Bob: 200' in output
+
+    def test_data_variable_dot_notation_not_found(self):
+        """Test data= with dot notation falls back to file when not found"""
+        # Create a variable
+        code1 = """---
+bind:
+  my_var:
+    existing_key: value
+---
+"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Reference non-existent nested key - should fall back to file loading
+        code2 = """---
+---
+{{ data }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'my_var.nonexistent'})
+
+        with pytest.raises((FileNotFoundError, ValueError)):
+            process_embedz(elem2, doc)
+
+    def test_data_variable_explicit_file_path(self):
+        """Test data= with ./ prefix forces file loading"""
+        # Create variable that could conflict
+        code1 = """---
+bind:
+  some_data:
+    value: from_variable
+---
+"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # ./some_data should force file loading even though variable exists
+        code2 = """---
+---
+{{ data }}
+---
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': './some_data'})
+
+        with pytest.raises((FileNotFoundError, ValueError)):
             process_embedz(elem2, doc)

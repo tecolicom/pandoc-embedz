@@ -22,7 +22,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
 - 📋 **Preamble Section**: Define control structures (macros, variables) for entire document
 - 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), type-preserving (`bind:`), and preamble (`preamble:`) management
-- 🔑 **Custom Filters**: `to_dict` for list-to-dictionary conversion, `alias` for alternative key names
+- 🔑 **Custom Filters**: `to_dict` for list-to-dictionary conversion, `raise` for template validation, `alias` for alternative key names
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 - 🧾 **Standalone Rendering**: `pandoc-embedz --standalone file1.tex file2.md` expands whole templates (Markdown/LaTeX) without running full Pandoc
 
@@ -1204,6 +1204,30 @@ year,value
 ```jinja2
 data | to_dict('id')                {# raises error if duplicate IDs exist #}
 data | to_dict('id', strict=False)  {# allows duplicates, last value wins #}
+```
+
+**Transpose mode**: Adds column-keyed dictionaries for dual access patterns:
+
+```jinja2
+{{ data | to_dict('year', transpose=True) }}
+{# Input:  [{'year': 2023, 'value': 100}, {'year': 2024, 'value': 200}]
+   Output: {2023: {'year': 2023, 'value': 100},
+            2024: {'year': 2024, 'value': 200},
+            'value': {2023: 100, 2024: 200}} #}
+```
+
+This enables both access patterns:
+- `result[2023].value` - access by year, then column
+- `result.value[2023]` - access by column, then year (useful for passing to templates)
+
+---
+
+**`raise`** - raise an error with a custom message. Useful for validating required parameters in templates:
+
+```jinja2
+{%- if label is not defined -%}
+{{ "Template error: label is required" | raise }}
+{%- endif -%}
 ```
 
 ## Standalone Rendering

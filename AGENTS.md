@@ -516,7 +516,29 @@ bind:
   by_id: data | to_dict('id', strict=False)  # allows duplicates (last wins)
 ```
 
+**Transpose mode:** Adds column-keyed dictionaries for dual access patterns:
+```yaml
+bind:
+  by_year: data | to_dict('year', transpose=True)
+  # Result: {2023: {...}, 2024: {...}, 'value': {2023: 100, 2024: 200}}
+  # Access: by_year[2023].value OR by_year.value[2023]
+```
+
 **Use case:** Access data by a specific key (e.g., year, ID) instead of iterating through a list with `selectattr`.
+
+### Custom Filter: raise
+
+**Status:** ✅ Implemented
+
+Raises an error with a custom message. Useful for validating required parameters in templates:
+
+```jinja2
+{%- if label is not defined -%}
+{{ "Template error: label is required" | raise }}
+{%- endif -%}
+```
+
+**Use case:** Enforce required parameters and provide clear error messages when templates are misused.
 
 ### Variable Reference in data=
 
@@ -542,17 +564,31 @@ year,value
 ```
 ````
 
-**Resolution rules:**
-1. Contains `/` or `.` → file path (not variable lookup)
-2. Exists in `GLOBAL_VARS` as dict or list → use variable
-3. Otherwise → attempt file loading
+**Dot notation for nested access:**
+```yaml
+bind:
+  by_year: data | to_dict('year', transpose=True)
+```
+```markdown
+```{.embedz data=by_year.value}
+{# data is now {2023: 100, 2024: 200} #}
+2024: {{ data[2024] }}
+```
+```
 
-**Implementation:** `_resolve_data_variable()` in `filter.py`
+**Resolution rules:**
+1. Starts with `./` or `/` → file path (explicit)
+2. Try to resolve as variable (supports dot notation like `var.subkey`)
+3. If resolved to dict or list → use variable
+4. Otherwise → attempt file loading
+
+**Implementation:** `_resolve_data_variable()` and `_resolve_nested_variable()` in `filter.py`
 
 **Key points:**
 - Variable reference and inline data cannot be combined (raises `ValueError`)
 - Only `dict` and `list` types are resolved; strings fall back to file loading
 - Use `./filename` to force file loading when variable name conflicts
+- Dot notation allows accessing nested dictionary values (e.g., `data=parent.child`)
 
 ### Alias Feature
 

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `transpose` option for `to_dict` filter
+  - Adds column-keyed dictionaries for dual access patterns
+  - Example: `data | to_dict('year', transpose=True)` enables both `result[2023].value` and `result.value[2023]`
+- `raise` filter for template validation
+  - Raises error with custom message: `{{ "error message" | raise }}`
+  - Useful for enforcing required parameters in templates
+
+### Changed
+- Variable reference in `data=` now supports dot notation for nested access
+  - Example: `data=by_year.value` resolves nested dictionary values
+  - Resolution rules simplified: starts with `./` or `/` → file path; otherwise try variable lookup first
+
 ## [0.11.0] - 2025-12-03
 
 ### Added
