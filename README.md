@@ -1091,6 +1091,51 @@ year,value
 - **Share data across templates**: Define data structure in one block, reference in others
 - **Avoid redundant file loading**: Process large datasets once, reference the result
 
+**Applying query to variable data:**
+
+You can apply `query:` to variable data, enabling powerful data transformation pipelines:
+
+````markdown
+<!-- Load raw data once -->
+```{.embedz data=sales.csv}
+---
+bind:
+  raw_sales: data
+---
+```
+
+<!-- Create monthly summary from raw data -->
+```{.embedz data=raw_sales}
+---
+query: |
+  SELECT month, SUM(amount) as total
+  FROM data
+  GROUP BY month
+bind:
+  monthly: data | to_dict('month')
+---
+```
+
+<!-- Create yearly summary from the same raw data -->
+```{.embedz data=raw_sales}
+---
+query: |
+  SELECT year, SUM(amount) as total
+  FROM data
+  GROUP BY year
+bind:
+  yearly: data | to_dict('year')
+---
+```
+````
+
+This allows you to:
+- Load a file once and derive multiple aggregations
+- Apply different SQL queries to the same source data
+- Build complex data pipelines without redundant file I/O
+
+> **Note**: If the variable contains a dict (e.g., from `to_dict`), it is automatically converted to a list of values before applying the query.
+
 > **Note**: Variable reference and inline data cannot be combined. Use either `data=varname` or inline data after `---`, not both.
 
 #### Other Variables

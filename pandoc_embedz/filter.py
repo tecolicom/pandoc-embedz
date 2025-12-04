@@ -757,7 +757,17 @@ def _execute_embedz_pipeline(
                 "Cannot specify both data= variable reference and inline data. "
                 "Use either 'data: varname' or provide inline data after '---', not both."
             )
-        # Skip _load_embedz_data - variable provides the data directly
+        # Apply query to variable data if specified
+        if 'query' in load_kwargs:
+            from .data_loader import _apply_sql_query
+            # Convert dict to list if needed (e.g., from to_dict result)
+            if isinstance(data, dict):
+                data_list = list(data.values())
+            else:
+                data_list = data
+            df = pd.DataFrame(data_list)
+            data = _apply_sql_query(df, load_kwargs['query'])
+            _debug("Applied query to variable data, result: %d rows", len(data))
     else:
         # _load_embedz_data handles its own data_file+data_part validation
         data = _load_embedz_data(

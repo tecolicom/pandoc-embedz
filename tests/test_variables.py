@@ -2913,3 +2913,79 @@ bind:
 
         with pytest.raises((FileNotFoundError, ValueError)):
             process_embedz(elem2, doc)
+
+    def test_data_variable_with_query(self):
+        """Test that query can be applied to variable data"""
+        # First block: bind raw data to variable
+        code1 = """---
+format: csv
+bind:
+  raw_data: data
+---
+---
+name,category,value
+Alice,A,100
+Bob,B,200
+Charlie,A,150
+David,B,50
+"""
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert 'raw_data' in GLOBAL_VARS
+        assert len(GLOBAL_VARS['raw_data']) == 4
+
+        # Second block: apply query to variable data
+        code2 = """---
+query: |
+  SELECT category, SUM(value) as total
+  FROM data
+  GROUP BY category
+  ORDER BY category
+---
+{% for row in data -%}
+{{ row.category }}: {{ row.total }}
+{% endfor %}
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'raw_data'})
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'A: 250' in output  # Alice(100) + Charlie(150)
+        assert 'B: 250' in output  # Bob(200) + David(50)
+
+    def test_data_variable_dict_with_query(self):
+        """Test that query can be applied to dict variable (from to_dict)"""
+        # First block: bind data as dict using to_dict
+        code1 = """---
+format: csv
+bind:
+  by_name: data | to_dict(key='name')
+---
+---
+name,value
+Alice,100
+Bob,200
+"""
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        assert 'by_name' in GLOBAL_VARS
+        assert isinstance(GLOBAL_VARS['by_name'], dict)
+
+        # Second block: apply query to dict variable (values are extracted)
+        code2 = """---
+query: |
+  SELECT SUM(value) as total FROM data
+---
+Total: {{ data[0].total }}
+"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'], attributes={'data': 'by_name'})
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Total: 300' in output  # 100 + 200

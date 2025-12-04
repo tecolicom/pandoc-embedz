@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-12-04
+
+### Added
+- Query support for variable data references
+  - `query:` can now be applied when `data=` references a variable
+  - Enables data transformation pipelines: load once, derive multiple aggregations
+  - Dict variables (from `to_dict`) are automatically converted to list before query execution
+
 ## [0.12.0] - 2025-12-04
 
 ### Added

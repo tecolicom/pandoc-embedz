@@ -589,6 +589,22 @@ bind:
 - Only `dict` and `list` types are resolved; strings fall back to file loading
 - Use `./filename` to force file loading when variable name conflicts
 - Dot notation allows accessing nested dictionary values (e.g., `data=parent.child`)
+- **Query support:** `query:` can be applied to variable data, enabling data pipelines:
+  ```yaml
+  # Load raw data and bind to variable
+  ```{.embedz data=source.csv}
+  bind:
+    raw_data: data
+  ```
+
+  # Apply different queries to the same data
+  ```{.embedz data=raw_data}
+  query: SELECT ... GROUP BY year
+  bind:
+    by_year: data | to_dict('year')
+  ```
+  ```
+- If the variable is a dict (from `to_dict`), it's automatically converted to list before query execution
 
 ### Alias Feature
 
