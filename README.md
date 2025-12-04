@@ -1066,7 +1066,7 @@ You can reference `bind:` variables (dict or list) directly in the `data=` attri
 ---
 format: csv
 bind:
-  by_year: data | to_dict('year')
+  by_year: data | to_dict(key='year')
 ---
 ---
 year,value
@@ -1112,7 +1112,7 @@ query: |
   FROM data
   GROUP BY month
 bind:
-  monthly: data | to_dict('month')
+  monthly: data | to_dict(key='month')
 ---
 ```
 
@@ -1124,7 +1124,7 @@ query: |
   FROM data
   GROUP BY year
 bind:
-  yearly: data | to_dict('year')
+  yearly: data | to_dict(key='year')
 ---
 ```
 ````
@@ -1224,7 +1224,7 @@ This is useful when you need to access specific records by key (e.g., year, ID, 
    Output: {2023: {'year': 2023, 'value': 100}, 2024: {'year': 2024, 'value': 200}} #}
 
 {# Shorthand without keyword (also valid): #}
-{{ data | to_dict('year') }}
+{{ data | to_dict(key='year') }}
 ```
 
 **Example - Year-over-year comparison:**

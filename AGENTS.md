@@ -498,7 +498,7 @@ Converts a list of dictionaries to a dictionary keyed by a specified field:
 
 ```yaml
 bind:
-  by_year: data | to_dict('year')
+  by_year: data | to_dict(key='year')
   current: by_year[2024]
   previous: by_year[2023]
 ```
@@ -512,14 +512,14 @@ bind:
 **Strict mode (default):** Raises `ValueError` on duplicate keys:
 ```yaml
 bind:
-  by_id: data | to_dict('id')                # error if duplicate ids
-  by_id: data | to_dict('id', strict=False)  # allows duplicates (last wins)
+  by_id: data | to_dict(key='id')                # error if duplicate ids
+  by_id: data | to_dict(key='id', strict=False)  # allows duplicates (last wins)
 ```
 
 **Transpose mode:** Adds column-keyed dictionaries for dual access patterns:
 ```yaml
 bind:
-  by_year: data | to_dict('year', transpose=True)
+  by_year: data | to_dict(key='year', transpose=True)
   # Result: {2023: {...}, 2024: {...}, 'value': {2023: 100, 2024: 200}}
   # Access: by_year[2023].value OR by_year.value[2023]
 ```
@@ -551,7 +551,7 @@ The `data=` attribute can reference variables from `GLOBAL_VARS` (defined via `b
 ---
 format: csv
 bind:
-  by_year: data | to_dict('year')
+  by_year: data | to_dict(key='year')
 ---
 ---
 year,value
@@ -567,7 +567,7 @@ year,value
 **Dot notation for nested access:**
 ```yaml
 bind:
-  by_year: data | to_dict('year', transpose=True)
+  by_year: data | to_dict(key='year', transpose=True)
 ```
 ```markdown
 ```{.embedz data=by_year.value}
@@ -601,7 +601,7 @@ bind:
   ```{.embedz data=raw_data}
   query: SELECT ... GROUP BY year
   bind:
-    by_year: data | to_dict('year')
+    by_year: data | to_dict(key='year')
   ```
   ```
 - If the variable is a dict (from `to_dict`), it's automatically converted to list before query execution
