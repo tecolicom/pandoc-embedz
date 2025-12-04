@@ -1165,7 +1165,7 @@ See [Jinja2 Builtin Filters](https://jinja.palletsprojects.com/en/latest/templat
 
 pandoc-embedz provides additional filters:
 
-**`to_dict(key, strict=True)`** - convert a list of dictionaries to a dictionary keyed by a specified field.
+**`to_dict(key, strict=True, transpose=False)`** - convert a list of dictionaries to a dictionary keyed by a specified field.
 
 This is useful when you need to access specific records by key (e.g., year, ID, name) instead of iterating through the entire list. Common use cases:
 
@@ -1174,9 +1174,12 @@ This is useful when you need to access specific records by key (e.g., year, ID, 
 - **Cross-referencing**: Join data from different sources by a common key
 
 ```jinja2
-{{ data | to_dict('year') }}
+{{ data | to_dict(key='year') }}
 {# Input:  [{'year': 2023, 'value': 100}, {'year': 2024, 'value': 200}]
    Output: {2023: {'year': 2023, 'value': 100}, 2024: {'year': 2024, 'value': 200}} #}
+
+{# Shorthand without keyword (also valid): #}
+{{ data | to_dict('year') }}
 ```
 
 **Example - Year-over-year comparison:**
@@ -1186,7 +1189,7 @@ This is useful when you need to access specific records by key (e.g., year, ID, 
 ---
 format: csv
 bind:
-  by_year: data | to_dict('year')
+  by_year: data | to_dict(key='year')
   current: by_year[2024]
   previous: by_year[2023]
   growth: (current.value - previous.value) / previous.value * 100
@@ -1202,14 +1205,14 @@ year,value
 **Strict mode** (default): Raises `ValueError` if duplicate keys are found, ensuring data integrity:
 
 ```jinja2
-data | to_dict('id')                {# raises error if duplicate IDs exist #}
-data | to_dict('id', strict=False)  {# allows duplicates, last value wins #}
+data | to_dict(key='id')                {# raises error if duplicate IDs exist #}
+data | to_dict(key='id', strict=False)  {# allows duplicates, last value wins #}
 ```
 
 **Transpose mode**: Adds column-keyed dictionaries for dual access patterns:
 
 ```jinja2
-{{ data | to_dict('year', transpose=True) }}
+{{ data | to_dict(key='year', transpose=True) }}
 {# Input:  [{'year': 2023, 'value': 100}, {'year': 2024, 'value': 200}]
    Output: {2023: {'year': 2023, 'value': 100},
             2024: {'year': 2024, 'value': 200},
