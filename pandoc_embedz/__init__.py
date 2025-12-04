@@ -1,6 +1,6 @@
 """pandoc-embedz: Pandoc filter for data-driven content generation"""
 
-__version__ = '0.13.0'
+__version__ = '0.13.1'
 
 from .filter import process_embedz
 from .main import main
