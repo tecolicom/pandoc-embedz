@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `regex_replace` custom Jinja2 filter for regular expression substitution
+  - Compatible with Ansible's `regex_replace` filter
+  - Supports `ignorecase`, `multiline`, and `count` parameters
+  - Unicode property support (`\p{P}`, `\p{Ps}`, `\p{Pe}`, etc.) when `regex` module is installed
+  - Example: `{{ value | regex_replace("\\p{Ps}|\\p{Pe}", "") }}` removes all brackets
+- `regex` module as a dependency for Unicode property support in regular expressions
+
 ## [0.13.2] - 2025-12-05
 
 ### Added

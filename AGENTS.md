@@ -540,6 +540,27 @@ Raises an error with a custom message. Useful for validating required parameters
 
 **Use case:** Enforce required parameters and provide clear error messages when templates are misused.
 
+### Custom Filter: regex_replace
+
+**Status:** ✅ Implemented
+
+Replaces substring using regular expression. Compatible with Ansible's `regex_replace` filter.
+
+```jinja2
+{{ "Hello World" | regex_replace("World", "Universe") }}
+{{ "Hello（World）" | regex_replace("[（）]", "") }}
+{{ value | regex_replace("^prefix_", "", ignorecase=true) }}
+```
+
+**Parameters:**
+- `pattern`: Regular expression pattern to match
+- `replacement`: Replacement string (default: empty string)
+- `ignorecase`: Case-insensitive matching (default: False)
+- `multiline`: Multiline mode (default: False)
+- `count`: Maximum replacements, 0 = unlimited (default: 0)
+
+**Use case:** Clean up data by removing unwanted characters, normalizing formats, or transforming strings with pattern matching.
+
 ### Variable Reference in data=
 
 **Status:** ✅ Implemented

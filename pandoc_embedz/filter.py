@@ -13,6 +13,15 @@ import yaml
 import sys
 import os
 
+# Use regex module if available (supports Unicode properties like \p{P})
+# Falls back to standard re module
+try:
+    import regex as re
+    REGEX_MODULE = 'regex'
+except ImportError:
+    import re
+    REGEX_MODULE = 're'
+
 # Import from local modules
 from .config import (
     load_template_from_saved,
@@ -228,6 +237,38 @@ def _filter_raise(message: str) -> None:
     raise ValueError(message)
 
 
+def _filter_regex_replace(value: str, pattern: str, replacement: str = '',
+                          ignorecase: bool = False,
+                          multiline: bool = False,
+                          count: int = 0) -> str:
+    """Replace substring using regular expression.
+
+    Compatible with Ansible's regex_replace filter.
+    Maps to Python's re.sub.
+
+    Usage in template:
+        {{ "ansible" | regex_replace('^a.*i(.*)$', 'a\\1') }}
+        {{ value | regex_replace('\\W', '') }}  # Remove non-word characters
+
+    Args:
+        value: Input string
+        pattern: Regular expression pattern
+        replacement: Replacement string (default: empty string)
+        ignorecase: Case-insensitive matching (default: False)
+        multiline: Multiline mode (default: False)
+        count: Maximum number of replacements (0 = unlimited)
+
+    Returns:
+        String with replacements applied
+    """
+    flags = 0
+    if ignorecase:
+        flags |= re.IGNORECASE
+    if multiline:
+        flags |= re.MULTILINE
+    return re.sub(pattern, replacement, str(value), count=count, flags=flags)
+
+
 def _get_jinja_env() -> Environment:
     """Get or create global Jinja2 Environment with access to saved templates
 
@@ -240,6 +281,7 @@ def _get_jinja_env() -> Environment:
         # Register custom filters
         GLOBAL_ENV.filters['to_dict'] = _filter_to_dict
         GLOBAL_ENV.filters['raise'] = _filter_raise
+        GLOBAL_ENV.filters['regex_replace'] = _filter_regex_replace
     return GLOBAL_ENV
 
 def _render_template(template_str: str, context: Dict[str, Any]) -> str:

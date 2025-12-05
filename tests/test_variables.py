@@ -2989,3 +2989,124 @@ Total: {{ data[0].total }}
         assert isinstance(result, list)
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'Total: 300' in output  # 100 + 200
+
+
+class TestRegexReplaceFilter:
+    """Tests for regex_replace custom Jinja2 filter"""
+
+    def test_regex_replace_basic(self):
+        """Test basic regex replacement"""
+        code = """---
+---
+{{ "Hello World" | regex_replace("World", "Universe") }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Hello Universe' in output
+
+    def test_regex_replace_pattern(self):
+        """Test regex pattern replacement"""
+        code = """---
+---
+{{ "ansible" | regex_replace("^a.*i(.*)$", "a\\\\1") }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'able' in output
+
+    def test_regex_replace_remove_chars(self):
+        """Test removing characters with empty replacement"""
+        code = """---
+---
+{{ "Hello（World）" | regex_replace("[（）]", "") }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'HelloWorld' in output
+
+    def test_regex_replace_ignorecase(self):
+        """Test case-insensitive replacement"""
+        code = """---
+---
+{{ "Hello WORLD" | regex_replace("world", "Universe", ignorecase=true) }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Hello Universe' in output
+
+    def test_regex_replace_multiline(self):
+        """Test multiline mode"""
+        code = """---
+---
+{{ "foo\\nbar\\nbaz" | regex_replace("^b", "B", multiline=true) }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Bar' in output
+        assert 'Baz' in output
+
+    def test_regex_replace_count(self):
+        """Test count parameter to limit replacements"""
+        code = """---
+---
+{{ "foo=bar=baz" | regex_replace("=", ":", count=1) }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'foo:bar=baz' in output
+
+    def test_regex_replace_unicode_word(self):
+        """Test removing non-word Unicode characters"""
+        code = """---
+---
+{{ "フィッシング（TOP5）" | regex_replace("\\\\W", "") }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'フィッシングTOP5' in output
+
+    def test_regex_replace_unicode_property(self):
+        """Test Unicode property support (requires regex module)"""
+        from pandoc_embedz.filter import REGEX_MODULE
+        if REGEX_MODULE != 'regex':
+            pytest.skip("regex module not installed")
+
+        code = """---
+---
+{{ "Hello（World）" | regex_replace("\\\\p{Ps}|\\\\p{Pe}", "") }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'HelloWorld' in output

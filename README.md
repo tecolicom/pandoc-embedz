@@ -22,7 +22,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
 - 📋 **Preamble Section**: Define control structures (macros, variables) for entire document
 - 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), type-preserving (`bind:`), and preamble (`preamble:`) management
-- 🔑 **Custom Filters**: `to_dict` for list-to-dictionary conversion, `raise` for template validation, `alias` for alternative key names
+- 🔑 **Custom Filters**: `to_dict` for list-to-dictionary conversion, `raise` for template validation, `regex_replace` for pattern substitution, `alias` for alternative key names
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 - 🧾 **Standalone Rendering**: `pandoc-embedz --standalone file1.tex file2.md` expands whole templates (Markdown/LaTeX) without running full Pandoc
 
@@ -1277,6 +1277,49 @@ This enables both access patterns:
 {{ "Template error: label is required" | raise }}
 {%- endif -%}
 ```
+
+---
+
+**`regex_replace(pattern, replacement='', ignorecase=False, multiline=False, count=0)`** - replace substring using regular expression. Compatible with Ansible's `regex_replace` filter.
+
+```jinja2
+{# Basic replacement #}
+{{ "Hello World" | regex_replace("World", "Universe") }}
+{# Output: Hello Universe #}
+
+{# Pattern with capture groups #}
+{{ "ansible" | regex_replace("^a.*i(.*)$", "a\\1") }}
+{# Output: able #}
+
+{# Remove characters (empty replacement) #}
+{{ "Hello（World）" | regex_replace("[（）]", "") }}
+{# Output: HelloWorld #}
+
+{# Case-insensitive matching #}
+{{ "Hello WORLD" | regex_replace("world", "Universe", ignorecase=true) }}
+{# Output: Hello Universe #}
+
+{# Multiline mode (^ matches start of each line) #}
+{{ "foo\nbar\nbaz" | regex_replace("^b", "B", multiline=true) }}
+{# Output: foo\nBar\nBaz #}
+
+{# Limit replacements #}
+{{ "foo=bar=baz" | regex_replace("=", ":", count=1) }}
+{# Output: foo:bar=baz #}
+
+{# Unicode properties (requires regex module) #}
+{{ "Hello（World）" | regex_replace("\\p{Ps}|\\p{Pe}", "") }}
+{# Output: HelloWorld - removes all open/close brackets #}
+```
+
+**Parameters:**
+- `pattern`: Regular expression pattern to match
+- `replacement`: Replacement string (default: empty string for removal)
+- `ignorecase`: Case-insensitive matching (default: False)
+- `multiline`: Multiline mode where `^` matches start of each line (default: False)
+- `count`: Maximum number of replacements, 0 means unlimited (default: 0)
+
+**Unicode Properties:** When the `regex` module is installed, Unicode property escapes like `\p{P}` (punctuation), `\p{L}` (letters), `\p{Ps}` (open brackets), `\p{Pe}` (close brackets) are supported. Install with `pip install regex`.
 
 ## Standalone Rendering
 
