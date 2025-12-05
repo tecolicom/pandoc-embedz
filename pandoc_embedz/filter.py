@@ -75,6 +75,53 @@ KNOWN_EXCEPTIONS = (
 # 4. Variable preparation (_prepare_variables)
 # 5. Data loading (_prepare_data_loading)
 # 6. Template rendering (_render_embedz_template)
+# 7. Result validation (_validate_convert_result)
+
+
+def _validate_convert_result(result: str, ast_elements: List[Any]) -> List[Any]:
+    """Validate that pf.convert_text() produced expected result.
+
+    When the template output starts with a fenced code block (```),
+    we expect pf.convert_text() to return a CodeBlock element. If it returns
+    something else (e.g., Table), the identifier likely contains problematic
+    characters that Pandoc cannot parse correctly.
+
+    Args:
+        result: The rendered template result (markdown string)
+        ast_elements: The result from pf.convert_text()
+
+    Returns:
+        The ast_elements if valid
+
+    Raises:
+        ValueError: If code block was expected but not produced
+    """
+    # Check if template output starts with a fenced code block
+    stripped = result.lstrip()
+    if not stripped.startswith('```'):
+        return ast_elements
+
+    # Extract the identifier from the code block header for error message
+    first_line = stripped.split('\n')[0]
+
+    # Check if we got a CodeBlock
+    if ast_elements and isinstance(ast_elements[0], pf.CodeBlock):
+        return ast_elements
+
+    # Code block expected but not produced - likely identifier parsing issue
+    actual_types = [type(e).__name__ for e in ast_elements]
+    raise ValueError(
+        f"Template output starts with fenced code block but Pandoc parsed it as "
+        f"{actual_types} instead of CodeBlock.\n"
+        f"Code block header: {first_line}\n"
+        f"This usually happens when the identifier (#id:...) contains "
+        f"characters that Pandoc cannot parse correctly, such as:\n"
+        f"  - Full-width parentheses: （ ）\n"
+        f"  - Brackets: [ ] 【 】\n"
+        f"  - Other special characters\n"
+        f"Solution: Remove problematic characters from the identifier, "
+        f"or use a separate 'id' and 'title/caption' in your template."
+    )
 
 
 def _normalize_config_refs(value: Any) -> List[str]:
@@ -884,7 +931,10 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
             return []
 
         # Convert to AST (Pandoc re-parses the markdown text)
-        return pf.convert_text(result, input_format='markdown')
+        ast_elements = pf.convert_text(result, input_format='markdown')
+
+        # Validate the conversion result
+        return _validate_convert_result(result, ast_elements)
 
     except KNOWN_EXCEPTIONS as e:
         # Handle known exceptions with detailed error info
