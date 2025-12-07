@@ -207,7 +207,7 @@ ENVIRONMENT:
     PANDOC_EMBEDZ_DEBUG    Enable debug output (1, true, or yes)
 
 DOCUMENTATION:
-    https://github.com/tecolicom/pandoc-embedz
+    https://github.com/tecolicom/pandoc-embedz#readme
 
 REPORT BUGS:
     https://github.com/tecolicom/pandoc-embedz/issues
