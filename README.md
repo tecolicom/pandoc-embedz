@@ -998,6 +998,18 @@ data: vulnerabilities.csv
 
 **Note**: SSV (Space-Separated Values) treats consecutive spaces and tabs as a single delimiter, making it ideal for manually aligned data. Both `ssv` and `spaces` can be used interchangeably.
 
+**SSV with fixed columns**: Use the `columns` parameter to preserve spaces in the last column:
+
+````markdown
+```{.embedz format=spaces columns=3}
+ID  Name   Description
+1   Alice  Software engineer
+2   Bob    Project manager with team
+```
+````
+
+When `columns=3` is specified, the data is split into exactly 3 columns. The last column captures all remaining content including spaces, which is useful for free-form text fields.
+
 ### Configuration Options
 
 #### YAML Header
@@ -1014,6 +1026,7 @@ data: vulnerabilities.csv
 | `alias` | Add alternative keys to all dicts (applied after bind/global) | `alias: {description: label}` |
 | `preamble` | Control structures for entire document (macros, `{% set %}`, imports) | `preamble: \|`<br>`  {% set title = 'Report' %}` |
 | `header` | CSV/TSV has header row (default: true) | `header: false` |
+| `columns` | Fixed column count for SSV format (last column gets remaining content) | `columns: 3` |
 | `table` | SQLite table name (required for sqlite format) | `table: users` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
 | `config` | External YAML config file(s) merged before inline settings (string or list) | `config: config/base.yaml` |

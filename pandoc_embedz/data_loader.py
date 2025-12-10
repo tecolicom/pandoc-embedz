@@ -216,6 +216,60 @@ def _load_lines(source: Union[str, StringIO], **kwargs) -> List[str]:
     content = _read_source(source)
     return content.splitlines()
 
+def _load_ssv_with_columns(
+    source: Union[str, StringIO],
+    columns: int,
+    has_header: bool = True,
+    **kwargs
+) -> Union[List[Dict[str, Any]], List[List[Any]]]:
+    """Load SSV format with fixed column count.
+
+    Uses str.split(maxsplit=columns-1) to preserve spaces in the last column.
+
+    Args:
+        source: File path or StringIO object
+        columns: Number of columns (last column gets all remaining content)
+        has_header: Whether first line is header
+        **kwargs: Additional options (e.g., query)
+
+    Returns:
+        List of dicts (with header) or list of lists (without header)
+    """
+    content = _read_source(source)
+    lines = content.splitlines()
+
+    if not lines:
+        return []
+
+    maxsplit = columns - 1
+    result: List[List[str]] = []
+    header: Optional[List[str]] = None
+
+    for line in lines:
+        if not line.strip():
+            continue
+
+        parts = line.split(maxsplit=maxsplit)
+
+        # Pad with empty strings if fewer columns than expected
+        while len(parts) < columns:
+            parts.append('')
+
+        if has_header and header is None:
+            header = parts
+        else:
+            result.append(parts)
+
+    if has_header and header is not None:
+        records = [dict(zip(header, row)) for row in result]
+        if 'query' in kwargs:
+            df = pd.DataFrame(records)
+            return _apply_sql_query(df, kwargs['query'])
+        return records
+    else:
+        return result
+
+
 def _load_csv(
     source: Union[str, StringIO],
     sep: str = ',',
@@ -226,6 +280,12 @@ def _load_csv(
 
     Returns empty list for empty input instead of raising an error.
     """
+    # For SSV with columns parameter, use special handler
+    if sep == r'\s+' and 'columns' in kwargs:
+        columns = kwargs['columns']
+        rest_kwargs = {k: v for k, v in kwargs.items() if k != 'columns'}
+        return _load_ssv_with_columns(source, columns, has_header, **rest_kwargs)
+
     read_kwargs = _build_csv_read_kwargs(sep)
 
     try:

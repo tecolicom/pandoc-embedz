@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `columns` parameter for SSV format
+  - Specifies fixed column count, preserving spaces in the last column
+  - Useful for data with free-form text fields: `format: ssv` with `columns: 3`
+  - Example: `"1 Alice Software engineer"` → `["1", "Alice", "Software engineer"]`
+
 ## [0.14.0] - 2025-12-05
 
 ### Added

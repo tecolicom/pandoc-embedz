@@ -364,6 +364,37 @@ format: json
         # Should save template even without data
         process_embedz(code_block, pf.Doc())
         assert 'test-template' in SAVED_TEMPLATES
+
+    def test_ssv_columns_attribute_as_string(self):
+        """Test that columns attribute (string from attributes) is converted to int"""
+        code_block = pf.CodeBlock(
+            text="""ID Name Description
+1 Alice Software engineer
+2 Bob Project manager with team""",
+            classes=['embedz'],
+            attributes=[('format', 'ssv'), ('columns', '3')]  # columns as string
+        )
+
+        result = process_embedz(code_block, pf.Doc())
+        result_text = stringify_result(result)
+
+        # Should parse correctly with spaces in Description
+        assert 'Software engineer' in result_text
+        assert 'Project manager with team' in result_text
+
+    def test_ssv_columns_invalid_value_raises_error(self):
+        """Test that invalid columns value raises clear error"""
+        code_block = pf.CodeBlock(
+            text="""ID Name Description
+1 Alice Test""",
+            classes=['embedz'],
+            attributes=[('format', 'ssv'), ('columns', 'invalid')]
+        )
+
+        with pytest.raises(ValueError, match="'columns' must be an integer"):
+            process_embedz(code_block, pf.Doc())
+
+
 """Test YAML content without --- delimiters when data + with attributes"""
 import pytest
 import panflute as pf

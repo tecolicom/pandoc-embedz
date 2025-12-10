@@ -755,11 +755,18 @@ def _prepare_data_loading(
 
     _debug("Data file: %s, format: %s, has_header: %s", data_file, data_format, has_header)
 
-    # Prepare format-specific kwargs (e.g., for SQLite)
+    # Prepare format-specific kwargs (e.g., for SQLite, SSV with columns)
     load_kwargs = {}
     if 'table' in config:
         load_kwargs['table'] = config['table']
         _debug("SQLite table: %s", config['table'])
+
+    if 'columns' in config:
+        try:
+            load_kwargs['columns'] = int(config['columns'])
+        except (ValueError, TypeError):
+            raise ValueError(f"'columns' must be an integer, got: {config['columns']!r}")
+        _debug("SSV columns: %s", config['columns'])
 
     if 'query' in config:
         query_template = config['query']

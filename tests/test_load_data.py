@@ -167,6 +167,81 @@ class TestLoadSSV:
         assert isinstance(data[0], list)
         assert data[0][0] == 'Arthur'
 
+    def test_load_ssv_with_columns_preserves_spaces_in_last_column(self):
+        """Test that columns parameter preserves spaces in last column"""
+        ssv_data = StringIO("ID Name Description\n1 Alice Software engineer\n2 Bob Project manager with team")
+        data = load_data(ssv_data, format='ssv', has_header=True, columns=3)
+        assert len(data) == 2
+        assert data[0]['ID'] == '1'
+        assert data[0]['Name'] == 'Alice'
+        assert data[0]['Description'] == 'Software engineer'
+        assert data[1]['ID'] == '2'
+        assert data[1]['Name'] == 'Bob'
+        assert data[1]['Description'] == 'Project manager with team'
+
+    def test_load_ssv_with_columns_without_header(self):
+        """Test columns parameter without header row"""
+        ssv_data = StringIO("1 Alice Software engineer\n2 Bob Project manager with team")
+        data = load_data(ssv_data, format='ssv', has_header=False, columns=3)
+        assert len(data) == 2
+        assert data[0] == ['1', 'Alice', 'Software engineer']
+        assert data[1] == ['2', 'Bob', 'Project manager with team']
+
+    def test_load_ssv_with_columns_multiple_spaces(self):
+        """Test columns parameter handles multiple consecutive spaces"""
+        ssv_data = StringIO("ID  Name  Description\n1   Alice   Has   multiple   spaces")
+        data = load_data(ssv_data, format='ssv', has_header=True, columns=3)
+        assert len(data) == 1
+        assert data[0]['ID'] == '1'
+        assert data[0]['Name'] == 'Alice'
+        assert data[0]['Description'] == 'Has   multiple   spaces'
+
+    def test_load_ssv_with_columns_fewer_fields(self):
+        """Test columns parameter pads with empty strings when fewer fields"""
+        ssv_data = StringIO("ID Name Description\n1 Alice\n2 Bob Complete")
+        data = load_data(ssv_data, format='ssv', has_header=True, columns=3)
+        assert len(data) == 2
+        assert data[0]['ID'] == '1'
+        assert data[0]['Name'] == 'Alice'
+        assert data[0]['Description'] == ''
+        assert data[1]['Description'] == 'Complete'
+
+    def test_load_ssv_with_columns_empty_input(self):
+        """Test columns parameter with empty input"""
+        ssv_data = StringIO("")
+        data = load_data(ssv_data, format='ssv', has_header=True, columns=3)
+        assert data == []
+
+    def test_load_ssv_with_columns_skips_blank_lines(self):
+        """Test columns parameter skips blank lines"""
+        ssv_data = StringIO("ID Name Description\n\n1 Alice Engineer\n\n2 Bob Manager")
+        data = load_data(ssv_data, format='ssv', has_header=True, columns=3)
+        assert len(data) == 2
+        assert data[0]['Name'] == 'Alice'
+        assert data[1]['Name'] == 'Bob'
+
+    def test_load_ssv_with_columns_and_query(self):
+        """Test columns parameter works with SQL query"""
+        ssv_data = StringIO("ID Name Role\n1 Alice Engineer\n2 Bob Manager\n3 Carol Engineer")
+        data = load_data(
+            ssv_data,
+            format='ssv',
+            has_header=True,
+            columns=3,
+            query="SELECT * FROM data WHERE Role = 'Engineer'"
+        )
+        assert len(data) == 2
+        assert data[0]['Name'] == 'Alice'
+        assert data[1]['Name'] == 'Carol'
+
+    def test_load_spaces_alias_with_columns(self):
+        """Test that 'spaces' alias works with columns parameter"""
+        spaces_data = StringIO("ID Name Description\n1 Alice Software engineer\n2 Bob Project manager")
+        data = load_data(spaces_data, format='spaces', has_header=True, columns=3)
+        assert len(data) == 2
+        assert data[0]['Description'] == 'Software engineer'
+        assert data[1]['Description'] == 'Project manager'
+
 
 class TestLoadJSON:
     """Tests for JSON data loading"""
