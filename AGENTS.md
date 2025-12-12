@@ -735,6 +735,7 @@ templates/
   - Basic usage and advanced features
   - Best Practices: CSV escaping, file extensions, pipeline patterns
   - Filter mode vs standalone mode clarification
+- **README.JA.md**: Japanese translation of README.md
 - **MULTI_TABLE.md**: Advanced multi-table SQL features
 - **COMPARISON.md**: Comparison with alternative tools
 - **CHANGELOG.md**: Version history and release notes
