@@ -1002,8 +1002,8 @@ data: vulnerabilities.csv
 ````markdown
 ```{.embedz format=spaces columns=3}
 ID  Name   Description
-1   Alice  ソフトウェアエンジニア
-2   Bob    チーム付きプロジェクトマネージャー
+1   Alice  Software engineer
+2   Bob    Project manager with team
 ```
 ````
 
