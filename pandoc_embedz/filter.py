@@ -296,7 +296,9 @@ def _render_template(template_str: str, context: Dict[str, Any]) -> str:
     """
     env = _get_jinja_env()
     control_structures_str = '\n'.join(CONTROL_STRUCTURES_PARTS)
-    full_template = control_structures_str + '\n' + template_str if control_structures_str else template_str
+    if control_structures_str:
+        control_structures_str = control_structures_str.rstrip('\n') + '\n'
+    full_template = control_structures_str + template_str
     template = env.from_string(full_template)
     return template.render(**context)
 
