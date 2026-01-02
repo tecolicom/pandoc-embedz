@@ -300,7 +300,11 @@ def _render_template(template_str: str, context: Dict[str, Any]) -> str:
         control_structures_str = control_structures_str.rstrip('\n') + '\n'
     full_template = control_structures_str + template_str
     template = env.from_string(full_template)
-    return template.render(**context)
+    result = template.render(**context)
+    # Strip leading newline caused by control structures (e.g., macro definitions)
+    if control_structures_str and result.startswith('\n'):
+        result = result[1:]
+    return result
 
 def _build_render_context(with_vars: Dict[str, Any], data: Optional[Any] = None) -> Dict[str, Any]:
     """Build render context for Jinja2 template rendering
