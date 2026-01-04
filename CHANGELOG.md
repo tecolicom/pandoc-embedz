@@ -5,15 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.16.0] - 2025-01-04
 
 ### Added
+- Japanese translation of README (README.JA.md)
 - `regex_search` custom Jinja2 filter for pattern matching
   - Compatible with Ansible's `regex_search` filter
   - Returns the matched substring, or empty string if no match
   - Supports `ignorecase` and `multiline` parameters
   - Empty string is falsy, making it easy to use in conditionals
   - Example: `{{ value | regex_search("error|warning") }}` returns matched keyword
+
+### Changed
+- Update copyright year to 2025-2026
 
 ### Fixed
 - Strip leading newline from rendered output when preamble is used
@@ -417,7 +421,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
-[Unreleased]: https://github.com/tecolicom/pandoc-embedz/compare/v0.9.0...HEAD
+[0.16.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.15.0...v0.16.0
+[0.15.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.14.0...v0.15.0
+[0.14.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.13.1...v0.14.0
+[0.13.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.13.0...v0.13.1
+[0.13.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.12.0...v0.13.0
+[0.12.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.11.0...v0.12.0
+[0.11.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.10.2...v0.11.0
+[0.10.2]: https://github.com/tecolicom/pandoc-embedz/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.9.2...v0.10.0
+[0.9.2]: https://github.com/tecolicom/pandoc-embedz/compare/v0.9.1...v0.9.2
+[0.9.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.7.3...v0.8.0
