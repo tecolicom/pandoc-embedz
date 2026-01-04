@@ -1636,7 +1636,7 @@ For complete documentation, see:
 
 MIT License
 
-Copyright © 2025 Office TECOLI, LLC and Kazumasa Utashiro
+Copyright © 2025-2026 Office TECOLI, LLC and Kazumasa Utashiro
 
 See [LICENSE](LICENSE) file for details.
 

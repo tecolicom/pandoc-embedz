@@ -1633,7 +1633,7 @@ pandoc-embedz は独自のニッチを埋めます:
 
 MIT ライセンス
 
-Copyright © 2025 Office TECOLI, LLC および Kazumasa Utashiro
+Copyright © 2025-2026 Office TECOLI, LLC および Kazumasa Utashiro
 
 詳細は [LICENSE](LICENSE) ファイルを参照してください。
 
