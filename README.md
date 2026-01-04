@@ -22,7 +22,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 - 🎨 **Jinja2 Macros**: Create parameterized template functions
 - 📋 **Preamble Section**: Define control structures (macros, variables) for entire document
 - 🌐 **Variable Scoping**: Local (`with:`), global (`global:`), type-preserving (`bind:`), and preamble (`preamble:`) management
-- 🔑 **Custom Filters**: `to_dict` for list-to-dictionary conversion, `raise` for template validation, `regex_replace` for pattern substitution, `alias` for alternative key names
+- 🔑 **Custom Filters**: `to_dict` for list-to-dictionary conversion, `raise` for template validation, `regex_replace` for pattern substitution, `regex_search` for pattern matching, `alias` for alternative key names
 - 🏗️ **Structured Data**: Full support for nested JSON/YAML structures
 - 🧾 **Standalone Rendering**: `pandoc-embedz --standalone file1.tex file2.md` expands whole templates (Markdown/LaTeX) without running full Pandoc
 
@@ -1332,7 +1332,43 @@ This enables both access patterns:
 - `multiline`: Multiline mode where `^` matches start of each line (default: False)
 - `count`: Maximum number of replacements, 0 means unlimited (default: 0)
 
+**Returns:** String with all matching substrings replaced.
+
 **Unicode Properties:** When the `regex` module is installed, Unicode property escapes like `\p{P}` (punctuation), `\p{L}` (letters), `\p{Ps}` (open brackets), `\p{Pe}` (close brackets) are supported. Install with `pip install regex`.
+
+---
+
+**`regex_search(pattern, ignorecase=False, multiline=False)`** - search for a pattern and return the matched string. Compatible with Ansible's `regex_search` filter.
+
+```jinja2
+{# Basic search #}
+{{ "Hello World" | regex_search("World") }}
+{# Output: World #}
+
+{# No match returns empty string #}
+{{ "Hello World" | regex_search("Foo") }}
+{# Output: (empty string) #}
+
+{# Pattern with alternation #}
+{{ "備考: 保留中です" | regex_search("保留|済|喪中") }}
+{# Output: 保留 #}
+
+{# Case-insensitive search #}
+{{ "Hello WORLD" | regex_search("world", ignorecase=true) }}
+{# Output: WORLD #}
+
+{# Use in conditionals (empty string is falsy) #}
+{% if value | regex_search("error|warning") %}
+  Found issue: {{ value }}
+{% endif %}
+```
+
+**Parameters:**
+- `pattern`: Regular expression pattern to search for
+- `ignorecase`: Case-insensitive matching (default: False)
+- `multiline`: Multiline mode where `^` matches start of each line (default: False)
+
+**Returns:** The first matched substring, or an empty string if no match is found. The empty string is falsy in Jinja2 conditionals, making it easy to use in `{% if %}` statements.
 
 ## Standalone Rendering
 

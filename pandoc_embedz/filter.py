@@ -269,6 +269,37 @@ def _filter_regex_replace(value: str, pattern: str, replacement: str = '',
     return re.sub(pattern, replacement, str(value), count=count, flags=flags)
 
 
+def _filter_regex_search(value: str, pattern: str,
+                         ignorecase: bool = False,
+                         multiline: bool = False) -> str:
+    """Search for a pattern in a string and return the match.
+
+    Compatible with Ansible's regex_search filter.
+    Maps to Python's re.search.
+
+    Usage in template:
+        {{ "hello world" | regex_search('world') }}         # Returns 'world'
+        {{ "foo bar" | regex_search('baz') }}               # Returns ''
+        {{ "備考: 保留中" | regex_search('保留|済|喪中') }} # Returns '保留'
+
+    Args:
+        value: Input string
+        pattern: Regular expression pattern
+        ignorecase: Case-insensitive matching (default: False)
+        multiline: Multiline mode (default: False)
+
+    Returns:
+        The matched string, or empty string if no match
+    """
+    flags = 0
+    if ignorecase:
+        flags |= re.IGNORECASE
+    if multiline:
+        flags |= re.MULTILINE
+    match = re.search(pattern, str(value), flags=flags)
+    return match.group(0) if match else ''
+
+
 def _get_jinja_env() -> Environment:
     """Get or create global Jinja2 Environment with access to saved templates
 
@@ -282,6 +313,7 @@ def _get_jinja_env() -> Environment:
         GLOBAL_ENV.filters['to_dict'] = _filter_to_dict
         GLOBAL_ENV.filters['raise'] = _filter_raise
         GLOBAL_ENV.filters['regex_replace'] = _filter_regex_replace
+        GLOBAL_ENV.filters['regex_search'] = _filter_regex_search
     return GLOBAL_ENV
 
 def _render_template(template_str: str, context: Dict[str, Any]) -> str:

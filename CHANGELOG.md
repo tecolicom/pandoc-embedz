@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `regex_search` custom Jinja2 filter for pattern matching
+  - Compatible with Ansible's `regex_search` filter
+  - Returns the matched substring, or empty string if no match
+  - Supports `ignorecase` and `multiline` parameters
+  - Empty string is falsy, making it easy to use in conditionals
+  - Example: `{{ value | regex_search("error|warning") }}` returns matched keyword
+
+### Fixed
+- Strip leading newline from rendered output when preamble is used
+- Fix extra empty line when preamble ends with newline
+
 ## [0.15.0] - 2025-12-10
 
 ### Added

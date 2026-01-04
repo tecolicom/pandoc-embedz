@@ -3110,3 +3110,86 @@ class TestRegexReplaceFilter:
         assert isinstance(result, list)
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'HelloWorld' in output
+
+
+class TestRegexSearchFilter:
+    """Tests for regex_search custom Jinja2 filter"""
+
+    def test_regex_search_basic(self):
+        """Test basic regex search"""
+        code = """---
+---
+{{ "Hello World" | regex_search("World") }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'World' in output
+
+    def test_regex_search_no_match(self):
+        """Test regex search with no match returns empty string"""
+        code = """---
+---
+[{{ "Hello World" | regex_search("Foo") }}]
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '[]' in output or '\\[\\]' in output
+
+    def test_regex_search_pattern(self):
+        """Test regex search with pattern alternation"""
+        code = """---
+---
+{{ "備考: 保留中です" | regex_search("保留|済|喪中") }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '保留' in output
+
+    def test_regex_search_ignorecase(self):
+        """Test case-insensitive search"""
+        code = """---
+---
+{{ "Hello WORLD" | regex_search("world", ignorecase=true) }}
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'WORLD' in output
+
+    def test_regex_search_in_loop(self):
+        """Test regex search in a loop for skip control"""
+        code = """---
+format: csv
+---
+{% for row in data %}
+{% if row["備考"]|regex_search("保留|済|喪中") %}SKIP{% else %}OK{% endif %}
+{% endfor %}
+---
+No,備考
+1,保留中
+2,通常
+3,喪中
+"""
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'SKIP' in output
+        assert 'OK' in output

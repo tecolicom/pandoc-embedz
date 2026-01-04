@@ -22,7 +22,7 @@ Jinja2 テンプレートを使用して、Markdown ドキュメントにデー�
 - **Jinja2マクロ**: パラメータ化されたテンプレート関数を作成
 - **プリアンブルセクション**: ドキュメント全体の制御構造（マクロ、変数）を定義
 - **変数スコープ**: ローカル（`with:`）、グローバル（`global:`）、型保持（`bind:`）、プリアンブル（`preamble:`）の管理
-- **カスタムフィルター**: リストを辞書に変換する `to_dict`、テンプレート検証用の `raise`、パターン置換用の `regex_replace`、代替キー名用の `alias`
+- **カスタムフィルター**: リストを辞書に変換する `to_dict`、テンプレート検証用の `raise`、パターン置換用の `regex_replace`、パターンマッチング用の `regex_search`、代替キー名用の `alias`
 - **構造化データ**: ネストされた JSON/YAML 構造を完全サポート
 - **スタンドアロンレンダリング**: `pandoc-embedz --standalone file1.tex file2.md` で、完全な Pandoc を実行せずにテンプレート（Markdown/LaTeX）を展開
 
@@ -1331,7 +1331,43 @@ data | to_dict(key='id', strict=False)  {# 重複を許可、最後の値が優�
 - `multiline`: `^` が各行の先頭にマッチするマルチラインモード（デフォルト: False）
 - `count`: 最大置換回数、0 は無制限（デフォルト: 0）
 
+**戻り値:** マッチした部分文字列がすべて置換された文字列。
+
 **Unicodeプロパティ:** `regex` モジュールがインストールされている場合、`\p{P}`（句読点）、`\p{L}`（文字）、`\p{Ps}`（開き括弧）、`\p{Pe}`（閉じ括弧）などの Unicode プロパティエスケープがサポートされます。`pip install regex` でインストールしてください。
+
+---
+
+**`regex_search(pattern, ignorecase=False, multiline=False)`** - パターンを検索してマッチした文字列を返します。Ansible の `regex_search` フィルターと互換性があります。
+
+```jinja2
+{# 基本的な検索 #}
+{{ "Hello World" | regex_search("World") }}
+{# 出力: World #}
+
+{# マッチしない場合は空文字列 #}
+{{ "Hello World" | regex_search("Foo") }}
+{# 出力: （空文字列） #}
+
+{# 選択パターン #}
+{{ "備考: 保留中です" | regex_search("保留|済|喪中") }}
+{# 出力: 保留 #}
+
+{# 大文字小文字を区別しない検索 #}
+{{ "Hello WORLD" | regex_search("world", ignorecase=true) }}
+{# 出力: WORLD #}
+
+{# 条件分岐での使用（空文字列は偽） #}
+{% if value | regex_search("error|warning") %}
+  問題を検出: {{ value }}
+{% endif %}
+```
+
+**パラメータ:**
+- `pattern`: 検索する正規表現パターン
+- `ignorecase`: 大文字小文字を区別しないマッチング（デフォルト: False）
+- `multiline`: `^` が各行の先頭にマッチするマルチラインモード（デフォルト: False）
+
+**戻り値:** 最初にマッチした部分文字列、またはマッチしない場合は空文字列。空文字列は Jinja2 の条件分岐で偽として評価されるため、`{% if %}` 文で簡単に使用できます。
 
 ## スタンドアロンレンダリング
 
