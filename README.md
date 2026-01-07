@@ -1041,8 +1041,11 @@ Attributes can be used instead of or in combination with YAML:
 ```markdown
 {.embedz data=file.csv as=template}
 {.embedz define=template}
+{.embedz data=file.csv as=template with.threshold=100}
 {.embedz global.author="John"}
 ```
+
+Dot notation (e.g., `with.key=value`, `global.key=value`) sets nested dictionary values. This is especially useful for passing parameters to templates without writing a YAML header.
 
 **Precedence**: YAML configuration overrides attribute values when both are specified.
 

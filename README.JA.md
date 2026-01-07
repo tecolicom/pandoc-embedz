@@ -1040,8 +1040,11 @@ ID  Name   Description
 ```markdown
 {.embedz data=file.csv as=template}
 {.embedz define=template}
+{.embedz data=file.csv as=template with.threshold=100}
 {.embedz global.author="John"}
 ```
+
+ドット記法（例: `with.key=value`、`global.key=value`）はネストされた辞書値を設定します。これは YAML ヘッダーを書かずにテンプレートにパラメータを渡す場合に特に便利です。
 
 **優先順位**: 両方が指定された場合、YAML 設定が属性値を上書きします。
 
