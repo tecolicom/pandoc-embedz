@@ -490,6 +490,17 @@ global:
 **Error handling:**
 - Raises `ValueError` if parent exists but is not a dictionary
 
+**Attribute syntax:**
+
+Dot notation also works in code block attributes:
+
+```markdown
+{.embedz data=file.csv as=template with.threshold=100}
+{.embedz global.author="John Doe"}
+```
+
+This is useful for passing parameters to templates without writing a YAML header.
+
 ### Custom Filter: to_dict
 
 **Status:** ✅ Implemented
@@ -539,6 +550,26 @@ Raises an error with a custom message. Useful for validating required parameters
 ```
 
 **Use case:** Enforce required parameters and provide clear error messages when templates are misused.
+
+**Template validation patterns:**
+
+Validate data structure expectations using Jinja2 type tests:
+
+```jinja2
+{# Ensure header=false was used (data is list of lists, not list of dicts) #}
+{%- if data and data[0] is mapping -%}
+{{ "This template requires header=false (use row[0], not row.name)" | raise }}
+{%- endif -%}
+
+{# Check for string vs list #}
+{%- if row is string -%}
+  {{ row }}
+{%- else -%}
+  {{ row[0] }}: {{ row[1] }}
+{%- endif -%}
+```
+
+Common type tests: `is string`, `is mapping` (dict), `is sequence` (list), `is number`, `is defined`.
 
 ### Custom Filter: regex_replace
 
