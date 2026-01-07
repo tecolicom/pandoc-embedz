@@ -1024,7 +1024,7 @@ ID  Name   Description
 | `global` | グローバル変数（ドキュメントスコープ、文字列値） | `global: {author: "John"}` |
 | `alias` | すべての dict に代替キーを追加（bind/global の後に適用） | `alias: {description: label}` |
 | `preamble` | ドキュメント全体の制御構造（マクロ、`{% set %}`、インポート） | `preamble: \|`<br>`  {% set title = 'Report' %}` |
-| `header` | CSV/TSV にヘッダー行がある（デフォルト: true） | `header: false` |
+| `header` | CSV/TSV/SSV にヘッダー行がある（デフォルト: true） | `header: false` |
 | `columns` | SSV フォーマットの固定カラム数（最後のカラムが残りの内容を取得） | `columns: 3` |
 | `table` | SQLite テーブル名（sqlite フォーマットに必須） | `table: users` |
 | `query` | SQLite、CSV/TSV フィルタリング、またはマルチテーブル JOIN 用の SQL クエリ（マルチテーブルモードに必須） | `query: SELECT * FROM data WHERE active=1` |

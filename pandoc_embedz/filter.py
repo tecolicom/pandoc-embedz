@@ -429,6 +429,28 @@ def _build_config_from_text(
     # Validate configuration
     validate_config(config)
 
+    # When using 'as=' to reference a template, treat template_part as data
+    # This allows: ```{.embedz as=template format=csv}\n---\nwith: ...\n---\ndata```
+    if (config.get('as') and
+        data_part is None and
+        template_part and template_part.strip()):
+        data_part = template_part
+        template_part = ''
+
+    # Static check: format specified but data section is missing (not just empty)
+    # data_part is None means no third separator; empty string is intentional empty data
+    if (config.get('format') and
+        not config.get('data') and
+        not config.get('name') and
+        data_part is None):
+        template_name = config.get('as') or config.get('template')
+        fmt = config.get('format')
+        msg = f"format='{fmt}' specified but no data section found"
+        if template_name:
+            msg += f" (template='{template_name}')"
+        msg += ". Did you forget the third '---' separator?"
+        sys.stderr.write(f"[pandoc-embedz] Warning: {msg}\n")
+
     return config, template_part, data_part
 
 def _process_template_references(

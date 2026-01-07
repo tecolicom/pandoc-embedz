@@ -1025,7 +1025,7 @@ When `columns=3` is specified, the data is split into exactly 3 columns. The las
 | `global` | Global variables (document-scoped, string values) | `global: {author: "John"}` |
 | `alias` | Add alternative keys to all dicts (applied after bind/global) | `alias: {description: label}` |
 | `preamble` | Control structures for entire document (macros, `{% set %}`, imports) | `preamble: \|`<br>`  {% set title = 'Report' %}` |
-| `header` | CSV/TSV has header row (default: true) | `header: false` |
+| `header` | CSV/TSV/SSV has header row (default: true) | `header: false` |
 | `columns` | Fixed column count for SSV format (last column gets remaining content) | `columns: 3` |
 | `table` | SQLite table name (required for sqlite format) | `table: users` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
