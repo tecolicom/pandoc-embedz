@@ -390,6 +390,89 @@ with:
 - 複雑な構造は YAML を使用
 - `with.debug="true"` のように Boolean 変換に対応
 
+**11. 変数バインディング（bind:）**
+
+データから変数を作成し、後続ブロックで再利用：
+
+````markdown
+```embedz
+---
+data: report.csv
+bind:
+  by_year: data | to_dict(key='年度', transpose=True)
+  current: by_year[2024]
+  previous: by_year[2023]
+global:
+  current_total: "{{ current.合計 }}"
+---
+```
+
+# 後続ブロックで変数を使用
+```{.embedz data=by_year}
+{{ data[2024].合計 }}
+```
+````
+
+**12. 設定ファイルの読み込み**
+
+共通設定を外部ファイルで管理：
+
+````markdown
+```{.embedz config=settings.yml}
+```
+````
+
+**13. preamble によるマクロ定義**
+
+ドキュメント全体で使えるマクロを定義：
+
+````markdown
+```embedz
+---
+preamble: |
+  {% macro comma(n) %}{{ "{:,}".format(n | int) }}{% endmacro %}
+  {% macro trend(a, b) %}{{ "増加" if a > b else "減少" }}{% endmacro %}
+global:
+  今年度: 2024
+---
+```
+````
+
+**14. include によるテンプレート階層化**
+
+テンプレートを入れ子にして再利用：
+
+````markdown
+```{.embedz define=月次表}
+| 月 | 件数 |
+|---|---:|
+{% for row in data %}
+| {{ row.月 }} | {{ row.件数 }} |
+{% endfor %}
+```
+
+```{.embedz define=年次レポート}
+## {{ year }}年度レポート
+
+{% include '月次表' with context %}
+```
+````
+
+**15. カスタムフィルター**
+
+- `to_dict`: リストを辞書に変換（キー指定、transpose対応）
+- `raise`: エラーメッセージを出力（テンプレート検証用）
+- `regex_replace`: 正規表現による置換
+
+**16. スタンドアロンモード**
+
+Pandocを介さずにデータ変換パイプラインとして使用：
+
+```bash
+# CSVデータ変換
+cat data.csv | pandoc-embedz -s normalize.emz > output.csv
+```
+
 
 ## 機能比較表
 
@@ -407,7 +490,9 @@ with:
 | マルチテーブル/JOIN | ❌ | ❌ | 自前実装 | ✅ | ❌ | ✅ |
 | テンプレート再利用 | ❌ | ❌ | 自前実装 | ❌ | ✅ | ✅ |
 | 変数スコープ管理 | ❌ | ❌ | 自前実装 | ❌ | △ | ✅ |
+| マクロ定義 | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Pandoc単体で完結 | ✅ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| スタンドアロン実行 | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ |
 | 学習コスト | 低 | 低 | 中 | 高 | 中 | **低** |
 | セットアップ | 簡単 | 簡単 | 簡単 | 複雑 | 中 | **簡単** |
 
@@ -453,9 +538,11 @@ pandoc-embedz は、**データ駆動のドキュメント生成**において�
 3. **8種類のデータフォーマット**に対応（CSV、TSV、SSV、lines、JSON、YAML、TOML、SQLite）
 4. **SQLクエリ機能**でデータのフィルタリング・集計・結合が可能
 5. **マルチテーブル対応**で複数のデータソースを扱える
-6. **簡潔で自然な記法**: `{.embedz data=file.csv as=template}` や `with.title="Title"` などの直感的な構文
-7. **学習コストが低く**、すぐに使い始められる
-8. **Pandoc単体で完結**し、追加の環境が不要
+6. **テンプレートの定義・再利用**で効率的に作成できる
+7. **簡潔で自然な記法**: `{.embedz data=file.csv as=template}` や `with.title="Title"` などの直感的な構文
+8. **学習コストが低く**、すぐに使い始められる
+9. **Pandoc単体で完結**し、追加の環境が不要
+10. **スタンドアロンモード**でデータ変換パイプラインにも使える
 
 特に、**報告書作成で外部データからテーブル・リストを生成する**という
 ユースケースにおいて、既存ソリューションのギャップを埋める
@@ -477,5 +564,9 @@ pip install pandoc-embedz
 
 **使用:**
 ```bash
+# フィルターモード（Pandocと連携）
 pandoc report.md --filter pandoc-embedz -o report.pdf
+
+# スタンドアロンモード（データ変換）
+pandoc-embedz -s template.emz < input.csv > output.csv
 ```
