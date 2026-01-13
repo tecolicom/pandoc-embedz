@@ -828,6 +828,48 @@ data:
 ```
 ````
 
+**Using bind variables:**
+
+Instead of file paths or inline data, you can reference variables defined with `bind:`. This enables data reuse across multiple blocks and separation of data loading from processing:
+
+````markdown
+# Data loading block (e.g., in a preamble file)
+```{.embedz}
+---
+data:
+  press: press-releases.csv
+  alerts: security-alerts.csv
+bind:
+  press_data: data.press
+  alert_data: data.alerts
+---
+```
+
+# Merge and process block
+```{.embedz}
+---
+data:
+  press: press_data       # Reference variable
+  alerts: alert_data      # Reference variable
+query: |
+  SELECT * FROM press
+  UNION ALL
+  SELECT * FROM alerts
+  ORDER BY date DESC
+---
+## Combined Timeline
+
+{% for row in data %}
+- {{ row.date }}: {{ row.title }}
+{% endfor %}
+```
+````
+
+**Key points:**
+- Variables and file paths can be mixed
+- Keys in `data:` become SQL table names
+- Query cannot directly reference variable names (mapping via `data:` is required)
+
 **See [MULTI_TABLE.md](MULTI_TABLE.md) for comprehensive examples and documentation.**
 
 ### Template Macros

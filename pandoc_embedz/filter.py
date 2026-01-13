@@ -729,16 +729,12 @@ def _expand_global_variables(
 
 
 def _resolve_data_variable(
-    data_value: Optional[Union[str, Dict[str, Any]]]
+    data_value: Optional[str]
 ) -> Optional[Union[List[Any], Dict[str, Any]]]:
     """Resolve data= value as a variable reference from GLOBAL_VARS.
 
-    Called before _load_embedz_data to check if data= refers to an existing
-    variable instead of a file path. Only dict/list variables (typically from
-    bind:) can be referenced; string variables (from global:) are ignored.
-
     Args:
-        data_value: The value from data= attribute (string or dict for multi-table)
+        data_value: String value to resolve as variable name
 
     Returns:
         The variable's data (dict or list) if found, None to proceed with file loading
@@ -906,6 +902,15 @@ def _execute_embedz_pipeline(
     )
 
     _debug("Step 5: Loading data")
+    # For multi-table dict, resolve each value as variable reference
+    if isinstance(data_file, dict):
+        for k, v in list(data_file.items()):
+            if isinstance(v, str):
+                resolved = _resolve_data_variable(v)
+                if resolved is not None:
+                    data_file[k] = resolved
+
+    # For single string, try to resolve as variable (returns None for non-string)
     data = _resolve_data_variable(data_file)
     if data is not None:
         if data_part:
@@ -926,6 +931,7 @@ def _execute_embedz_pipeline(
             _debug("Applied query to variable data, result: %d rows", len(data))
     else:
         # _load_embedz_data handles its own data_file+data_part validation
+        # For multi-table dict with resolved variables, _load_tables will use them as-is
         data = _load_embedz_data(
             data_file, data_part, config, data_format, has_header, load_kwargs
         )

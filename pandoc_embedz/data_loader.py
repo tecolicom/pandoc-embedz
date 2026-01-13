@@ -387,6 +387,14 @@ def load_data(
 # ─────────────────────────────────────────────────────────────────────────────
 # Multi-table Support
 
+def _is_resolved_data(value: Any) -> bool:
+    """Check if value is already resolved variable data (not inline data spec)."""
+    if isinstance(value, list):
+        return True
+    # Inline data dicts have 'data' key; resolved dicts don't
+    return isinstance(value, dict) and 'data' not in value and 'format' not in value
+
+
 def _query_tables(
     data_file: Dict[str, Any],
     data_format: Optional[str],
@@ -396,6 +404,11 @@ def _query_tables(
     """Load multiple tables and execute SQL query"""
     tables = {}
     for table_name, value in data_file.items():
+        if _is_resolved_data(value):
+            data_list = list(value.values()) if isinstance(value, dict) else value
+            tables[table_name] = pd.DataFrame(data_list)
+            continue
+
         source, file_format = _normalize_data_source(
             value, table_name, data_format, validate_path=True
         )
@@ -423,6 +436,9 @@ def _load_tables(
     """Load multiple tables for direct access"""
     datasets = {}
     for table_name, value in data_file.items():
+        if _is_resolved_data(value):
+            datasets[table_name] = value
+            continue
         source, file_format = _normalize_data_source(
             value, table_name, data_format, validate_path=False
         )

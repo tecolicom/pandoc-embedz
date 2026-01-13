@@ -151,6 +151,70 @@ data:
 - Easier to share and version control
 - Great for examples and prototypes
 
+### Using Bind Variables
+
+Instead of file paths or inline data, you can reference variables that were bound in previous blocks using `bind:`. This enables data reuse across multiple blocks and separation of data loading from processing.
+
+**Syntax:**
+
+```yaml
+data:
+  table1: my_variable      # Variable reference (from bind:)
+  table2: other.csv        # Can mix with file paths
+```
+
+**How it works:**
+1. Load data in one block and bind it to a variable
+2. Reference that variable in another block's `data:` section
+3. The key in `data:` becomes the SQL table name
+
+**Example: Separate data loading from merging**
+
+First, load multiple data sources in a setup block:
+
+````markdown
+```{.embedz}
+---
+data:
+  press: press-releases.csv
+  alerts: security-alerts.csv
+bind:
+  press_data: data.press
+  alert_data: data.alerts
+---
+```
+````
+
+Then, merge and process in another block:
+
+````markdown
+```{.embedz}
+---
+data:
+  press: press_data
+  alerts: alert_data
+query: |
+  SELECT * FROM press
+  UNION ALL
+  SELECT * FROM alerts
+  ORDER BY date DESC
+---
+## Combined Timeline
+
+{% for row in data %}
+- {{ row.date }}: {{ row.title }}
+{% endfor %}
+```
+````
+
+**Benefits:**
+- Reuse loaded data across multiple blocks
+- Separate data loading (in preamble files) from presentation
+- Apply different queries to the same data without reloading
+- Mix variables and file paths in the same `data:` section
+
+**Note:** The query cannot directly reference variable names—the `data:` section maps variables to SQL table names, and the query uses those table names.
+
 ## Mode 2: SQL Query (With SQL)
 
 Combine CSV/TSV files using SQL JOIN operations for complex data processing.

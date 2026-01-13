@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Variable references in YAML `data:` section for multi-table format
+  - `data: {t1: my_variable, t2: file.csv}` now supports mixing variables and file paths
+  - Variables from `bind:` can be referenced alongside file paths
+  - SQL queries work with mixed variable/file sources
+
 ## [0.16.0] - 2026-01-04
 
 ### Added

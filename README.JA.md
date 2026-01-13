@@ -827,6 +827,48 @@ data:
 ```
 ````
 
+**バインド変数の使用:**
+
+ファイルパスやインラインデータの代わりに、`bind:` で定義した変数を参照できます。データの読み込みと処理を分離し、複数のブロックでデータを再利用できます:
+
+````markdown
+# データ読み込みブロック（プリアンブルファイルなど）
+```{.embedz}
+---
+data:
+  press: press-releases.csv
+  alerts: security-alerts.csv
+bind:
+  press_data: data.press
+  alert_data: data.alerts
+---
+```
+
+# マージ・処理ブロック
+```{.embedz}
+---
+data:
+  press: press_data       # 変数を参照
+  alerts: alert_data      # 変数を参照
+query: |
+  SELECT * FROM press
+  UNION ALL
+  SELECT * FROM alerts
+  ORDER BY date DESC
+---
+## 統合タイムライン
+
+{% for row in data %}
+- {{ row.date }}: {{ row.title }}
+{% endfor %}
+```
+````
+
+**ポイント:**
+- 変数とファイルパスを混在できる
+- `data:` のキーが SQL のテーブル名になる
+- クエリ内で直接変数名は使えない（`data:` でマッピングが必要）
+
 **包括的な例とドキュメントについては [MULTI_TABLE.md](MULTI_TABLE.md) を参照してください。**
 
 ### テンプレートマクロ

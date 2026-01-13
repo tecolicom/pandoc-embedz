@@ -3193,3 +3193,155 @@ No,備考
         output = pf.convert_text(result, input_format='panflute', output_format='markdown')
         assert 'SKIP' in output
         assert 'OK' in output
+
+
+class TestMultiTableVariableReference:
+    """Tests for multi-table data: with variable references"""
+
+    def test_multi_table_single_variable(self):
+        """Test multi-table data: with single variable reference"""
+        # First block: create data variable
+        code1 = """---
+format: csv
+bind:
+  my_table: data | list
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: use variable in multi-table format
+        code2 = """---
+data:
+  t1: my_table
+query: SELECT * FROM t1
+---
+{% for item in data %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output
+        assert 'Bob: 200' in output
+
+    def test_multi_table_multiple_variables(self):
+        """Test multi-table data: with multiple variable references"""
+        # First block: create two data variables
+        code1 = """---
+format: csv
+bind:
+  table_a: data | list
+---
+---
+id,name
+1,Alice
+2,Bob"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        code2 = """---
+format: csv
+bind:
+  table_b: data | list
+---
+---
+id,score
+1,100
+2,200"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        process_embedz(elem2, doc)
+
+        # Third block: use both variables with JOIN
+        code3 = """---
+data:
+  a: table_a
+  b: table_b
+query: SELECT a.name, b.score FROM a JOIN b ON a.id = b.id
+---
+{% for item in data %}
+- {{ item.name }}: {{ item.score }}
+{% endfor %}"""
+        elem3 = pf.CodeBlock(code3, classes=['embedz'])
+        result = process_embedz(elem3, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output
+        assert 'Bob: 200' in output
+
+    def test_multi_table_without_query(self):
+        """Test multi-table data: with variable but no query"""
+        # First block: create data variable
+        code1 = """---
+format: csv
+bind:
+  my_data: data | list
+---
+---
+name,value
+Alice,100
+Bob,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: use variable without query (direct access via data.records)
+        code2 = """---
+data:
+  records: my_data
+---
+{% for item in data.records %}
+- {{ item.name }}: {{ item.value }}
+{% endfor %}"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert 'Alice: 100' in output
+        assert 'Bob: 200' in output
+
+    def test_multi_table_variable_with_to_dict(self):
+        """Test multi-table data: with to_dict variable"""
+        # First block: create to_dict variable
+        code1 = """---
+format: csv
+bind:
+  by_year: data | to_dict('year')
+---
+---
+year,value
+2023,100
+2024,200"""
+
+        elem1 = pf.CodeBlock(code1, classes=['embedz'])
+        doc = pf.Doc()
+        process_embedz(elem1, doc)
+
+        # Second block: use to_dict variable in multi-table format
+        code2 = """---
+data:
+  years: by_year
+query: SELECT * FROM years
+---
+{% for item in data %}
+- {{ item.year }}: {{ item.value }}
+{% endfor %}"""
+        elem2 = pf.CodeBlock(code2, classes=['embedz'])
+        result = process_embedz(elem2, doc)
+
+        assert isinstance(result, list)
+        output = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        assert '2023: 100' in output
+        assert '2024: 200' in output

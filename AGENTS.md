@@ -657,6 +657,17 @@ bind:
   ```
   ```
 - If the variable is a dict (from `to_dict`), it's automatically converted to list before query execution
+- **YAML `data:` section also supports variable references:**
+  ```yaml
+  # Single variable reference
+  data: my_variable
+
+  # Multi-table with mixed variables and file paths
+  data:
+    t1: my_variable      # Variable reference
+    t2: data.csv         # File path
+  query: SELECT * FROM t1 JOIN t2 ON ...
+  ```
 
 ### Alias Feature
 
