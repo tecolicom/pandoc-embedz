@@ -20,7 +20,7 @@
 
 ### 理想
 
-```markdown
+````markdown
 ## 脆弱性詳細
 
 ```embedz
@@ -31,7 +31,7 @@ data: jvn:JVNDB-2024-001234
 - 深刻度: {{ data.severity }}
 - 詳細: {{ data.description }}
 ```
-```
+````
 
 番号を指定するだけで最新情報を自動取得。
 
