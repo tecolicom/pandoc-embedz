@@ -443,7 +443,15 @@ def _load_csv(
             return df.to_dict('records')
         else:
             df = pd.read_csv(source, header=None, **read_kwargs)
-            return df.values.tolist()
+            # Strip trailing NaN values from each row (caused by ragged input)
+            result = []
+            for row in df.values.tolist():
+                while row and (row[-1] is None or
+                               (isinstance(row[-1], float) and
+                                pd.isna(row[-1]))):
+                    row.pop()
+                result.append(row)
+            return result
     except pd.errors.EmptyDataError:
         # pandas raises EmptyDataError for empty or whitespace-only input
         return []

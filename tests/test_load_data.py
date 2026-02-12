@@ -167,6 +167,24 @@ class TestLoadSSV:
         assert isinstance(data[0], list)
         assert data[0][0] == 'Arthur'
 
+    def test_load_ssv_ragged_rows_strip_nan(self):
+        """Test that ragged rows (unequal column count) don't produce NaN"""
+        ssv_data = StringIO("a b c d e f\ng h i j\nk l")
+        data = load_data(ssv_data, format='ssv', has_header=False)
+        assert len(data) == 3
+        assert data[0] == ['a', 'b', 'c', 'd', 'e', 'f']
+        assert data[1] == ['g', 'h', 'i', 'j']
+        assert data[2] == ['k', 'l']
+
+    def test_load_csv_ragged_rows_strip_nan(self):
+        """Test that ragged CSV rows don't produce NaN"""
+        csv_data = StringIO("a,b,c\nd,e\nf")
+        data = load_data(csv_data, format='csv', has_header=False)
+        assert len(data) == 3
+        assert data[0] == ['a', 'b', 'c']
+        assert data[1] == ['d', 'e']
+        assert data[2] == ['f']
+
     def test_load_ssv_with_columns_preserves_spaces_in_last_column(self):
         """Test that columns parameter preserves spaces in last column"""
         ssv_data = StringIO("ID Name Description\n1 Alice Software engineer\n2 Bob Project manager with team")
