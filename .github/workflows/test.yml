@@ -43,7 +43,7 @@ jobs:
       run: choco install pandoc
 
     - name: Install dependencies
-      run: uv sync --all-extras
+      run: uv sync --all-groups
 
     - name: Run tests
       run: uv run pytest tests/ -v --cov=pandoc_embedz --cov-report=xml --cov-report=term
