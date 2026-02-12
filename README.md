@@ -10,7 +10,7 @@ A powerful [Pandoc](https://pandoc.org/) filter for embedding data-driven conten
 ## Features
 
 - 🔄 **Full [Jinja2](https://jinja.palletsprojects.com/) Support**: Loops, conditionals, filters, macros, and all template features
-- 📊 **8 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML, TOML, SQLite
+- 📊 **9 Data Formats**: CSV, TSV, SSV/Spaces (whitespace-separated), lines, JSON, YAML, TOML, SQLite, Excel
 - 🎯 **Auto-Detection**: Automatically detects format from file extension
 - 📝 **Inline & External Data**: Support both inline data blocks and external files
 - 🗄️ **SQL Queries**: Filter, aggregate, and transform CSV/TSV data using SQL
@@ -67,7 +67,7 @@ _Note: `as=` is shorthand. In YAML headers, `template:` is preferred. See [Templ
 pandoc report.md --filter pandoc-embedz -o output.pdf
 ```
 
-Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usage) to get started, or jump to [Advanced Features](#advanced-features) for SQL queries, multi-table operations, and database access.
+Works with CSV, JSON, YAML, TOML, SQLite, Excel and more. See [Basic Usage](#basic-usage) to get started, or jump to [Advanced Features](#advanced-features) for SQL queries, multi-table operations, and database access.
 
 ## Table of Contents
 
@@ -91,6 +91,7 @@ Works with CSV, JSON, YAML, TOML, SQLite and more. See [Basic Usage](#basic-usag
 - [Advanced Features](#advanced-features)
   - [SQL Queries on CSV/TSV](#sql-queries-on-csvtsv)
   - [SQLite Database](#sqlite-database)
+  - [Excel Files](#excel-files)
   - [Multi-Table Data](#multi-table-data)
   - [Template Macros](#template-macros)
   - [Preamble & Macro Sharing](#preamble--macro-sharing)
@@ -769,6 +770,118 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 ```
 ````
 
+### Excel Files
+
+Read `.xlsx` / `.xls` files directly. Requires the `openpyxl` package (`pip install openpyxl`). Leading blank rows and all-blank columns are automatically skipped. Empty cells in the header row are assigned auto-generated names (`column_0`, `column_2`, etc., based on position), and duplicate header names get a suffix (`score`, `score_1`, `score_2`, ...). Empty cells in data rows become empty strings.
+
+````markdown
+```embedz
+---
+data: report.xlsx
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+Use the `table` parameter to select a specific sheet (defaults to the first sheet):
+
+````markdown
+```embedz
+---
+data: report.xlsx
+table: Sheet2
+---
+{% for row in data %}
+- {{ row.item }}
+{% endfor %}
+```
+````
+
+Use `header: false` when the sheet has no header row (data is accessed by index):
+
+````markdown
+```{.embedz data=raw_data.xlsx header=false}
+{% for row in data %}
+- {{ row[0] }}: {{ row[1] }}
+{% endfor %}
+```
+````
+
+Use `skiprows` to skip leading description rows (blank rows after skipping are also removed automatically):
+
+````markdown
+```embedz
+---
+data: report.xlsx
+skiprows: 2
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+You can also specify a string to find the data start row automatically. The row with a cell exactly matching the string becomes the header (or first data row with `header: false`):
+
+````markdown
+```{.embedz data=report.xlsx skiprows="name"}
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+Use `"N:text"` to match a specific column (1-based):
+
+````markdown
+```{.embedz data=report.xlsx skiprows="1:name"}
+...
+```
+````
+
+SQL queries work the same way as with CSV:
+
+````markdown
+```embedz
+---
+data: report.xlsx
+table: sales
+query: SELECT category, SUM(amount) as total FROM data GROUP BY category
+---
+| Category | Total |
+|----------|-------|
+{% for row in data -%}
+| {{ row.category }} | {{ row.total }} |
+{% endfor -%}
+```
+````
+
+Use `transpose: true` when headers run down the first column instead of across the first row:
+
+````markdown
+```embedz
+---
+data: report.xlsx
+transpose: true
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+Combine with `header: false` when there is no header column:
+
+````markdown
+```{.embedz data=matrix.xlsx transpose=true header=false}
+{% for row in data %}
+- {{ row[0] }}, {{ row[1] }}, {{ row[2] }}
+{% endfor %}
+```
+````
+
 ### Multi-Table Data
 
 Load multiple data files and access them directly or combine with SQL:
@@ -1037,6 +1150,7 @@ data: vulnerabilities.csv
 | YAML       | `.yaml`, `.yml`  | Structured data with hierarchies                                          |
 | TOML       | `.toml`          | Structured data (similar to YAML/JSON)                                    |
 | SQLite     | `.db`, `.sqlite` | Database files (also `.sqlite3`; requires `table` or `query` parameter)   |
+| Excel      | `.xlsx`, `.xls`  | Excel files (requires `openpyxl`; `table` selects sheet, blank rows/columns auto-skipped, empty column names auto-generated) |
 
 **Note**: SSV (Space-Separated Values) treats consecutive spaces and tabs as a single delimiter, making it ideal for manually aligned data. Both `ssv` and `spaces` can be used interchangeably.
 
@@ -1059,7 +1173,7 @@ When `columns=3` is specified, the data is split into exactly 3 columns. The las
 | Key | Description | Example |
 |-----|-------------|---------|
 | `data` | Data source: file path (string), multiple files (dict), or inline data (multi-line string or dict with `data` key) | `data: stats.csv` or `data: {sales: sales.csv}` or `data: \|<br>  name,value<br>  ...` |
-| `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `lines` (auto-detected from extension) | `format: json` |
+| `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `excel`, `lines` (auto-detected from extension) | `format: json` |
 | `define` | Template name (for definition) | `define: report-template` |
 | `template` (or `as`) | Template to use (both aliases work, `template` preferred in YAML, `as` shorter for attributes) | `template: report-template` or `as: report-template` |
 | `with` | Local variables (block-scoped) | `with: {threshold: 100}` |
@@ -1069,7 +1183,9 @@ When `columns=3` is specified, the data is split into exactly 3 columns. The las
 | `preamble` | Control structures for entire document (macros, `{% set %}`, imports) | `preamble: \|`<br>`  {% set title = 'Report' %}` |
 | `header` | CSV/TSV/SSV has header row (default: true) | `header: false` |
 | `columns` | Fixed column count for SSV format (last column gets remaining content) | `columns: 3` |
-| `table` | SQLite table name (required for sqlite format) | `table: users` |
+| `table` | SQLite table name or Excel sheet name | `table: users` |
+| `transpose` | Swap rows and columns in Excel data (default: false) | `transpose: true` |
+| `skiprows` | Rows to skip: integer (count), string (find row with cell matching text), or `"N:text"` (match column N) | `skiprows: 3` or `skiprows: "name"` or `skiprows: "1:name"` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
 | `config` | External YAML config file(s) merged before inline settings (string or list) | `config: config/base.yaml` |
 
@@ -1519,7 +1635,7 @@ Since the processing order is fixed (`preamble → with → query → data → b
 Compared to one-off “render this template with Jinja” tools, `pandoc-embedz` is purpose-built for document pipelines:
 
 - **Pandoc-native integration** – filter mode writes straight into the AST, so numbering, ToC, citations, and other filters keep working without extra glue.
-- **Rich data loading** – CSV/TSV/SSV/lines/JSON/YAML/TOML/SQLite, multi-table joins, inline data, and query templating are all first-class features.
+- **Rich data loading** – CSV/TSV/SSV/lines/JSON/YAML/TOML/SQLite/Excel, multi-table joins, inline data, and query templating are all first-class features.
 - **Inline configuration** – every `.embedz` block (or front matter) carries its own YAML config, globals, and macros, making documents self-contained.
 - **Shared workflow** – standalone mode reuses the exact filter pipeline, so Markdown/LaTeX templates and Pandoc documents can share templates, configs, and debugging behavior.
 
@@ -1663,7 +1779,7 @@ The environment variable accepts `1`, `true`, or `yes` as valid values.
 
 pandoc-embedz fills a unique niche:
 - ✅ Full Jinja2 templating (loops, conditionals, filters)
-- ✅ Multiple data formats (CSV, JSON, YAML, TOML, SQLite, etc.)
+- ✅ Multiple data formats (CSV, JSON, YAML, TOML, SQLite, Excel, etc.)
 - ✅ Code block level processing (not document-wide)
 - ✅ Lightweight - no heavy dependencies
 - ✅ Works with existing Pandoc workflow

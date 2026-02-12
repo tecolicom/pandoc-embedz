@@ -10,7 +10,7 @@ Jinja2 テンプレートを使用して、Markdown ドキュメントにデー�
 ## 機能
 
 - **[Jinja2](https://jinja.palletsprojects.com/) 完全サポート**: ループ、条件分岐、フィルター、マクロ、すべてのテンプレート機能
-- **8種類のデータ形式**: CSV、TSV、SSV/Spaces（空白区切り）、lines、JSON、YAML、TOML、SQLite
+- **9種類のデータ形式**: CSV、TSV、SSV/Spaces（空白区切り）、lines、JSON、YAML、TOML、SQLite、Excel
 - **自動検出**: ファイル拡張子からフォーマットを自動検出
 - **インライン・外部データ**: インラインデータブロックと外部ファイルの両方をサポート
 - **SQLクエリ**: SQL を使用して CSV/TSV データのフィルタリング、集計、変換が可能
@@ -67,7 +67,7 @@ _注意: `as=` は短縮形です。YAML ヘッダーでは `template:` が推�
 pandoc report.md --filter pandoc-embedz -o output.pdf
 ```
 
-CSV、JSON、YAML、TOML、SQLite などで動作します。始めるには[基本的な使い方](#基本的な使い方)を、SQLクエリ、マルチテーブル操作、データベースアクセスについては[高度な機能](#高度な機能)を参照してください。
+CSV、JSON、YAML、TOML、SQLite、Excel などで動作します。始めるには[基本的な使い方](#基本的な使い方)を、SQLクエリ、マルチテーブル操作、データベースアクセスについては[高度な機能](#高度な機能)を参照してください。
 
 ## 目次
 
@@ -91,6 +91,7 @@ CSV、JSON、YAML、TOML、SQLite などで動作します。始めるには[基
 - [高度な機能](#高度な機能)
   - [CSV/TSVへのSQLクエリ](#csvtsvへのsqlクエリ)
   - [SQLiteデータベース](#sqliteデータベース)
+  - [Excelファイル](#excelファイル)
   - [マルチテーブルデータ](#マルチテーブルデータ)
   - [テンプレートマクロ](#テンプレートマクロ)
   - [プリアンブルとマクロ共有](#プリアンブルとマクロ共有)
@@ -768,6 +769,118 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 ```
 ````
 
+### Excelファイル
+
+`.xlsx` / `.xls` ファイルを直接読み込みます。`openpyxl` パッケージが必要です（`pip install openpyxl`）。先頭の空白行および全空列は自動的にスキップされます。ヘッダー行の空セルには位置に基づく名前（`column_0`, `column_2` 等）が自動生成され、重複するヘッダー名には連番が付与されます（`score`, `score_1`, `score_2`, ...）。データ行の空セルは空文字列になります。
+
+````markdown
+```embedz
+---
+data: report.xlsx
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+`table` パラメータで特定のシートを選択できます（デフォルトは最初のシート）:
+
+````markdown
+```embedz
+---
+data: report.xlsx
+table: Sheet2
+---
+{% for row in data %}
+- {{ row.item }}
+{% endfor %}
+```
+````
+
+ヘッダー行がないシートには `header: false` を指定します（インデックスでアクセス）:
+
+````markdown
+```{.embedz data=raw_data.xlsx header=false}
+{% for row in data %}
+- {{ row[0] }}: {{ row[1] }}
+{% endfor %}
+```
+````
+
+先頭に説明行がある場合は `skiprows` でスキップします（スキップ後の空行も自動的に除去されます）:
+
+````markdown
+```embedz
+---
+data: report.xlsx
+skiprows: 2
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+文字列を指定すると、セルの値が完全一致する行からデータを開始します。該当行がヘッダー行（`header: false` の場合はデータ先頭行）になります:
+
+````markdown
+```{.embedz data=report.xlsx skiprows="氏名"}
+{% for row in data %}
+- {{ row.氏名 }}: {{ row.値 }}
+{% endfor %}
+```
+````
+
+`"N:テキスト"` で特定のカラム（1始まり）を指定できます:
+
+````markdown
+```{.embedz data=report.xlsx skiprows="1:氏名"}
+...
+```
+````
+
+SQL クエリも CSV と同様に使用できます:
+
+````markdown
+```embedz
+---
+data: report.xlsx
+table: sales
+query: SELECT category, SUM(amount) as total FROM data GROUP BY category
+---
+| Category | Total |
+|----------|-------|
+{% for row in data -%}
+| {{ row.category }} | {{ row.total }} |
+{% endfor -%}
+```
+````
+
+ヘッダーが最初の行ではなく最初の列に並んでいる場合は `transpose: true` を使用します:
+
+````markdown
+```embedz
+---
+data: report.xlsx
+transpose: true
+---
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+ヘッダー列もない場合は `header: false` と組み合わせます:
+
+````markdown
+```{.embedz data=matrix.xlsx transpose=true header=false}
+{% for row in data %}
+- {{ row[0] }}, {{ row[1] }}, {{ row[2] }}
+{% endfor %}
+```
+````
+
 ### マルチテーブルデータ
 
 複数のデータファイルを読み込み、直接アクセスまたは SQL で結合:
@@ -1036,6 +1149,7 @@ data: vulnerabilities.csv
 | YAML | `.yaml`, `.yml` | 階層構造を持つ構造化データ |
 | TOML | `.toml` | 構造化データ（YAML/JSON に類似） |
 | SQLite | `.db`, `.sqlite` | データベースファイル（`.sqlite3` も可。`table` または `query` パラメータが必要） |
+| Excel | `.xlsx`, `.xls` | Excel ファイル（`openpyxl` が必要。`table` でシート選択、空白行・列は自動スキップ、空カラム名は自動生成） |
 
 **注意**: SSV（空白区切り値）は連続する空白とタブを単一の区切り文字として扱うため、手動で整列されたデータに最適です。`ssv` と `spaces` は同じ意味で使用できます。
 
@@ -1058,7 +1172,7 @@ ID  Name   Description
 | キー | 説明 | 例 |
 |------|------|-----|
 | `data` | データソース: ファイルパス（文字列）、複数ファイル（dict）、またはインラインデータ（複数行文字列または `data` キーを持つdict） | `data: stats.csv` または `data: {sales: sales.csv}` または `data: \|<br>  name,value<br>  ...` |
-| `format` | データ形式: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `lines`（拡張子から自動検出） | `format: json` |
+| `format` | データ形式: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `excel`, `lines`（拡張子から自動検出） | `format: json` |
 | `define` | テンプレート名（定義用） | `define: report-template` |
 | `template`（または `as`） | 使用するテンプレート（両方のエイリアスが動作、YAML では `template` 推奨、属性では `as` が短い） | `template: report-template` または `as: report-template` |
 | `with` | ローカル変数（ブロックスコープ） | `with: {threshold: 100}` |
@@ -1068,7 +1182,9 @@ ID  Name   Description
 | `preamble` | ドキュメント全体の制御構造（マクロ、`{% set %}`、インポート） | `preamble: \|`<br>`  {% set title = 'Report' %}` |
 | `header` | CSV/TSV/SSV にヘッダー行がある（デフォルト: true） | `header: false` |
 | `columns` | SSV フォーマットの固定カラム数（最後のカラムが残りの内容を取得） | `columns: 3` |
-| `table` | SQLite テーブル名（sqlite フォーマットに必須） | `table: users` |
+| `table` | SQLite テーブル名または Excel シート名 | `table: users` |
+| `transpose` | Excel データの行と列を入れ替え（デフォルト: false） | `transpose: true` |
+| `skiprows` | スキップする行: 整数（行数）、文字列（セル値が一致する行を検索）、`"N:テキスト"` （N列目で検索） | `skiprows: 3` または `skiprows: "氏名"` または `skiprows: "1:氏名"` |
 | `query` | SQLite、CSV/TSV フィルタリング、またはマルチテーブル JOIN 用の SQL クエリ（マルチテーブルモードに必須） | `query: SELECT * FROM data WHERE active=1` |
 | `config` | インライン設定の前にマージされる外部 YAML 設定ファイル（文字列またはリスト） | `config: config/base.yaml` |
 
@@ -1516,7 +1632,7 @@ preamble: |
 一般的な「このテンプレートを Jinja でレンダリング」ツールと比較して、`pandoc-embedz` はドキュメントパイプライン向けに特化しています:
 
 - **Pandocネイティブ統合** – フィルターモードは AST に直接書き込むため、番号付け、目次、引用、その他のフィルターが追加のグルーなしで動作し続けます。
-- **豊富なデータ読み込み** – CSV/TSV/SSV/lines/JSON/YAML/TOML/SQLite、マルチテーブル結合、インラインデータ、クエリテンプレートがすべてファーストクラス機能です。
+- **豊富なデータ読み込み** – CSV/TSV/SSV/lines/JSON/YAML/TOML/SQLite/Excel、マルチテーブル結合、インラインデータ、クエリテンプレートがすべてファーストクラス機能です。
 - **インライン設定** – 各 `.embedz` ブロック（またはフロントマター）は独自の YAML 設定、グローバル、マクロを持ち、ドキュメントを自己完結型にします。
 - **共有ワークフロー** – スタンドアロンモードは正確なフィルターパイプラインを再利用するため、Markdown/LaTeX テンプレートと Pandoc ドキュメントがテンプレート、設定、デバッグ動作を共有できます。
 
@@ -1660,7 +1776,7 @@ pandoc-embedz --standalone --debug template.md
 
 pandoc-embedz は独自のニッチを埋めます:
 - 完全な Jinja2 テンプレート（ループ、条件分岐、フィルター）
-- 複数のデータ形式（CSV、JSON、YAML、TOML、SQLite など）
+- 複数のデータ形式（CSV、JSON、YAML、TOML、SQLite、Excel など）
 - コードブロックレベルの処理（ドキュメント全体ではない）
 - 軽量 - 重い依存関係なし
 - 既存の Pandoc ワークフローで動作

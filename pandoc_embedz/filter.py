@@ -824,6 +824,20 @@ def _prepare_data_loading(
             raise ValueError(f"'columns' must be an integer, got: {config['columns']!r}")
         _debug("SSV columns: %s", config['columns'])
 
+    if config.get('transpose'):
+        load_kwargs['transpose'] = True
+        _debug("Transpose: True")
+
+    if 'skiprows' in config:
+        value = config['skiprows']
+        # Try integer first (YAML gives int, attributes give str)
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            pass
+        load_kwargs['skiprows'] = value
+        _debug("Skip rows: %s", value)
+
     if 'query' in config:
         query_template = config['query']
         # Expand Jinja2 template variables in query if present

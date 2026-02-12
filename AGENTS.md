@@ -27,7 +27,7 @@ pandoc report.md --filter pandoc-embedz -o output.pdf
 ```
 pandoc_embedz/
 ├── filter.py           # Pandoc filter entry point
-├── data_loader.py      # Data format loaders (CSV, JSON, SQLite, etc.)
+├── data_loader.py      # Data format loaders (CSV, JSON, SQLite, Excel, etc.)
 ├── config.py           # Configuration parsing and validation
 └── main.py             # CLI entry point (standalone mode)
 
@@ -668,6 +668,42 @@ bind:
     t2: data.csv         # File path
   query: SELECT * FROM t1 JOIN t2 ON ...
   ```
+
+### Excel File Support
+
+**Status:** ✅ Implemented
+
+Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package (optional dependency).
+
+**Excel-specific parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `table` | string | Sheet name (default: first sheet) |
+| `transpose` | bool | Swap rows and columns |
+| `skiprows` | int or string | Skip leading rows: `3` (count), `"氏名"` (find cell), `"1:氏名"` (find in column 1) |
+
+**Key behaviors:**
+- Blank rows and all-blank columns are automatically removed
+- Empty cells in header row get auto-generated names (`column_0`, `column_2`, etc., based on position)
+- Duplicate header names get a suffix: `score`, `score_1`, `score_2`, ...
+- Empty cells in data rows become empty strings
+- Empty sheets return `[]` with a warning to stderr
+- `skiprows` string pattern uses exact match (not substring)
+- `query` parameter works via `_apply_sql_query` (same as CSV)
+- Inline data not supported (raises `ValueError`)
+- Multi-table SQL not supported (single-table only)
+
+**Implementation:** `_load_excel()`, `_clean_column_names()`, and `_skip_to_matching_row()` in `data_loader.py`
+
+**Processing order:**
+1. `pd.read_excel` (with integer `skiprows` if given)
+2. Pattern-based row skip (if `skiprows` is string)
+3. `dropna(how='all')` on rows and columns
+4. Transpose (if `transpose=True`)
+5. NaN → empty string
+6. Header extraction + column name cleanup (if `has_header=True`)
+7. SQL query (if `query` given)
 
 ### Alias Feature
 

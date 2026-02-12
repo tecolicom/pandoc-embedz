@@ -26,6 +26,11 @@ try:
 except ImportError:
     SqliteUtilsDatabase = None
 
+try:
+    import openpyxl  # noqa: F401 - imported for availability check
+except ImportError:
+    openpyxl = None
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Constants
 
@@ -39,6 +44,8 @@ FORMAT_EXTENSIONS = {
     '.db': 'sqlite',
     '.sqlite': 'sqlite',
     '.sqlite3': 'sqlite',
+    '.xlsx': 'excel',
+    '.xls': 'excel',
 }
 
 DEFAULT_FORMAT = 'csv'
@@ -208,6 +215,146 @@ def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]
     finally:
         conn.close()
 
+def _clean_column_names(columns: list) -> list:
+    """Clean up column names: strip whitespace, replace empty/NaN, deduplicate.
+
+    Follows the same pattern as script/xls2sqlite:
+    - Empty or NaN column names are replaced with 'column_N' (0-based index)
+    - String column names are stripped of leading/trailing whitespace
+    - Duplicate names get a numeric suffix: 'name_1', 'name_2', etc.
+    """
+    cleaned = []
+    seen: Dict[str, int] = {}
+    for i, col in enumerate(columns):
+        if pd.isna(col):
+            col = f'column_{i}'
+        elif isinstance(col, str):
+            col = col.strip()
+            if col == '':
+                col = f'column_{i}'
+        else:
+            col = str(col)
+
+        if col in seen:
+            seen[col] += 1
+            col = f'{col}_{seen[col]}'
+        else:
+            seen[col] = 0
+
+        cleaned.append(col)
+    return cleaned
+
+
+def _skip_to_matching_row(
+    df: pd.DataFrame, pattern: str, source: str, table: Optional[str]
+) -> pd.DataFrame:
+    """Skip rows until finding one with a cell exactly matching the pattern.
+
+    Pattern formats:
+        "text"   - find row with a cell exactly matching "text"
+        "N:text" - find row where column N (1-based) exactly matches "text"
+
+    Returns DataFrame starting from the matching row.
+    Raises ValueError if no matching row is found.
+    """
+    # Parse "N:text" format (N is 1-based column index)
+    col_index = None
+    search_text = pattern
+    if ':' in pattern:
+        prefix, rest = pattern.split(':', 1)
+        try:
+            col_index = int(prefix) - 1
+            search_text = rest
+        except ValueError:
+            pass  # Not "N:text" format, use entire string
+
+    for i in range(len(df)):
+        cols = [col_index] if col_index is not None else range(len(df.columns))
+        for j in cols:
+            if j < len(df.columns):
+                cell = df.iloc[i, j]
+                if pd.notna(cell) and str(cell) == search_text:
+                    return df.iloc[i:].reset_index(drop=True)
+
+    sheet_info = f" (sheet: {table})" if table else ""
+    raise ValueError(
+        f"skiprows pattern '{pattern}' not found in "
+        f"Excel file '{source}'{sheet_info}"
+    )
+
+
+def _load_excel(
+    source: Union[str, StringIO],
+    has_header: bool = True,
+    **kwargs
+) -> Union[List[Dict[str, Any]], List[List[Any]]]:
+    """Load Excel file (.xlsx, .xls)
+
+    Requires openpyxl package for .xlsx files.
+
+    Args:
+        source: File path to Excel file
+        has_header: Whether first row is header
+        **kwargs: Options including 'table' (sheet name), 'query' (SQL),
+                  'transpose' (swap rows/columns), and 'skiprows' (rows to skip)
+
+    Returns:
+        List of dicts (with header) or list of lists (without header)
+    """
+    if isinstance(source, StringIO):
+        raise ValueError(
+            "Excel format does not support inline data. "
+            "Use an external .xlsx/.xls file."
+        )
+
+    if openpyxl is None:
+        raise ImportError(
+            "Excel support requires 'openpyxl' package. "
+            "Install with: pip install openpyxl"
+        )
+
+    table = kwargs.get('table')
+    sheet_name = table if table is not None else 0
+
+    # Read sheet; skip leading rows if requested
+    skiprows = kwargs.get('skiprows')
+    read_kwargs: Dict[str, Any] = {'sheet_name': sheet_name, 'header': None}
+    if isinstance(skiprows, int):
+        read_kwargs['skiprows'] = skiprows
+    df = pd.read_excel(source, **read_kwargs)
+    if isinstance(skiprows, str):
+        df = _skip_to_matching_row(df, skiprows, source, table)
+
+    # Drop rows and columns where all values are NaN
+    df = df.dropna(how='all').dropna(axis=1, how='all')
+    df = df.reset_index(drop=True)
+
+    if df.empty:
+        sheet_info = f" (sheet: {table})" if table else ""
+        sys.stderr.write(
+            f"Warning: Excel file '{source}'{sheet_info} contains no data\n"
+        )
+        return []
+
+    # Transpose if requested (swap rows and columns)
+    if kwargs.get('transpose'):
+        df = df.T.reset_index(drop=True)
+        df.columns = range(len(df.columns))
+
+    # Replace NaN with empty string for template-friendly output
+    df = df.astype(object).where(df.notna(), '')
+
+    if has_header:
+        # Use first row as header, clean up names
+        df.columns = _clean_column_names(df.iloc[0].tolist())
+        df = df.iloc[1:].reset_index(drop=True)
+        if 'query' in kwargs:
+            return _apply_sql_query(df, kwargs['query'])
+        return df.to_dict('records')
+    else:
+        return df.values.tolist()
+
+
 def _load_lines(source: Union[str, StringIO], **kwargs) -> List[str]:
     """Load plain text lines
 
@@ -309,6 +456,7 @@ LOADERS = {
     'yaml': _load_yaml,
     'toml': _load_toml,
     'sqlite': _load_sqlite,
+    'excel': _load_excel,
     'lines': _load_lines,
     'tsv': partial(_load_csv, sep='\t'),
     'ssv': partial(_load_csv, sep=r'\s+'),
@@ -356,7 +504,7 @@ def load_data(
 
     Args:
         source: File path, StringIO object, or '-' for stdin
-        format: Data format (csv, tsv, ssv, json, yaml, toml, sqlite, lines)
+        format: Data format (csv, tsv, ssv, json, yaml, toml, sqlite, excel, lines)
                If None, auto-detect from filename
         has_header: Whether CSV/TSV/SSV has header row
         **kwargs: Format-specific options (e.g., table/query for sqlite)

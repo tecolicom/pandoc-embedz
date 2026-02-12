@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Excel file support (`.xlsx`, `.xls`) as a data source format
+  - Auto-detection from file extension
+  - Sheet selection via `table` parameter (defaults to first sheet)
+  - Automatic skipping of blank rows and columns
+  - Header row cleanup: empty cells get auto-generated names (`column_N`), duplicates get a suffix (`_1`, `_2`, ...)
+  - Empty cells in data rows replaced with empty strings
+  - SQL query support via `query` parameter
+  - `transpose` parameter for column-oriented layouts
+  - `skiprows` parameter to skip leading rows (integer count or string pattern like `"name"` / `"1:name"`)
+  - Requires `openpyxl` package (`pip install openpyxl`)
+
 ## [0.17.0] - 2026-01-13
 
 ### Added

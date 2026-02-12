@@ -805,3 +805,300 @@ class TestEmptyInput:
         """Empty TSV input should return empty list"""
         data = load_data(StringIO(""), format='tsv')
         assert data == []
+
+
+class TestLoadExcel:
+    """Tests for Excel data loading"""
+
+    @pytest.fixture(autouse=True)
+    def check_openpyxl(self):
+        pytest.importorskip("openpyxl")
+
+    def test_excel_extensions(self):
+        """Extension auto-detection for .xlsx and .xls"""
+        assert guess_format_from_filename('data.xlsx') == 'excel'
+        assert guess_format_from_filename('data.xls') == 'excel'
+
+    def test_load_excel_with_header(self):
+        """Load Excel with header row (default)"""
+        data = load_data(str(FIXTURES_DIR / 'sample.xlsx'), format='excel', table='items')
+        assert len(data) == 3
+        assert data[0]['name'] == 'Arthur'
+        assert data[0]['value'] == 42
+        assert data[0]['category'] == 'A'
+
+    def test_load_excel_without_header(self):
+        """Load Excel without header row"""
+        data = load_data(str(FIXTURES_DIR / 'sample.xlsx'), format='excel', table='items', has_header=False)
+        assert len(data) == 4  # Including header row as data
+        assert isinstance(data[0], list)
+        assert data[0][0] == 'name'  # Header row treated as data
+
+    def test_load_excel_with_sheet_name(self):
+        """Load specific sheet by name via table parameter"""
+        data = load_data(str(FIXTURES_DIR / 'sample.xlsx'), format='excel', table='metadata')
+        assert len(data) == 2
+        assert data[0]['key'] == 'author'
+        assert data[0]['description'] == 'Douglas Adams'
+
+    def test_load_excel_default_sheet(self):
+        """Load first sheet when table is not specified"""
+        data = load_data(str(FIXTURES_DIR / 'sample.xlsx'), format='excel')
+        assert len(data) == 3
+        assert data[0]['name'] == 'Arthur'
+
+    def test_load_excel_with_query(self):
+        """Apply SQL query to Excel data"""
+        data = load_data(
+            str(FIXTURES_DIR / 'sample.xlsx'),
+            format='excel',
+            table='items',
+            query='SELECT * FROM data WHERE category = "A"'
+        )
+        assert len(data) == 2
+        assert data[0]['name'] == 'Arthur'
+        assert data[1]['name'] == 'Zaphod'
+
+    def test_load_excel_no_inline(self):
+        """Excel does not support inline data"""
+        with pytest.raises(ValueError, match="does not support inline data"):
+            load_data(StringIO("dummy"), format='excel')
+
+    def test_load_excel_no_openpyxl(self, monkeypatch):
+        """Error message when openpyxl is not installed"""
+        import pandoc_embedz.data_loader as dl
+        monkeypatch.setattr(dl, 'openpyxl', None)
+        with pytest.raises(ImportError, match="openpyxl"):
+            load_data(str(FIXTURES_DIR / 'sample.xlsx'), format='excel')
+
+    def test_load_excel_skips_blank_rows_and_columns(self, tmp_path):
+        """Leading blank rows and all-blank columns are skipped"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append([])                              # blank row
+        ws.append([])                              # blank row
+        ws.append([None, 'name', 'value', None])   # header with blank cols
+        ws.append([None, 'Arthur', 42, None])
+        ws.append([None, 'Ford', 100, None])
+        path = str(tmp_path / 'blank.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel')
+        assert len(data) == 2
+        assert data[0] == {'name': 'Arthur', 'value': 42}
+        assert data[1] == {'name': 'Ford', 'value': 100}
+
+    def test_load_excel_skips_blank_rows_without_header(self, tmp_path):
+        """Blank rows/columns skipped in headerless mode too"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append([])
+        ws.append([None, 'Arthur', 42, None])
+        ws.append([None, 'Ford', 100, None])
+        path = str(tmp_path / 'blank_noheader.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', has_header=False)
+        assert len(data) == 2
+        assert data[0] == ['Arthur', 42]
+        assert data[1] == ['Ford', 100]
+
+    def test_load_excel_empty_sheet(self, tmp_path, capsys):
+        """Empty sheet returns empty list with warning"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        # Don't add any data
+        path = str(tmp_path / 'empty.xlsx')
+        wb.save(path)
+
+        assert load_data(path, format='excel') == []
+        assert 'contains no data' in capsys.readouterr().err
+
+        assert load_data(path, format='excel', has_header=False) == []
+
+    def test_load_excel_transpose_with_header(self, tmp_path):
+        """Transpose swaps rows and columns, first column becomes header"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['name', 'Arthur', 'Ford', 'Zaphod'])
+        ws.append(['value', 42, 100, 99])
+        ws.append(['category', 'A', 'B', 'A'])
+        path = str(tmp_path / 'transposed.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', transpose=True)
+        assert len(data) == 3
+        assert data[0] == {'name': 'Arthur', 'value': 42, 'category': 'A'}
+        assert data[1] == {'name': 'Ford', 'value': 100, 'category': 'B'}
+        assert data[2] == {'name': 'Zaphod', 'value': 99, 'category': 'A'}
+
+    def test_load_excel_transpose_without_header(self, tmp_path):
+        """Transpose without header returns list of lists"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Arthur', 'Ford'])
+        ws.append([42, 100])
+        path = str(tmp_path / 'transposed_noheader.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', transpose=True, has_header=False)
+        assert len(data) == 2
+        assert data[0] == ['Arthur', 42]
+        assert data[1] == ['Ford', 100]
+
+    def test_load_excel_transpose_with_query(self, tmp_path):
+        """Transpose works with SQL query"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['name', 'Arthur', 'Ford', 'Zaphod'])
+        ws.append(['value', 42, 100, 99])
+        path = str(tmp_path / 'transposed_query.xlsx')
+        wb.save(path)
+
+        data = load_data(
+            path, format='excel', transpose=True,
+            query='SELECT * FROM data WHERE value >= 99'
+        )
+        assert len(data) == 2
+        assert data[0]['name'] == 'Ford'
+        assert data[1]['name'] == 'Zaphod'
+
+    def test_load_excel_skiprows(self, tmp_path):
+        """Skip leading description rows"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Annual Report 2024'])
+        ws.append(['Generated: 2024-04-01'])
+        ws.append([])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        ws.append(['Ford', 100])
+        path = str(tmp_path / 'with_title.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', skiprows=2)
+        assert len(data) == 2
+        assert data[0] == {'name': 'Arthur', 'value': 42}
+        assert data[1] == {'name': 'Ford', 'value': 100}
+
+    def test_load_excel_skiprows_pattern_any_column(self, tmp_path):
+        """Skip rows by pattern matching any column"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Title'])
+        ws.append(['Description'])
+        ws.append([])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        path = str(tmp_path / 'pattern.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', skiprows='name')
+        assert len(data) == 1
+        assert data[0] == {'name': 'Arthur', 'value': 42}
+
+    def test_load_excel_skiprows_pattern_specific_column(self, tmp_path):
+        """Skip rows by pattern matching a specific column"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['info', 'Title'])
+        ws.append([])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        path = str(tmp_path / 'col_pattern.xlsx')
+        wb.save(path)
+
+        # Column 2 contains "value" in the header row
+        data = load_data(path, format='excel', skiprows='2:value')
+        assert len(data) == 1
+        assert data[0] == {'name': 'Arthur', 'value': 42}
+
+    def test_load_excel_skiprows_pattern_not_found(self, tmp_path):
+        """Error when skiprows pattern not found"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        path = str(tmp_path / 'no_match.xlsx')
+        wb.save(path)
+
+        with pytest.raises(ValueError, match="not found"):
+            load_data(path, format='excel', skiprows='nonexistent')
+
+    def test_load_excel_empty_header_column(self, tmp_path):
+        """Empty first header cell gets replaced with column_N"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append([None, '4月', '5月', '6月'])
+        ws.append(['件数', 10, 20, 30])
+        ws.append(['割合', 0.1, 0.2, 0.3])
+        path = str(tmp_path / 'empty_header.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel')
+        assert len(data) == 2
+        assert data[0]['column_0'] == '件数'
+        assert data[0]['4月'] == 10
+        assert data[1]['column_0'] == '割合'
+        assert data[1]['6月'] == 0.3
+
+    def test_load_excel_duplicate_column_names(self, tmp_path):
+        """Duplicate column names get numeric suffix"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['name', 'value', 'value'])
+        ws.append(['Arthur', 42, 100])
+        path = str(tmp_path / 'dup_cols.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel')
+        assert len(data) == 1
+        assert data[0]['name'] == 'Arthur'
+        assert data[0]['value'] == 42
+        assert data[0]['value_1'] == 100
+
+    def test_load_excel_whitespace_column_names(self, tmp_path):
+        """Column names with leading/trailing whitespace are stripped"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append([' name ', ' value '])
+        ws.append(['Arthur', 42])
+        path = str(tmp_path / 'ws_cols.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel')
+        assert data[0]['name'] == 'Arthur'
+        assert data[0]['value'] == 42
+
+    def test_load_excel_nan_in_data_without_header(self, tmp_path):
+        """NaN values in headerless data become empty strings"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append([None, '4月', '5月'])
+        ws.append(['件数', 10, None])
+        path = str(tmp_path / 'nan_data.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', has_header=False)
+        assert data[0] == ['', '4月', '5月']
+        assert data[1] == ['件数', 10, '']
+
+    def test_excel_auto_detect(self):
+        """Format auto-detection for .xlsx files"""
+        data = load_data(str(FIXTURES_DIR / 'sample.xlsx'))
+        assert len(data) == 3
+        assert data[0]['name'] == 'Arthur'
