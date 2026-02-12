@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.18.1] - 2026-02-12
+
+### Fixed
+- Strip trailing NaN/None from ragged rows in CSV/SSV with `header=false`
+  - pandas 2.x pads short rows with `None`, pandas 3.0 uses `float('nan')`
+  - Both are now removed from row tails, preventing "nan" in rendered output
+
 ## [0.18.0] - 2026-02-12
 
 ### Added
