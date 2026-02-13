@@ -720,7 +720,7 @@ query: |
 | `file` | File path (required) | `file: data/report.xlsx` |
 | `format` | Override format auto-detection | `format: tsv` |
 | `table` | Sheet name (Excel) or table name (SQLite) | `table: Sheet1` |
-| `skiprows` | Skip leading rows (int or pattern string) | `skiprows: name` |
+| `skiprows` | Skip leading rows (int, pattern string, or list of patterns) | `skiprows: name` or `skiprows: [year, month]` |
 | `transpose` | Swap rows and columns (Excel) | `transpose: true` |
 
 **Mixing with plain strings:**

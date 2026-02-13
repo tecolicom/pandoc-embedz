@@ -840,6 +840,22 @@ skiprows: 2
 ```
 ````
 
+リスト形式で複数のパターンを指定すると、すべてが同一行に含まれる行を検索します（AND 条件）:
+
+````markdown
+```embedz
+---
+data: report.xlsx
+skiprows: [年, 月]
+---
+{% for row in data %}
+- {{ row.年 }}-{{ row.月 }}: {{ row.値 }}
+{% endfor %}
+```
+````
+
+各要素は `"N:テキスト"` 形式にも対応しています。ヘッダー行の項目が個別には他の行にも出現するが、組み合わせでは一意になる場合に有用です。
+
 SQL クエリも CSV と同様に使用できます:
 
 ````markdown
@@ -1207,7 +1223,7 @@ ID  Name   Description
 | `columns` | SSV フォーマットの固定カラム数（最後のカラムが残りの内容を取得） | `columns: 3` |
 | `table` | SQLite テーブル名または Excel シート名 | `table: users` |
 | `transpose` | Excel データの行と列を入れ替え（デフォルト: false） | `transpose: true` |
-| `skiprows` | スキップする行: 整数（行数）、文字列（セル値が一致する行を検索）、`"N:テキスト"` （N列目で検索） | `skiprows: 3` または `skiprows: "氏名"` または `skiprows: "1:氏名"` |
+| `skiprows` | スキップする行: 整数（行数）、文字列（セル値が一致する行を検索）、`"N:テキスト"` （N列目で検索）、リスト形式（全パターンが一致する行を検索） | `skiprows: 3` または `skiprows: "氏名"` または `skiprows: [年, 月]` |
 | `query` | SQLite、CSV/TSV フィルタリング、またはマルチテーブル JOIN 用の SQL クエリ（マルチテーブルモードに必須） | `query: SELECT * FROM data WHERE active=1` |
 | `config` | インライン設定の前にマージされる外部 YAML 設定ファイル（文字列またはリスト） | `config: config/base.yaml` |
 

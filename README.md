@@ -841,6 +841,22 @@ Use `"N:text"` to match a specific column (1-based):
 ```
 ````
 
+Use a list to require multiple patterns in the same row (AND logic):
+
+````markdown
+```embedz
+---
+data: report.xlsx
+skiprows: [year, month]
+---
+{% for row in data %}
+- {{ row.year }}-{{ row.month }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+Each element can also use the `"N:text"` format. This is useful when a header row contains items that might appear elsewhere individually, but are unique in combination.
+
 SQL queries work the same way as with CSV:
 
 ````markdown
@@ -1208,7 +1224,7 @@ When `columns=3` is specified, the data is split into exactly 3 columns. The las
 | `columns` | Fixed column count for SSV format (last column gets remaining content) | `columns: 3` |
 | `table` | SQLite table name or Excel sheet name | `table: users` |
 | `transpose` | Swap rows and columns in Excel data (default: false) | `transpose: true` |
-| `skiprows` | Rows to skip: integer (count), string (find row with cell matching text), or `"N:text"` (match column N) | `skiprows: 3` or `skiprows: "name"` or `skiprows: "1:name"` |
+| `skiprows` | Rows to skip: integer (count), string (find row with cell matching text), `"N:text"` (match column N), or list of patterns (all must match) | `skiprows: 3` or `skiprows: "name"` or `skiprows: [year, month]` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
 | `config` | External YAML config file(s) merged before inline settings (string or list) | `config: config/base.yaml` |
 

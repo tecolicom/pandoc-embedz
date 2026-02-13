@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- `skiprows` parameter now accepts a list of patterns (AND logic: all must match in the same row)
+  - Example: `skiprows: [年, 月]` finds the row containing both "年" and "月"
+  - Each element supports existing `"N:text"` format
+- `make test` target in Makefile
+
 ## [0.19.0] - 2026-02-13
 
 ### Added

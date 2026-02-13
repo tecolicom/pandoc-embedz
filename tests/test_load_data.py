@@ -1040,6 +1040,66 @@ class TestLoadExcel:
         assert len(data) == 1
         assert data[0] == {'name': 'Arthur', 'value': 42}
 
+    def test_load_excel_skiprows_pattern_list(self, tmp_path):
+        """Skip rows by list of patterns (all must match)"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Title', 'Report'])
+        ws.append(['年', '月', '件数'])
+        ws.append([2024, 4, 100])
+        ws.append([2024, 5, 200])
+        path = str(tmp_path / 'list_pattern.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', skiprows=['年', '月'])
+        assert len(data) == 2
+        assert data[0] == {'年': 2024, '月': 4, '件数': 100}
+        assert data[1] == {'年': 2024, '月': 5, '件数': 200}
+
+    def test_load_excel_skiprows_pattern_list_with_column(self, tmp_path):
+        """Skip rows by list with N:text format"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Header', 'Info'])
+        ws.append(['年', '月', '件数'])
+        ws.append([2024, 4, 100])
+        path = str(tmp_path / 'list_col.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', skiprows=['1:年', '2:月'])
+        assert len(data) == 1
+        assert data[0] == {'年': 2024, '月': 4, '件数': 100}
+
+    def test_load_excel_skiprows_pattern_list_not_found(self, tmp_path):
+        """Error when not all list patterns found in same row"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['年', '件数'])
+        ws.append([2024, 100])
+        path = str(tmp_path / 'list_notfound.xlsx')
+        wb.save(path)
+
+        with pytest.raises(ValueError, match="not found"):
+            load_data(path, format='excel', skiprows=['年', '月'])
+
+    def test_load_excel_skiprows_single_element_list(self, tmp_path):
+        """Single-element list behaves like a string pattern"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Title'])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        path = str(tmp_path / 'single_list.xlsx')
+        wb.save(path)
+
+        data = load_data(path, format='excel', skiprows=['name'])
+        assert len(data) == 1
+        assert data[0] == {'name': 'Arthur', 'value': 42}
+
     def test_load_excel_skiprows_pattern_not_found(self, tmp_path):
         """Error when skiprows pattern not found"""
         import openpyxl

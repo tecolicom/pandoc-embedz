@@ -230,36 +230,71 @@ def _clean_column_names(columns: list) -> list:
     return cleaned
 
 
-def _skip_to_matching_row(
-    df: pd.DataFrame, pattern: str, source: str, table: Optional[str]
-) -> pd.DataFrame:
-    """Skip rows until finding one with a cell exactly matching the pattern.
+def _parse_skip_pattern(pattern: str) -> Tuple[Optional[int], str]:
+    """Parse a skiprows pattern string into (column_index, search_text).
 
-    Pattern formats:
-        "text"   - find row with a cell exactly matching "text"
-        "N:text" - find row where column N (1-based) exactly matches "text"
+    Args:
+        pattern: Pattern string - either "text" or "N:text" (N is 1-based)
 
-    Returns DataFrame starting from the matching row.
-    Raises ValueError if no matching row is found.
+    Returns:
+        Tuple of (column_index, search_text).
+        column_index is None for "text" format, or 0-based int for "N:text".
     """
-    # Parse "N:text" format (N is 1-based column index)
-    col_index = None
-    search_text = pattern
     if ':' in pattern:
         prefix, rest = pattern.split(':', 1)
         try:
-            col_index = int(prefix) - 1
-            search_text = rest
+            return (int(prefix) - 1, rest)
         except ValueError:
             pass  # Not "N:text" format, use entire string
+    return (None, pattern)
 
+
+def _row_matches_pattern(
+    df: pd.DataFrame, row_idx: int, col_index: Optional[int], search_text: str
+) -> bool:
+    """Check if a row contains a cell exactly matching the given text.
+
+    Args:
+        df: DataFrame to search
+        row_idx: Row index to check
+        col_index: Column index (0-based) to check, or None to check all columns
+        search_text: Text to match (exact match via str comparison)
+
+    Returns:
+        True if matching cell found, False otherwise.
+    """
+    cols = [col_index] if col_index is not None else range(len(df.columns))
+    for j in cols:
+        if j < len(df.columns):
+            cell = df.iloc[row_idx, j]
+            if pd.notna(cell) and str(cell) == search_text:
+                return True
+    return False
+
+
+def _skip_to_matching_row(
+    df: pd.DataFrame, pattern: Union[str, List[str]], source: str, table: Optional[str]
+) -> pd.DataFrame:
+    """Skip rows until finding one matching the pattern(s).
+
+    Args:
+        df: DataFrame to search
+        pattern: Pattern string, or list of pattern strings (AND logic).
+            Each pattern can be "text" or "N:text" (N is 1-based column index).
+        source: File path (for error messages)
+        table: Sheet name (for error messages), or None
+
+    Returns:
+        DataFrame starting from the matching row.
+
+    Raises:
+        ValueError: If no matching row is found.
+    """
+    patterns = pattern if isinstance(pattern, list) else [pattern]
+    parsed = [_parse_skip_pattern(p) for p in patterns]
     for i in range(len(df)):
-        cols = [col_index] if col_index is not None else range(len(df.columns))
-        for j in cols:
-            if j < len(df.columns):
-                cell = df.iloc[i, j]
-                if pd.notna(cell) and str(cell) == search_text:
-                    return df.iloc[i:].reset_index(drop=True)
+        if all(_row_matches_pattern(df, i, col_idx, text) for col_idx, text in parsed):
+            return df.iloc[i:].reset_index(drop=True)
 
     sheet_info = f" (sheet: {table})" if table else ""
     raise ValueError(
@@ -307,7 +342,7 @@ def _load_excel(
     if isinstance(skiprows, int):
         read_kwargs['skiprows'] = skiprows
     df = pd.read_excel(source, **read_kwargs)
-    if isinstance(skiprows, str):
+    if isinstance(skiprows, (str, list)):
         df = _skip_to_matching_row(df, skiprows, source, table)
 
     # Drop rows and columns where all values are NaN

@@ -681,7 +681,7 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 |-----------|------|-------------|
 | `table` | string | Sheet name (default: first sheet) |
 | `transpose` | bool | Swap rows and columns |
-| `skiprows` | int or string | Skip leading rows: `3` (count), `"氏名"` (find cell), `"1:氏名"` (find in column 1) |
+| `skiprows` | int, string, or list | Skip leading rows: `3` (count), `"氏名"` (find cell), `"1:氏名"` (find in column 1), `[年, 月]` (all must match) |
 
 **Key behaviors:**
 - Blank rows and all-blank columns are automatically removed
@@ -689,7 +689,7 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 - Duplicate header names get a suffix: `score`, `score_1`, `score_2`, ...
 - Empty cells in data rows become empty strings
 - Empty sheets return `[]` with a warning to stderr
-- `skiprows` string pattern uses exact match (not substring)
+- `skiprows` string pattern uses exact match (not substring); list requires all patterns to match in the same row
 - `query` parameter works via `_apply_sql_query` (same as CSV)
 - Inline data not supported (raises `ValueError`)
 - Multi-table SQL supported via `file:` dict syntax (see below)
@@ -698,7 +698,7 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 
 **Processing order:**
 1. `pd.read_excel` (with integer `skiprows` if given)
-2. Pattern-based row skip (if `skiprows` is string)
+2. Pattern-based row skip (if `skiprows` is string or list)
 3. `dropna(how='all')` on rows and columns
 4. Transpose (if `transpose=True`)
 5. NaN → empty string
