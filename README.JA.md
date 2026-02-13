@@ -733,7 +733,7 @@ query: "SELECT * FROM data WHERE {{ global.date_filter }}"
 
 変数は定義順に展開されるため、後の変数は前の変数を参照できます。
 
-テンプレート展開は `global` と `with` 変数で動作し、すべてのクエリ機能（CSV、TSV、SSV、SQLite データベース）をサポートします。
+テンプレート展開は `global` と `with` 変数で動作し、すべてのクエリ機能（CSV、TSV、SSV、Excel、SQLite データベース）をサポートします。
 
 ### SQLiteデータベース
 
@@ -936,6 +936,29 @@ data:
 # {{ data.config.title }}
 {% for row in data.sales %}
 - {{ row.product }}: ¥{{ "{:,}".format(row.amount|int) }}
+{% endfor %}
+```
+````
+
+**パラメータ付き `file:` dict（Excel シートなど）:**
+````markdown
+```embedz
+---
+data:
+  incidents:
+    file: data/report.xlsx
+    table: Incidents        # シート名
+  phishing:
+    file: data/report.xlsx
+    table: Phishing
+    skiprows: year          # "year" ヘッダーまで行をスキップ
+query: |
+  SELECT i.month, i.count, p.domestic
+  FROM incidents i
+  JOIN phishing p ON i.month = p.month
+---
+{% for row in data %}
+- {{ row.month }}: {{ row.count }} (domestic: {{ row.domestic }})
 {% endfor %}
 ```
 ````
@@ -1171,7 +1194,7 @@ ID  Name   Description
 
 | キー | 説明 | 例 |
 |------|------|-----|
-| `data` | データソース: ファイルパス（文字列）、複数ファイル（dict）、またはインラインデータ（複数行文字列または `data` キーを持つdict） | `data: stats.csv` または `data: {sales: sales.csv}` または `data: \|<br>  name,value<br>  ...` |
+| `data` | データソース: ファイルパス（文字列）、複数ファイル（dict）、パラメータ付き `file:` dict、またはインラインデータ（複数行文字列または `data` キーを持つdict） | `data: stats.csv` または `data: {sales: sales.csv}` または `data: {t1: {file: data.xlsx, table: Sheet1}}` または `data: \|<br>  name,value<br>  ...` |
 | `format` | データ形式: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `excel`, `lines`（拡張子から自動検出） | `format: json` |
 | `define` | テンプレート名（定義用） | `define: report-template` |
 | `template`（または `as`） | 使用するテンプレート（両方のエイリアスが動作、YAML では `template` 推奨、属性では `as` が短い） | `template: report-template` または `as: report-template` |

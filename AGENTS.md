@@ -692,7 +692,7 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 - `skiprows` string pattern uses exact match (not substring)
 - `query` parameter works via `_apply_sql_query` (same as CSV)
 - Inline data not supported (raises `ValueError`)
-- Multi-table SQL not supported (single-table only)
+- Multi-table SQL supported via `file:` dict syntax (see below)
 
 **Implementation:** `_load_excel()`, `_clean_column_names()`, and `_skip_to_matching_row()` in `data_loader.py`
 
@@ -704,6 +704,33 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 5. NaN → empty string
 6. Header extraction + column name cleanup (if `has_header=True`)
 7. SQL query (if `query` given)
+
+### `file:` Dict Syntax for Multi-Table Data
+
+**Status:** ✅ Implemented
+
+In multi-table `data:` sections, use `file:` dict to pass per-table parameters:
+
+```yaml
+data:
+  sheet1:
+    file: data/report.xlsx
+    table: Sheet1
+  sheet2:
+    file: data/report.xlsx
+    table: Sheet2
+    skiprows: 年
+  csv_table: data/other.csv
+query: |
+  SELECT ... FROM sheet1 JOIN sheet2 ON ...
+```
+
+**Key points:**
+- `file:` dict, plain string paths, inline data, and variable references can be mixed freely
+- All formats (CSV, TSV, SSV, Excel, JSON, YAML, SQLite, etc.) work in multi-table SQL mode
+- Parameters in `file:` dict (except `file` and `format`) are passed as `load_data()` kwargs
+- `_normalize_data_source()` returns a 3-tuple: `(source, format, load_kwargs)`
+- `_query_tables()` uses `load_data()` for all formats (no longer restricted to `SEP_MAP`)
 
 ### Alias Feature
 

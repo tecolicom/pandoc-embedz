@@ -50,14 +50,6 @@ FORMAT_EXTENSIONS = {
 
 DEFAULT_FORMAT = 'csv'
 
-# Separator mapping for tabular formats
-SEP_MAP = {
-    'tsv': '\t',
-    'ssv': r'\s+',
-    'spaces': r'\s+',
-    'csv': ',',
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
 # SQL Query Support
 
@@ -85,23 +77,16 @@ def _apply_sql_query_multi(tables: Dict[str, pd.DataFrame], query: str) -> List[
 # ─────────────────────────────────────────────────────────────────────────────
 # Format Loaders
 
-def _build_csv_read_kwargs(sep: str, has_header: Optional[bool] = None) -> Dict[str, Any]:
+def _build_csv_read_kwargs(sep: str) -> Dict[str, Any]:
     r"""Build pandas read_csv kwargs for the given separator.
 
     Args:
         sep: Separator string (e.g., ',', '\t', r'\s+')
-        has_header: If provided, sets the 'header' parameter
 
     Returns:
         Dict of kwargs for pd.read_csv()
     """
-    kwargs: Dict[str, Any] = {}
-
-    if sep is not None:
-        kwargs['sep'] = sep
-
-    if has_header is not None:
-        kwargs['header'] = 0 if has_header else None
+    kwargs: Dict[str, Any] = {'sep': sep}
 
     if sep == r'\s+':
         kwargs['engine'] = 'python'
@@ -482,23 +467,31 @@ def _normalize_data_source(
     value: Union[str, Dict[str, Any]],
     table_name: str,
     data_format: Optional[str] = None,
-    validate_path: bool = False
-) -> Tuple[Union[str, StringIO], str]:
-    """Normalize data source specification to (source, format) tuple"""
-    from .config import validate_file_path
+) -> Tuple[Union[str, StringIO], str, Dict[str, Any]]:
+    """Normalize data source specification to (source, format, load_kwargs) tuple.
 
+    Path validation is not performed here; load_data() handles it via
+    validate_file_path().
+    """
     if isinstance(value, dict):
-        if 'data' not in value:
+        if 'data' in value:
+            # Inline data: {data: "...", format: "csv"}
+            return StringIO(value['data']), value.get('format', DEFAULT_FORMAT), {}
+        elif 'file' in value:
+            # File with parameters: {file: "path.xlsx", table: "Sheet1", skiprows: "年"}
+            filepath = value['file']
+            fmt = value.get('format') or data_format or guess_format_from_filename(filepath)
+            extra = {k: v for k, v in value.items() if k not in ('file', 'format')}
+            return filepath, fmt, extra
+        else:
             raise ValueError(
-                f"Inline data dict for table '{table_name}' must have 'data' key"
+                f"Inline data dict for table '{table_name}' must have 'data' or 'file' key"
             )
-        return StringIO(value['data']), value.get('format', DEFAULT_FORMAT)
     elif isinstance(value, str) and '\n' in value:
-        return StringIO(value), DEFAULT_FORMAT
+        return StringIO(value), DEFAULT_FORMAT, {}
     else:
         file_format = data_format or guess_format_from_filename(value)
-        source = validate_file_path(value) if validate_path else value
-        return source, file_format
+        return value, file_format, {}
 
 def load_data(
     source: Union[str, StringIO],
@@ -547,8 +540,17 @@ def _is_resolved_data(value: Any) -> bool:
     """Check if value is already resolved variable data (not inline data spec)."""
     if isinstance(value, list):
         return True
-    # Inline data dicts have 'data' key; resolved dicts don't
-    return isinstance(value, dict) and 'data' not in value and 'format' not in value
+    # Inline data dicts have 'data' key; file dicts have 'file' key
+    return isinstance(value, dict) and 'data' not in value and 'format' not in value and 'file' not in value
+
+
+def _to_dataframe(value: Any) -> pd.DataFrame:
+    """Convert loaded data to DataFrame for SQL queries."""
+    if isinstance(value, list):
+        return pd.DataFrame(value)
+    if isinstance(value, dict):
+        return pd.DataFrame(list(value.values()))
+    return pd.DataFrame()
 
 
 def _query_tables(
@@ -558,29 +560,8 @@ def _query_tables(
     query: str
 ) -> List[Dict[str, Any]]:
     """Load multiple tables and execute SQL query"""
-    tables = {}
-    for table_name, value in data_file.items():
-        if _is_resolved_data(value):
-            data_list = list(value.values()) if isinstance(value, dict) else value
-            tables[table_name] = pd.DataFrame(data_list)
-            continue
-
-        source, file_format = _normalize_data_source(
-            value, table_name, data_format, validate_path=True
-        )
-
-        if file_format not in SEP_MAP:
-            raise ValueError(
-                f"Multi-table SQL queries only support CSV, TSV, and SSV formats. "
-                f"Got '{file_format}' for table '{table_name}'"
-            )
-
-        # Load into DataFrame using separator mapping
-        sep = SEP_MAP[file_format]
-        read_kwargs = _build_csv_read_kwargs(sep, has_header)
-
-        tables[table_name] = pd.read_csv(source, **read_kwargs)
-
+    datasets = _load_tables(data_file, data_format, has_header, {})
+    tables = {name: _to_dataframe(data) for name, data in datasets.items()}
     return _apply_sql_query_multi(tables, query)
 
 def _load_tables(
@@ -595,14 +576,15 @@ def _load_tables(
         if _is_resolved_data(value):
             datasets[table_name] = value
             continue
-        source, file_format = _normalize_data_source(
-            value, table_name, data_format, validate_path=False
+        source, file_format, extra_kwargs = _normalize_data_source(
+            value, table_name, data_format
         )
+        merged_kwargs = {**load_kwargs, **extra_kwargs}
         datasets[table_name] = load_data(
             source,
             format=file_format,
             has_header=has_header,
-            **load_kwargs
+            **merged_kwargs
         )
     return datasets
 

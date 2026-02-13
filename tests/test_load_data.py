@@ -1120,3 +1120,307 @@ class TestLoadExcel:
         data = load_data(str(FIXTURES_DIR / 'sample.xlsx'))
         assert len(data) == 3
         assert data[0]['name'] == 'Arthur'
+
+
+class TestNormalizeDataSource:
+    """Tests for _normalize_data_source 3-tuple return"""
+
+    def test_string_path_returns_3_tuple(self):
+        """String path returns (source, format, {})"""
+        from pandoc_embedz.data_loader import _normalize_data_source
+        source, fmt, kwargs = _normalize_data_source('data.csv', 'test')
+        assert source == 'data.csv'
+        assert fmt == 'csv'
+        assert kwargs == {}
+
+    def test_inline_data_returns_3_tuple(self):
+        """Inline data dict returns (StringIO, format, {})"""
+        from pandoc_embedz.data_loader import _normalize_data_source
+        source, fmt, kwargs = _normalize_data_source(
+            {'data': 'a,b\n1,2'}, 'test'
+        )
+        assert isinstance(source, StringIO)
+        assert fmt == 'csv'
+        assert kwargs == {}
+
+    def test_file_dict_returns_3_tuple(self):
+        """file: dict returns (path, format, extra_kwargs)"""
+        from pandoc_embedz.data_loader import _normalize_data_source
+        source, fmt, kwargs = _normalize_data_source(
+            {'file': 'data/test.xlsx', 'table': 'Sheet1', 'skiprows': 'Year'},
+            'test'
+        )
+        assert source == 'data/test.xlsx'
+        assert fmt == 'excel'
+        assert kwargs == {'table': 'Sheet1', 'skiprows': 'Year'}
+
+    def test_file_dict_with_explicit_format(self):
+        """file: dict with explicit format overrides auto-detection"""
+        from pandoc_embedz.data_loader import _normalize_data_source
+        source, fmt, kwargs = _normalize_data_source(
+            {'file': 'data.dat', 'format': 'tsv'},
+            'test'
+        )
+        assert fmt == 'tsv'
+        assert kwargs == {}
+
+    def test_file_dict_with_data_format_fallback(self):
+        """file: dict uses data_format when no format in dict or extension"""
+        from pandoc_embedz.data_loader import _normalize_data_source
+        source, fmt, kwargs = _normalize_data_source(
+            {'file': 'data.dat'},
+            'test',
+            data_format='json'
+        )
+        assert fmt == 'json'
+
+    def test_dict_without_data_or_file_raises(self):
+        """Dict without 'data' or 'file' key raises ValueError"""
+        from pandoc_embedz.data_loader import _normalize_data_source
+        with pytest.raises(ValueError, match="must have 'data' or 'file' key"):
+            _normalize_data_source({'table': 'Sheet1'}, 'test')
+
+    def test_multiline_string_returns_3_tuple(self):
+        """Multiline string returns (StringIO, csv, {})"""
+        from pandoc_embedz.data_loader import _normalize_data_source
+        source, fmt, kwargs = _normalize_data_source('a,b\n1,2', 'test')
+        assert isinstance(source, StringIO)
+        assert fmt == 'csv'
+        assert kwargs == {}
+
+
+class TestIsResolvedData:
+    """Tests for _is_resolved_data with file: dict"""
+
+    def test_list_is_resolved(self):
+        from pandoc_embedz.data_loader import _is_resolved_data
+        assert _is_resolved_data([1, 2, 3]) is True
+
+    def test_plain_dict_is_resolved(self):
+        from pandoc_embedz.data_loader import _is_resolved_data
+        assert _is_resolved_data({'key': 'value'}) is True
+
+    def test_inline_data_dict_is_not_resolved(self):
+        from pandoc_embedz.data_loader import _is_resolved_data
+        assert _is_resolved_data({'data': 'a,b\n1,2'}) is False
+
+    def test_format_dict_is_not_resolved(self):
+        from pandoc_embedz.data_loader import _is_resolved_data
+        assert _is_resolved_data({'format': 'csv'}) is False
+
+    def test_file_dict_is_not_resolved(self):
+        from pandoc_embedz.data_loader import _is_resolved_data
+        assert _is_resolved_data({'file': 'data.xlsx', 'table': 'Sheet1'}) is False
+
+
+class TestMultiTableExcel:
+    """Tests for multi-table SQL with Excel files"""
+
+    @pytest.fixture(autouse=True)
+    def check_openpyxl(self):
+        pytest.importorskip("openpyxl")
+
+    def test_multi_table_excel_with_query(self, tmp_path):
+        """Multi-table SQL query with Excel data sources"""
+        import openpyxl
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        # Create Excel file with two sheets
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = 'products'
+        ws1.append(['product_id', 'name', 'price'])
+        ws1.append([1, 'Widget', 1280])
+        ws1.append([2, 'Gadget', 2480])
+
+        ws2 = wb.create_sheet('sales')
+        ws2.append(['product_id', 'quantity'])
+        ws2.append([1, 5])
+        ws2.append([2, 3])
+
+        path = str(tmp_path / 'multi.xlsx')
+        wb.save(path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data:
+  products:
+    file: {path}
+    table: products
+  sales:
+    file: {path}
+    table: sales
+query: |
+  SELECT p.name, p.price, s.quantity
+  FROM sales s
+  JOIN products p ON s.product_id = p.product_id
+  ORDER BY p.name
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: {{{{ row.quantity }}}} units at ¥{{{{ row.price }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Gadget' in markdown
+        assert 'Widget' in markdown
+        assert '5 units' in markdown
+        assert '3 units' in markdown
+
+    def test_multi_table_excel_with_skiprows(self, tmp_path):
+        """Multi-table SQL with skiprows parameter in file: dict"""
+        import openpyxl
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'data'
+        ws.append(['Report Title'])
+        ws.append(['Generated 2024'])
+        ws.append([])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        ws.append(['Ford', 100])
+
+        path = str(tmp_path / 'skiprows.xlsx')
+        wb.save(path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data:
+  items:
+    file: {path}
+    table: data
+    skiprows: name
+query: |
+  SELECT * FROM items ORDER BY value DESC
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: {{{{ row.value }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Ford' in markdown
+        assert 'Arthur' in markdown
+
+    def test_multi_table_file_dict_without_query(self, tmp_path):
+        """Multi-table with file: dict but no query (direct access)"""
+        import openpyxl
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        wb = openpyxl.Workbook()
+        ws1 = wb.active
+        ws1.title = 'Sheet1'
+        ws1.append(['name', 'value'])
+        ws1.append(['Arthur', 42])
+        ws2 = wb.create_sheet('Sheet2')
+        ws2.append(['key', 'desc'])
+        ws2.append(['author', 'Douglas Adams'])
+
+        path = str(tmp_path / 'direct.xlsx')
+        wb.save(path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data:
+  products:
+    file: {path}
+    table: Sheet1
+  meta:
+    file: {path}
+    table: Sheet2
+---
+{{% for p in data.products %}}
+- {{{{ p.name }}}}: {{{{ p.value }}}}
+{{% endfor %}}
+Author: {{{{ data.meta[0].desc }}}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Arthur: 42' in markdown
+        assert 'Douglas Adams' in markdown
+
+    def test_multi_table_mixed_file_dict_and_string(self, tmp_path):
+        """Mix file: dict (Excel) with plain string (CSV)"""
+        import openpyxl
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'items'
+        ws.append(['id', 'name'])
+        ws.append([1, 'Widget'])
+        ws.append([2, 'Gadget'])
+
+        xlsx_path = str(tmp_path / 'items.xlsx')
+        wb.save(xlsx_path)
+
+        csv_path = str(tmp_path / 'prices.csv')
+        Path(csv_path).write_text('id,price\n1,1280\n2,2480\n')
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data:
+  items:
+    file: {xlsx_path}
+    table: items
+  prices: {csv_path}
+query: |
+  SELECT i.name, p.price
+  FROM items i JOIN prices p ON i.id = p.id
+  ORDER BY i.name
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: ¥{{{{ row.price }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Gadget' in markdown
+        assert 'Widget' in markdown
+        assert '1280' in markdown or '1,280' in markdown

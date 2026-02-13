@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0] - 2026-02-13
+
+### Added
+- `file:` dict syntax for multi-table `data:` sections
+  - Pass per-table parameters like `table`, `skiprows`, `transpose` to individual data sources
+  - Example: `data: {sheet1: {file: data.xlsx, table: Sheet1, skiprows: name}}`
+  - Mix freely with plain string paths, inline data, and variable references
+- Multi-table SQL support for all data formats (was CSV/TSV/SSV only)
+  - Excel, JSON, YAML, SQLite, and all other formats now work in multi-table `query:` mode
+  - `_query_tables` uses `load_data` instead of `pd.read_csv` directly
+
+### Changed
+- `_normalize_data_source` returns 3-tuple `(source, format, load_kwargs)` instead of 2-tuple
+- `_is_resolved_data` excludes dicts with `file` key from being treated as resolved data
+
 ## [0.18.1] - 2026-02-12
 
 ### Fixed

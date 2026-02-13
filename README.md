@@ -734,7 +734,7 @@ query: "SELECT * FROM data WHERE {{ global.date_filter }}"
 
 Variables are expanded in definition order, so later variables can reference earlier ones.
 
-Template expansion works with `global` and `with` variables, and supports all query features (CSV, TSV, SSV, and SQLite databases).
+Template expansion works with `global` and `with` variables, and supports all query features (CSV, TSV, SSV, Excel, and SQLite databases).
 
 ### SQLite Database
 
@@ -937,6 +937,29 @@ data:
 # {{ data.config.title }}
 {% for row in data.sales %}
 - {{ row.product }}: ¥{{ "{:,}".format(row.amount|int) }}
+{% endfor %}
+```
+````
+
+**`file:` dict with parameters (e.g., Excel sheets):**
+````markdown
+```embedz
+---
+data:
+  incidents:
+    file: data/report.xlsx
+    table: Incidents        # Sheet name
+  phishing:
+    file: data/report.xlsx
+    table: Phishing
+    skiprows: year          # Skip rows until "year" header
+query: |
+  SELECT i.month, i.count, p.domestic
+  FROM incidents i
+  JOIN phishing p ON i.month = p.month
+---
+{% for row in data %}
+- {{ row.month }}: {{ row.count }} (domestic: {{ row.domestic }})
 {% endfor %}
 ```
 ````
@@ -1172,7 +1195,7 @@ When `columns=3` is specified, the data is split into exactly 3 columns. The las
 
 | Key | Description | Example |
 |-----|-------------|---------|
-| `data` | Data source: file path (string), multiple files (dict), or inline data (multi-line string or dict with `data` key) | `data: stats.csv` or `data: {sales: sales.csv}` or `data: \|<br>  name,value<br>  ...` |
+| `data` | Data source: file path (string), multiple files (dict), `file:` dict with parameters, or inline data (multi-line string or dict with `data` key) | `data: stats.csv` or `data: {sales: sales.csv}` or `data: {t1: {file: data.xlsx, table: Sheet1}}` or `data: \|<br>  name,value<br>  ...` |
 | `format` | Data format: `csv`, `tsv`, `ssv`/`spaces`, `json`, `yaml`, `toml`, `sqlite`, `excel`, `lines` (auto-detected from extension) | `format: json` |
 | `define` | Template name (for definition) | `define: report-template` |
 | `template` (or `as`) | Template to use (both aliases work, `template` preferred in YAML, `as` shorter for attributes) | `template: report-template` or `as: report-template` |

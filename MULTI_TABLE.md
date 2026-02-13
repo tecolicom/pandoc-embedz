@@ -234,7 +234,8 @@ query: |
 **Key points:**
 - Specify `data:` as a dictionary where keys are table names for SQL
 - A `query:` parameter enables SQL mode
-- **Supported formats for SQL mode:** CSV, TSV, and SSV only (tabular data)
+- **Supported formats for SQL mode:** All tabular formats (CSV, TSV, SSV, Excel, JSON, YAML, SQLite, etc.)
+- **`file:` dict syntax:** Pass per-table parameters (e.g., `table`, `skiprows`) for formats like Excel
 - **Inline data supported:** You can use inline CSV data with SQL queries (see examples below)
 
 ## Understanding Data Flow
@@ -692,12 +693,59 @@ GROUP BY category
 HAVING total > 10000
 ```
 
+## `file:` Dict Syntax
+
+For data sources that require additional parameters (e.g., Excel sheets, skiprows),
+use the `file:` dict syntax instead of a plain file path string:
+
+```yaml
+data:
+  sheet1:
+    file: data/report.xlsx
+    table: Sheet1
+  sheet2:
+    file: data/report.xlsx
+    table: Sheet2
+    skiprows: name
+query: |
+  SELECT s1.category, s2.total
+  FROM sheet1 s1
+  JOIN sheet2 s2 ON s1.id = s2.id
+```
+
+**Supported parameters in `file:` dict:**
+
+| Parameter | Description | Example |
+|-----------|-------------|---------|
+| `file` | File path (required) | `file: data/report.xlsx` |
+| `format` | Override format auto-detection | `format: tsv` |
+| `table` | Sheet name (Excel) or table name (SQLite) | `table: Sheet1` |
+| `skiprows` | Skip leading rows (int or pattern string) | `skiprows: name` |
+| `transpose` | Swap rows and columns (Excel) | `transpose: true` |
+
+**Mixing with plain strings:**
+
+```yaml
+data:
+  excel_data:
+    file: data/report.xlsx
+    table: Sales
+  csv_data: data/products.csv
+  inline_data: |
+    id,name
+    1,Widget
+query: |
+  SELECT ...
+```
+
+All three forms (file dict, string path, inline data) can be mixed freely
+in the same `data:` section.
+
 ## Limitations
 
-1. **Format Support**: Only CSV, TSV, and SSV formats are supported for multi-table queries
-2. **Memory**: All tables are loaded into memory - not suitable for very large datasets (>100K rows per table)
-3. **Query Required**: The `query:` parameter is mandatory for multi-table mode
-4. **SQLite Syntax**: Uses SQLite SQL dialect
+1. **Memory**: All tables are loaded into memory - not suitable for very large datasets (>100K rows per table)
+2. **Query Required**: The `query:` parameter is mandatory for multi-table mode
+3. **SQLite Syntax**: Uses SQLite SQL dialect
 
 ## Backward Compatibility
 
@@ -706,6 +754,7 @@ The multi-table feature is fully backward compatible:
 | Single-file (original) | Multi-table (new) |
 |------------------------|-------------------|
 | `data: file.csv` | `data: {t1: a.csv, t2: b.csv}` |
+| `data: file.xlsx` (single table) | `data: {t1: {file: a.xlsx, table: Sheet1}}` |
 | Table name is always `data` | Table names are dictionary keys |
 | `query: SELECT * FROM data WHERE...` | `query: SELECT * FROM t1 JOIN t2...` |
 
