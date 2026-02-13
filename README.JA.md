@@ -601,6 +601,37 @@ dummy,0
 
 これらの機能により、強力なデータ処理、データベースアクセス、複雑なドキュメント生成ワークフローが可能になります。
 
+### CSV/TSV/SSV のコメント
+
+CSV、TSV、SSV ファイルを読み込む際、`#` で始まる行はデフォルトでコメントとしてスキップされます。自動生成したデータファイルにメタ情報や注意書きを付けるのに便利です:
+
+```csv
+# script/build_data.sh で自動生成 — 編集しないでください
+# 元データ: report.xlsx, シート: sales
+name,value
+Alice,100
+Bob,200
+```
+
+`comment` パラメータでコメントの扱いを制御できます:
+
+| モード | 動作 |
+|--------|------|
+| `line`（デフォルト） | `#` で始まるすべての行をスキップ |
+| `head` | 先頭の連続する `#` 行のみスキップ（データ行中の `#` は保持） |
+| `none` / `false` | コメント処理なし |
+| `inline` | クォートされていない `#` から行末までスキップ（pandas の `comment` 動作） |
+
+````markdown
+```{.embedz data=data.csv comment=head}
+{% for row in data %}
+- {{ row.name }}: {{ row.value }}
+{% endfor %}
+```
+````
+
+**注意:** CSV、TSV、SSV フォーマットのデフォルトは `line` モードです。その他のフォーマット（JSON、YAML 等）のデフォルトは `none` ですが、`comment` パラメータを明示的に指定することもできます。
+
 ### CSV/TSVへのSQLクエリ
 
 SQL を使用して CSV/TSV データのフィルタリング、集計、変換ができます。四半期レポート、データ分析、大規模データセットの処理に最適です:
@@ -1220,6 +1251,7 @@ ID  Name   Description
 | `alias` | すべての dict に代替キーを追加（bind/global の後に適用） | `alias: {description: label}` |
 | `preamble` | ドキュメント全体の制御構造（マクロ、`{% set %}`、インポート） | `preamble: \|`<br>`  {% set title = 'Report' %}` |
 | `header` | CSV/TSV/SSV にヘッダー行がある（デフォルト: true） | `header: false` |
+| `comment` | CSV/TSV/SSV のコメント処理: `line`（デフォルト、`#` 行をスキップ）、`head`（先頭のみ）、`none`/`false`（無効）、`inline`（クォートされていない `#` 以降行末まで） | `comment: none` |
 | `columns` | SSV フォーマットの固定カラム数（最後のカラムが残りの内容を取得） | `columns: 3` |
 | `table` | SQLite テーブル名または Excel シート名 | `table: users` |
 | `transpose` | Excel データの行と列を入れ替え（デフォルト: false） | `transpose: true` |

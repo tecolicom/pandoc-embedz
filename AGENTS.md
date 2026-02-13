@@ -669,6 +669,24 @@ bind:
   query: SELECT * FROM t1 JOIN t2 ON ...
   ```
 
+### CSV/TSV/SSV Comment Handling
+
+**Status:** ✅ Implemented
+
+Lines starting with `#` can be treated as comments in CSV/TSV/SSV files.
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `comment` | string or bool | `line` (CSV/TSV/SSV), `none` (others) | `line`: skip all `#` lines, `head`: leading `#` lines only, `none`/`false`: disable, `inline`: unquoted `#` to end of line |
+
+**Mode details:**
+- `head`: Only strips consecutive `#` lines at the start of the file
+- `line`: Strips all `#` lines anywhere in the file (default for CSV/TSV/SSV)
+- `inline`: Uses pandas `comment='#'` — skips from unquoted `#` to end of line (quoted `#` is preserved)
+- `none` / `false`: No comment handling
+
+**Implementation:** `_read_source()` in `data_loader.py` handles `head` and `line` modes as a pre-processing step before CSV parsing.
+
 ### Excel File Support
 
 **Status:** ✅ Implemented

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.21.0] - 2026-02-13
+
+### Added
+- `comment` parameter for CSV/TSV/SSV comment line handling
+  - Default `line`: skip all lines starting with `#`
+  - `head`: skip leading `#` lines only
+  - `none` / `false`: disable comment handling
+  - `inline`: skip from unquoted `#` to end of line (pandas `comment` behavior)
+  - Available for all formats via explicit parameter (JSON/YAML/TOML/lines default to `none`)
+
 ## [0.20.0] - 2026-02-13
 
 ### Added
@@ -475,6 +485,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Structured data support (nested JSON/YAML)
 - User-friendly error messages with helpful hints
 
+[0.21.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.20.0...v0.21.0
+[0.20.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.19.0...v0.20.0
+[0.19.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.18.1...v0.19.0
+[0.18.1]: https://github.com/tecolicom/pandoc-embedz/compare/v0.18.0...v0.18.1
+[0.18.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.17.0...v0.18.0
+[0.17.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.16.0...v0.17.0
 [0.16.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.14.0...v0.15.0
 [0.14.0]: https://github.com/tecolicom/pandoc-embedz/compare/v0.13.1...v0.14.0

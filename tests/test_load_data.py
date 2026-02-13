@@ -97,6 +97,59 @@ class TestLoadCSV:
         assert data[2]['name'] == 'Arthur'  # value = 42
 
 
+class TestCSVComments:
+    """Tests for CSV comment handling"""
+
+    def test_csv_comment_line_default(self):
+        """Default: all # lines are stripped"""
+        csv_data = StringIO("# auto-generated\nname,value\n# mid comment\nAlice,100\n")
+        data = load_data(csv_data, format='csv')
+        assert len(data) == 1
+        assert data[0]['name'] == 'Alice'
+
+    def test_csv_comment_head(self):
+        """comment=head preserves # in data rows"""
+        csv_data = StringIO("# comment\nname,value\n#tag,100\n")
+        data = load_data(csv_data, format='csv', comment='head')
+        assert len(data) == 1
+        assert data[0]['name'] == '#tag'
+
+    def test_csv_comment_none(self):
+        """comment=none disables comment handling"""
+        csv_data = StringIO("# comment,x\nname,value\nAlice,100\n")
+        data = load_data(csv_data, format='csv', has_header=False, comment='none')
+        assert len(data) == 3
+        assert data[0][0] == '# comment'
+
+    def test_csv_comment_line(self):
+        """comment=line strips all # lines"""
+        csv_data = StringIO("# header comment\nname,value\n# mid comment\nAlice,100\n")
+        data = load_data(csv_data, format='csv', comment='line')
+        assert len(data) == 1
+        assert data[0]['name'] == 'Alice'
+
+    def test_csv_comment_inline(self):
+        """comment=inline strips from # to end of line"""
+        csv_data = StringIO("name,value\nAlice,100 # note\n")
+        data = load_data(csv_data, format='csv', comment='inline')
+        assert len(data) == 1
+        assert data[0]['value'] == 100
+
+    def test_csv_comment_false(self):
+        """comment=False disables comment handling"""
+        csv_data = StringIO("# data,x\nname,value\n")
+        data = load_data(csv_data, format='csv', has_header=False, comment=False)
+        assert len(data) == 2
+        assert data[0][0] == '# data'
+
+    def test_tsv_comment_head(self):
+        """Comment handling works with TSV"""
+        tsv_data = StringIO("# comment\nname\tvalue\nAlice\t100\n")
+        data = load_data(tsv_data, format='tsv')
+        assert len(data) == 1
+        assert data[0]['name'] == 'Alice'
+
+
 class TestLoadTSV:
     """Tests for TSV data loading"""
 

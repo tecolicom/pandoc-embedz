@@ -93,23 +93,38 @@ def _build_csv_read_kwargs(sep: str) -> Dict[str, Any]:
 
     return kwargs
 
-def _read_source(source: Union[str, StringIO]) -> str:
+def _read_source(source: Union[str, StringIO], comment: str = 'none') -> str:
     """Read content from file path or StringIO.
 
     Args:
         source: File path string or StringIO object
+        comment: Comment handling mode:
+            'none' - no comment handling (default)
+            'line' - strip all '#' lines
+            'head' - strip leading '#' lines only
 
     Returns:
         Content as string
     """
-    return source.getvalue() if isinstance(source, StringIO) else Path(source).read_text(encoding='utf-8')
+    content = source.getvalue() if isinstance(source, StringIO) else Path(source).read_text(encoding='utf-8')
+    if comment == 'head':
+        lines = content.splitlines()
+        while lines and lines[0].startswith('#'):
+            lines.pop(0)
+        content = '\n'.join(lines)
+    elif comment == 'line':
+        content = '\n'.join(
+            line for line in content.splitlines()
+            if not line.startswith('#')
+        )
+    return content
 
 def _load_json(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
     """Load JSON format
 
     Returns empty list for empty input instead of raising an error.
     """
-    content = _read_source(source)
+    content = _read_source(source, comment=kwargs.pop('comment', 'none'))
 
     # Handle empty input - return empty list
     if not content.strip():
@@ -119,7 +134,7 @@ def _load_json(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[
 
 def _load_yaml(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
     """Load YAML format"""
-    content = _read_source(source)
+    content = _read_source(source, comment=kwargs.pop('comment', 'none'))
     return yaml.safe_load(content)
 
 def _load_toml(source: Union[str, StringIO], **kwargs) -> Dict[str, Any]:
@@ -129,7 +144,7 @@ def _load_toml(source: Union[str, StringIO], **kwargs) -> Dict[str, Any]:
             "TOML support requires 'tomli' package for Python < 3.11. "
             "Install with: pip install tomli"
         )
-    content = _read_source(source)
+    content = _read_source(source, comment=kwargs.pop('comment', 'none'))
     return tomllib.loads(content)
 
 def _quote_identifier(name: str) -> str:
@@ -380,7 +395,7 @@ def _load_lines(source: Union[str, StringIO], **kwargs) -> List[str]:
 
     Returns each line as a string. Empty lines are preserved as empty strings.
     """
-    content = _read_source(source)
+    content = _read_source(source, comment=kwargs.pop('comment', 'none'))
     return content.splitlines()
 
 def _load_ssv_with_columns(
@@ -402,7 +417,10 @@ def _load_ssv_with_columns(
     Returns:
         List of dicts (with header) or list of lists (without header)
     """
-    content = _read_source(source)
+    comment_mode = kwargs.pop('comment', 'line')
+    if comment_mode is False:
+        comment_mode = 'none'
+    content = _read_source(source, comment=comment_mode)
     lines = content.splitlines()
 
     if not lines:
@@ -453,7 +471,16 @@ def _load_csv(
         rest_kwargs = {k: v for k, v in kwargs.items() if k != 'columns'}
         return _load_ssv_with_columns(source, columns, has_header, **rest_kwargs)
 
+    comment_mode = kwargs.pop('comment', 'line')
+    if comment_mode is False:
+        comment_mode = 'none'
+
     read_kwargs = _build_csv_read_kwargs(sep)
+    if comment_mode == 'inline':
+        read_kwargs['comment'] = '#'
+        source = StringIO(_read_source(source, comment='none'))
+    else:
+        source = StringIO(_read_source(source, comment=comment_mode))
 
     try:
         if has_header:
