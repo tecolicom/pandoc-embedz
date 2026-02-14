@@ -1537,3 +1537,305 @@ query: |
         assert 'Gadget' in markdown
         assert 'Widget' in markdown
         assert '1280' in markdown or '1,280' in markdown
+
+
+class TestStartrow:
+    """Tests for startrow parameter (replaces deprecated skiprows in filter.py)"""
+
+    @pytest.fixture(autouse=True)
+    def check_openpyxl(self):
+        pytest.importorskip("openpyxl")
+
+    def _make_excel_with_title(self, tmp_path):
+        """Helper: create Excel with 2 title rows + header + data"""
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Annual Report 2024'])
+        ws.append(['Generated: 2024-04-01'])
+        ws.append([])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        ws.append(['Ford', 100])
+        path = str(tmp_path / 'startrow.xlsx')
+        wb.save(path)
+        return path
+
+    def test_startrow_integer(self, tmp_path):
+        """startrow integer is 1-indexed: startrow=3 skips 2 rows"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        path = self._make_excel_with_title(tmp_path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data: {path}
+startrow: 3
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: {{{{ row.value }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Arthur: 42' in markdown
+        assert 'Ford: 100' in markdown
+
+    def test_startrow_string(self, tmp_path):
+        """startrow string passes through as-is (same as skiprows)"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        path = self._make_excel_with_title(tmp_path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data: {path}
+startrow: name
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: {{{{ row.value }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Arthur: 42' in markdown
+        assert 'Ford: 100' in markdown
+
+    def test_startrow_list(self, tmp_path):
+        """startrow list passes through as-is (same as skiprows)"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['Title', 'Report'])
+        ws.append(['年', '月', '件数'])
+        ws.append([2024, 4, 100])
+        ws.append([2024, 5, 200])
+        path = str(tmp_path / 'startrow_list.xlsx')
+        wb.save(path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data: {path}
+startrow: [年, 月]
+---
+{{% for row in data %}}
+- {{{{ row.年 }}}}-{{{{ row.月 }}}}: {{{{ row.件数 }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert '2024-4: 100' in markdown
+        assert '2024-5: 200' in markdown
+
+    def test_skiprows_deprecation_warning(self, tmp_path, capsys):
+        """skiprows still works but emits a deprecation warning"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        path = self._make_excel_with_title(tmp_path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data: {path}
+skiprows: 2
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: {{{{ row.value }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        captured = capsys.readouterr()
+        assert 'deprecated' in captured.err.lower()
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Arthur: 42' in markdown
+
+    def test_startrow_and_skiprows_both_error(self, tmp_path):
+        """Specifying both startrow and skiprows raises ValueError"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        path = self._make_excel_with_title(tmp_path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data: {path}
+startrow: 3
+skiprows: 2
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="Cannot specify both"):
+            process_embedz(elem, doc)
+
+    def test_startrow_zero_raises_error(self, tmp_path):
+        """startrow: 0 is invalid (must be >= 1)"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+
+        path = self._make_excel_with_title(tmp_path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data: {path}
+startrow: 0
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+
+        with pytest.raises(ValueError, match="must be >= 1"):
+            process_embedz(elem, doc)
+
+    def test_startrow_in_file_dict(self, tmp_path):
+        """startrow works in file: dict syntax (multi-table)"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'data'
+        ws.append(['Report Title'])
+        ws.append(['Generated 2024'])
+        ws.append([])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        ws.append(['Ford', 100])
+        path = str(tmp_path / 'file_dict.xlsx')
+        wb.save(path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data:
+  items:
+    file: {path}
+    table: data
+    startrow: name
+query: |
+  SELECT * FROM items ORDER BY value DESC
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: {{{{ row.value }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Ford: 100' in markdown
+        assert 'Arthur: 42' in markdown
+
+    def test_startrow_integer_in_file_dict(self, tmp_path):
+        """startrow integer conversion works in file: dict syntax"""
+        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        import panflute as pf
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'data'
+        ws.append(['Report Title'])
+        ws.append(['Generated 2024'])
+        ws.append([])
+        ws.append(['name', 'value'])
+        ws.append(['Arthur', 42])
+        ws.append(['Ford', 100])
+        path = str(tmp_path / 'file_dict_int.xlsx')
+        wb.save(path)
+
+        SAVED_TEMPLATES.clear()
+        GLOBAL_VARS.clear()
+
+        code = f'''---
+data:
+  items:
+    file: {path}
+    table: data
+    startrow: 3
+query: |
+  SELECT * FROM items ORDER BY value DESC
+---
+{{% for row in data %}}
+- {{{{ row.name }}}}: {{{{ row.value }}}}
+{{% endfor %}}'''
+
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Ford: 100' in markdown
+        assert 'Arthur: 42' in markdown

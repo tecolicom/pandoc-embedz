@@ -828,7 +828,11 @@ def _prepare_data_loading(
         load_kwargs['transpose'] = True
         _debug("Transpose: True")
 
+    if 'startrow' in config and 'skiprows' in config:
+        raise ValueError("Cannot specify both 'startrow' and 'skiprows' (skiprows is deprecated, use startrow)")
+
     if 'skiprows' in config:
+        sys.stderr.write("Warning: 'skiprows' is deprecated, use 'startrow' instead.\n")
         value = config['skiprows']
         # Try integer first (YAML gives int, attributes give str)
         try:
@@ -836,7 +840,25 @@ def _prepare_data_loading(
         except (ValueError, TypeError):
             pass
         load_kwargs['skiprows'] = value
-        _debug("Skip rows: %s", value)
+        _debug("Skip rows (deprecated): %s", value)
+
+    if 'startrow' in config:
+        value = config['startrow']
+        # Try integer first (YAML gives int, attributes give str)
+        try:
+            int_value = int(value)
+            if int_value < 1:
+                raise ValueError(
+                    f"'startrow' must be >= 1 (1-indexed row number), got: {int_value}"
+                )
+            # Integer startrow is 1-indexed; convert to 0-indexed for internal skiprows
+            value = int_value - 1
+        except (ValueError, TypeError) as e:
+            if 'startrow' in str(e):
+                raise
+            # String or list: pass through as-is (same semantics as skiprows)
+        load_kwargs['skiprows'] = value
+        _debug("Start row: %s (internal skiprows: %s)", config['startrow'], value)
 
     if 'query' in config:
         query_template = config['query']

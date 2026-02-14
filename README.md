@@ -840,13 +840,15 @@ Use `header: false` when the sheet has no header row (data is accessed by index)
 ```
 ````
 
-Use `skiprows` to skip leading description rows (blank rows after skipping are also removed automatically):
+Use `startrow` to skip leading description rows (blank rows after skipping are also removed automatically).
+
+Integer values are 1-indexed (the row to start from):
 
 ````markdown
 ```embedz
 ---
 data: report.xlsx
-skiprows: 2
+startrow: 3
 ---
 {% for row in data %}
 - {{ row.name }}: {{ row.value }}
@@ -857,7 +859,7 @@ skiprows: 2
 You can also specify a string to find the data start row automatically. The row with a cell exactly matching the string becomes the header (or first data row with `header: false`):
 
 ````markdown
-```{.embedz data=report.xlsx skiprows="name"}
+```{.embedz data=report.xlsx startrow="name"}
 {% for row in data %}
 - {{ row.name }}: {{ row.value }}
 {% endfor %}
@@ -867,7 +869,7 @@ You can also specify a string to find the data start row automatically. The row 
 Use `"N:text"` to match a specific column (1-based):
 
 ````markdown
-```{.embedz data=report.xlsx skiprows="1:name"}
+```{.embedz data=report.xlsx startrow="1:name"}
 ...
 ```
 ````
@@ -878,7 +880,7 @@ Use a list to require multiple patterns in the same row (AND logic):
 ```embedz
 ---
 data: report.xlsx
-skiprows: [year, month]
+startrow: [year, month]
 ---
 {% for row in data %}
 - {{ row.year }}-{{ row.month }}: {{ row.value }}
@@ -999,7 +1001,7 @@ data:
   phishing:
     file: data/report.xlsx
     table: Phishing
-    skiprows: year          # Skip rows until "year" header
+    startrow: year          # Start from row with "year" header
 query: |
   SELECT i.month, i.count, p.domestic
   FROM incidents i
@@ -1256,7 +1258,7 @@ When `columns=3` is specified, the data is split into exactly 3 columns. The las
 | `columns` | Fixed column count for SSV format (last column gets remaining content) | `columns: 3` |
 | `table` | SQLite table name or Excel sheet name | `table: users` |
 | `transpose` | Swap rows and columns in Excel data (default: false) | `transpose: true` |
-| `skiprows` | Rows to skip: integer (count), string (find row with cell matching text), `"N:text"` (match column N), or list of patterns (all must match) | `skiprows: 3` or `skiprows: "name"` or `skiprows: [year, month]` |
+| `startrow` | Row to start from: integer (1-indexed row number), string (find row with cell matching text), `"N:text"` (match column N), or list of patterns (all must match) | `startrow: 3` or `startrow: "name"` or `startrow: [year, month]` |
 | `query` | SQL query for SQLite, CSV/TSV filtering, or multi-table JOINs (required for multi-table mode) | `query: SELECT * FROM data WHERE active=1` |
 | `config` | External YAML config file(s) merged before inline settings (string or list) | `config: config/base.yaml` |
 

@@ -235,7 +235,7 @@ query: |
 - Specify `data:` as a dictionary where keys are table names for SQL
 - A `query:` parameter enables SQL mode
 - **Supported formats for SQL mode:** All tabular formats (CSV, TSV, SSV, Excel, JSON, YAML, SQLite, etc.)
-- **`file:` dict syntax:** Pass per-table parameters (e.g., `table`, `skiprows`) for formats like Excel
+- **`file:` dict syntax:** Pass per-table parameters (e.g., `table`, `startrow`) for formats like Excel
 - **Inline data supported:** You can use inline CSV data with SQL queries (see examples below)
 
 ## Understanding Data Flow
@@ -695,7 +695,7 @@ HAVING total > 10000
 
 ## `file:` Dict Syntax
 
-For data sources that require additional parameters (e.g., Excel sheets, skiprows),
+For data sources that require additional parameters (e.g., Excel sheets, startrow),
 use the `file:` dict syntax instead of a plain file path string:
 
 ```yaml
@@ -706,7 +706,7 @@ data:
   sheet2:
     file: data/report.xlsx
     table: Sheet2
-    skiprows: name
+    startrow: name
 query: |
   SELECT s1.category, s2.total
   FROM sheet1 s1
@@ -720,7 +720,7 @@ query: |
 | `file` | File path (required) | `file: data/report.xlsx` |
 | `format` | Override format auto-detection | `format: tsv` |
 | `table` | Sheet name (Excel) or table name (SQLite) | `table: Sheet1` |
-| `skiprows` | Skip leading rows (int, pattern string, or list of patterns) | `skiprows: name` or `skiprows: [year, month]` |
+| `startrow` | Row to start from (1-indexed int, pattern string, or list of patterns) | `startrow: name` or `startrow: [year, month]` |
 | `transpose` | Swap rows and columns (Excel) | `transpose: true` |
 
 **Mixing with plain strings:**

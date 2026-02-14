@@ -331,7 +331,8 @@ def _load_excel(
         source: File path to Excel file
         has_header: Whether first row is header
         **kwargs: Options including 'table' (sheet name), 'query' (SQL),
-                  'transpose' (swap rows/columns), and 'skiprows' (rows to skip)
+                  'transpose' (swap rows/columns), and 'skiprows' (rows to skip;
+                  use 'startrow' at the user-facing level)
 
     Returns:
         List of dicts (with header) or list of lists (without header)
@@ -540,10 +541,34 @@ def _normalize_data_source(
             # Inline data: {data: "...", format: "csv"}
             return StringIO(value['data']), value.get('format', DEFAULT_FORMAT), {}
         elif 'file' in value:
-            # File with parameters: {file: "path.xlsx", table: "Sheet1", skiprows: "年"}
+            # File with parameters: {file: "path.xlsx", table: "Sheet1", startrow: "年"}
             filepath = value['file']
             fmt = value.get('format') or data_format or guess_format_from_filename(filepath)
             extra = {k: v for k, v in value.items() if k not in ('file', 'format')}
+            # Convert startrow to skiprows (startrow is the user-facing name)
+            if 'startrow' in extra and 'skiprows' in extra:
+                raise ValueError(
+                    f"Cannot specify both 'startrow' and 'skiprows' for table '{table_name}'"
+                )
+            if 'startrow' in extra:
+                sr = extra.pop('startrow')
+                try:
+                    sr_int = int(sr)
+                    if sr_int < 1:
+                        raise ValueError(
+                            f"'startrow' must be >= 1 (1-indexed row number), got: {sr_int}"
+                        )
+                    sr = sr_int - 1
+                except (ValueError, TypeError) as e:
+                    if 'startrow' in str(e):
+                        raise
+                extra['skiprows'] = sr
+            elif 'skiprows' in extra:
+                import sys
+                sys.stderr.write(
+                    f"Warning: 'skiprows' is deprecated in file: dict for table "
+                    f"'{table_name}', use 'startrow' instead.\n"
+                )
             return filepath, fmt, extra
         else:
             raise ValueError(

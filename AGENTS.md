@@ -699,7 +699,7 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 |-----------|------|-------------|
 | `table` | string | Sheet name (default: first sheet) |
 | `transpose` | bool | Swap rows and columns |
-| `skiprows` | int, string, or list | Skip leading rows: `3` (count), `"氏名"` (find cell), `"1:氏名"` (find in column 1), `[年, 月]` (all must match) |
+| `startrow` | int, string, or list | Row to start from: `3` (1-indexed row number), `"氏名"` (find cell), `"1:氏名"` (find in column 1), `[年, 月]` (all must match). `skiprows` is deprecated. |
 
 **Key behaviors:**
 - Blank rows and all-blank columns are automatically removed
@@ -707,7 +707,7 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 - Duplicate header names get a suffix: `score`, `score_1`, `score_2`, ...
 - Empty cells in data rows become empty strings
 - Empty sheets return `[]` with a warning to stderr
-- `skiprows` string pattern uses exact match (not substring); list requires all patterns to match in the same row
+- `startrow`/`skiprows` string pattern uses exact match (not substring); list requires all patterns to match in the same row
 - `query` parameter works via `_apply_sql_query` (same as CSV)
 - Inline data not supported (raises `ValueError`)
 - Multi-table SQL supported via `file:` dict syntax (see below)
@@ -715,8 +715,8 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 **Implementation:** `_load_excel()`, `_clean_column_names()`, and `_skip_to_matching_row()` in `data_loader.py`
 
 **Processing order:**
-1. `pd.read_excel` (with integer `skiprows` if given)
-2. Pattern-based row skip (if `skiprows` is string or list)
+1. `pd.read_excel` (with integer `startrow`/`skiprows` if given)
+2. Pattern-based row skip (if `startrow`/`skiprows` is string or list)
 3. `dropna(how='all')` on rows and columns
 4. Transpose (if `transpose=True`)
 5. NaN → empty string
@@ -737,7 +737,7 @@ data:
   sheet2:
     file: data/report.xlsx
     table: Sheet2
-    skiprows: 年
+    startrow: 年
   csv_table: data/other.csv
 query: |
   SELECT ... FROM sheet1 JOIN sheet2 ON ...

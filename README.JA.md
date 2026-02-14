@@ -839,13 +839,15 @@ table: Sheet2
 ```
 ````
 
-先頭に説明行がある場合は `skiprows` でスキップします（スキップ後の空行も自動的に除去されます）:
+先頭に説明行がある場合は `startrow` でデータ開始行を指定します（スキップ後の空行も自動的に除去されます）。
+
+整数値は 1-indexed（開始行番号）です:
 
 ````markdown
 ```embedz
 ---
 data: report.xlsx
-skiprows: 2
+startrow: 3
 ---
 {% for row in data %}
 - {{ row.name }}: {{ row.value }}
@@ -856,7 +858,7 @@ skiprows: 2
 文字列を指定すると、セルの値が完全一致する行からデータを開始します。該当行がヘッダー行（`header: false` の場合はデータ先頭行）になります:
 
 ````markdown
-```{.embedz data=report.xlsx skiprows="氏名"}
+```{.embedz data=report.xlsx startrow="氏名"}
 {% for row in data %}
 - {{ row.氏名 }}: {{ row.値 }}
 {% endfor %}
@@ -866,7 +868,7 @@ skiprows: 2
 `"N:テキスト"` で特定のカラム（1始まり）を指定できます:
 
 ````markdown
-```{.embedz data=report.xlsx skiprows="1:氏名"}
+```{.embedz data=report.xlsx startrow="1:氏名"}
 ...
 ```
 ````
@@ -877,7 +879,7 @@ skiprows: 2
 ```embedz
 ---
 data: report.xlsx
-skiprows: [年, 月]
+startrow: [年, 月]
 ---
 {% for row in data %}
 - {{ row.年 }}-{{ row.月 }}: {{ row.値 }}
@@ -998,7 +1000,7 @@ data:
   phishing:
     file: data/report.xlsx
     table: Phishing
-    skiprows: year          # "year" ヘッダーまで行をスキップ
+    startrow: year          # "year" ヘッダーから開始
 query: |
   SELECT i.month, i.count, p.domestic
   FROM incidents i
@@ -1255,7 +1257,7 @@ ID  Name   Description
 | `columns` | SSV フォーマットの固定カラム数（最後のカラムが残りの内容を取得） | `columns: 3` |
 | `table` | SQLite テーブル名または Excel シート名 | `table: users` |
 | `transpose` | Excel データの行と列を入れ替え（デフォルト: false） | `transpose: true` |
-| `skiprows` | スキップする行: 整数（行数）、文字列（セル値が一致する行を検索）、`"N:テキスト"` （N列目で検索）、リスト形式（全パターンが一致する行を検索） | `skiprows: 3` または `skiprows: "氏名"` または `skiprows: [年, 月]` |
+| `startrow` | データ開始行: 整数（1-indexed の行番号）、文字列（セル値が一致する行を検索）、`"N:テキスト"` （N列目で検索）、リスト形式（全パターンが一致する行を検索） | `startrow: 3` または `startrow: "氏名"` または `startrow: [年, 月]` |
 | `query` | SQLite、CSV/TSV フィルタリング、またはマルチテーブル JOIN 用の SQL クエリ（マルチテーブルモードに必須） | `query: SELECT * FROM data WHERE active=1` |
 | `config` | インライン設定の前にマージされる外部 YAML 設定ファイル（文字列またはリスト） | `config: config/base.yaml` |
 
