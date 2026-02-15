@@ -524,7 +524,11 @@ logical grouping.
 
 Jinja2 template documentation: <https://jinja.palletsprojects.com/>
 
-Full documentation: <https://github.com/tecolicom/pandoc-embedz#readme>
+This manual covers the complete reference for syntax, configuration,
+data formats, and filters. The project README provides installation
+instructions, tutorial examples, and related tools:
+
+<https://github.com/tecolicom/pandoc-embedz#readme>
 
 # AUTHOR
 

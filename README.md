@@ -730,7 +730,7 @@ See [COMPARISON.md](COMPARISON.md) for detailed comparison.
 
 ## Documentation
 
-- `man pandoc-embedz` --- comprehensive reference manual (options, syntax, data formats, variable scoping, custom filters)
+- [REFERENCE.md](REFERENCE.md) --- comprehensive reference manual (options, syntax, data formats, variable scoping, custom filters); also available via `man pandoc-embedz`
 - [MULTI_TABLE.md](MULTI_TABLE.md) --- multi-table SQL query examples
 - [COMPARISON.md](COMPARISON.md) --- comparison with alternative tools
 

@@ -730,7 +730,7 @@ pandoc-embedz は独自のニッチを埋めます:
 
 ## ドキュメント
 
-- `man pandoc-embedz` --- 包括的なリファレンスマニュアル（オプション、構文、データ形式、変数スコープ、カスタムフィルター）
+- [REFERENCE.md](REFERENCE.md) --- 包括的なリファレンスマニュアル（オプション、構文、データ形式、変数スコープ、カスタムフィルター）。`man pandoc-embedz` でも参照可能
 - [MULTI_TABLE.md](MULTI_TABLE.md) --- マルチテーブル SQL クエリの例
 - [COMPARISON.md](COMPARISON.md) --- 代替ツールとの比較
 

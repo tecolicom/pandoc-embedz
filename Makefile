@@ -27,6 +27,10 @@ release:
 		pyproject.toml
 		pandoc_embedz/__init__.py
 		uv.lock
+		REFERENCE.md
+		REFERENCE.JA.md
+		man/pandoc-embedz.1
+		man/ja/pandoc-embedz.1
 	)
 	check_dirty() {
 		local pattern
@@ -40,6 +44,7 @@ release:
 		python() { dryrun "$$@"; }
 		uv()     { dryrun "$$@"; }
 		perl()   { dryrun "$$@"; }
+		pandoc() { dryrun "$$@"; }
 	else
 		set -x
 	fi
@@ -70,6 +75,13 @@ release:
 	comment "Updating version numbers to $$VERSION"
 	perl -i -pe "s/^version = .*/version = \"$$VERSION\"/" pyproject.toml
 	perl -i -pe "s/__version__ = .*/__version__ = '$$VERSION'/" pandoc_embedz/__init__.py
+
+	comment "Updating man pages"
+	TODAY=$$(date +%Y-%m-%d)
+	perl -i -pe "s/^footer: .*/footer: pandoc-embedz $$VERSION/" REFERENCE.md REFERENCE.JA.md
+	perl -i -pe "s/^date: .*/date: $$TODAY/" REFERENCE.md REFERENCE.JA.md
+	pandoc -s -t man REFERENCE.md -o man/pandoc-embedz.1
+	pandoc -s -t man REFERENCE.JA.md -o man/ja/pandoc-embedz.1
 
 	comment "Updating uv.lock"
 	uv lock

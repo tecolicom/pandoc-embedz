@@ -50,6 +50,7 @@ packages = ["pandoc_embedz"]
 
 [tool.setuptools.data-files]
 "share/man/man1" = ["man/pandoc-embedz.1"]
+"share/man/ja/man1" = ["man/ja/pandoc-embedz.1"]
 
 [dependency-groups]
 dev = [
