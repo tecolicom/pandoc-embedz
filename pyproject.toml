@@ -48,6 +48,9 @@ pandoc-embedz = "pandoc_embedz.main:main"
 [tool.setuptools]
 packages = ["pandoc_embedz"]
 
+[tool.setuptools.data-files]
+"share/man/man1" = ["man/pandoc-embedz.1"]
+
 [dependency-groups]
 dev = [
     "pytest>=7.0.0",
