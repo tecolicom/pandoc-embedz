@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.22.1] - 2026-02-15
+
+### Added
+- Man page (`man pandoc-embedz`) with comprehensive reference documentation
+- `man/pandoc-embedz.md` as source, `man/pandoc-embedz.1` pre-built for distribution
+- `data_files` configuration in `pyproject.toml` for man page installation via pip
+
 ## [0.22.0] - 2026-02-14
 
 ### Added
