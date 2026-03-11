@@ -267,6 +267,16 @@ class TestLoadSSV:
         assert data[0]['Name'] == 'Alice'
         assert data[0]['Description'] == 'Has   multiple   spaces'
 
+    def test_load_ssv_with_columns_nbsp_preserved(self):
+        """Test columns parameter preserves NBSP and full-width space in fields"""
+        # NBSP (\u00a0) and full-width space (\u3000) should not be treated as separators
+        ssv_data = StringIO("A\u00a0B C D\n1\u30002 3 4")
+        data = load_data(ssv_data, format='ssv', has_header=True, columns=3)
+        assert len(data) == 1
+        assert data[0]['A\u00a0B'] == '1\u30002'
+        assert data[0]['C'] == '3'
+        assert data[0]['D'] == '4'
+
     def test_load_ssv_with_columns_fewer_fields(self):
         """Test columns parameter pads with empty strings when fewer fields"""
         ssv_data = StringIO("ID Name Description\n1 Alice\n2 Bob Complete")

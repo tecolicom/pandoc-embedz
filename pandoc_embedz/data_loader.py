@@ -10,6 +10,7 @@ import yaml
 import json
 import sqlite3
 import sys
+import re
 from io import StringIO
 from pathlib import Path
 
@@ -435,7 +436,7 @@ def _load_ssv_with_columns(
         if not line.strip():
             continue
 
-        parts = line.split(maxsplit=maxsplit)
+        parts = re.split(r' +', line.strip(), maxsplit=maxsplit)
 
         # Pad with empty strings if fewer columns than expected
         while len(parts) < columns:
