@@ -287,9 +287,11 @@ These tabular formats share the following parameters:
 :   SQL query to filter or transform the data. Data is loaded into an
     in-memory SQLite database; the table name in SQL is `data`.
 
-SSV (space-separated values) treats consecutive whitespace as a single
-delimiter. There is no default file extension; specify `format: ssv` or
-`format: spaces` explicitly.
+SSV (space-separated values) treats consecutive ASCII spaces as a
+single delimiter. Non-breaking spaces (NBSP, `U+00A0`) and full-width
+spaces (`U+3000`) are **not** treated as delimiters, so they can be
+used within fields. There is no default file extension; specify
+`format: ssv` or `format: spaces` explicitly.
 
 **columns** (SSV only)
 :   Fixed column count. Data is split into exactly this many columns;
