@@ -198,6 +198,24 @@ Widget,100
 - Empty YAML header `---\n---` is required
 - Blocks without data return empty list `[]` (by design)
 
+### Raw Format Output (e.g. LaTeX)
+
+Templates can output raw format blocks using Jinja2 string expressions to
+avoid interfering with the embedz code block parser:
+
+````markdown
+```embedz
+{{ "```" }}{=latex}
+\expandafter\gdef\csname embedz@key\endcsname{value}
+{{ "```" }}
+```
+````
+
+**Key points:**
+- Use `{{ "` `` ``` `` `" }}` to emit backticks — the embedz parser won't see them as fenced code delimiters
+- Pandoc parses `` ```{=latex} `` as a `RawBlock`, which the validator accepts alongside `CodeBlock`
+- This pattern is useful for generating LaTeX macro definitions from embedz data
+
 ### Data and Template Sections
 
 **Three-section structure:**

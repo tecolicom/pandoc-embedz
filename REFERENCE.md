@@ -46,6 +46,10 @@ The tool operates in two modes:
 :   Runs as a Pandoc filter. Processes `.embedz` code blocks in Markdown
     documents. Output is interpreted as Markdown and fed back into
     Pandoc's pipeline. Use this for generating documents.
+    To output raw format content (e.g. LaTeX), use Pandoc's raw
+    attribute syntax (`` ```{=latex} ``) within the template output.
+    Use `{{ "` `` ``` `` `" }}` to emit backtick fences from Jinja2
+    without interfering with the embedz code block parser.
 
 **Standalone mode** (**-s**)
 :   Renders template files directly without Pandoc. Output is plain text.

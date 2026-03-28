@@ -113,8 +113,8 @@ def _validate_convert_result(result: str, ast_elements: List[Any]) -> List[Any]:
     # Extract the identifier from the code block header for error message
     first_line = stripped.split('\n')[0]
 
-    # Check if we got a CodeBlock
-    if ast_elements and isinstance(ast_elements[0], pf.CodeBlock):
+    # Check if we got a CodeBlock or RawBlock (e.g. ```{=latex})
+    if ast_elements and isinstance(ast_elements[0], (pf.CodeBlock, pf.RawBlock)):
         return ast_elements
 
     # Code block expected but not produced - likely identifier parsing issue

@@ -463,3 +463,54 @@ Test
         result = process_embedz(elem, doc)
 
         assert result == elem
+
+
+class TestRawBlockOutput:
+    """Tests for raw format block output (e.g. ```{=latex})"""
+
+    def test_raw_latex_output(self):
+        """Template outputting ```{=latex} should produce RawBlock"""
+        code = '{{ "```" }}{=latex}\n\\newcommand{\\test}{hello}\n{{ "```" }}'
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], pf.RawBlock)
+        assert result[0].format == 'latex'
+        assert '\\newcommand' in result[0].text
+
+    def test_raw_latex_with_gdef(self):
+        """Template outputting \\gdef with ```{=latex} should preserve braces"""
+        code = (
+            '---\n'
+            'global:\n'
+            '  myval: "42"\n'
+            '---\n'
+            '{{ "```" }}{=latex}\n'
+            '\\expandafter\\gdef\\csname embedz@key\\endcsname{ {{- myval -}} }\n'
+            '{{ "```" }}'
+        )
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], pf.RawBlock)
+        assert result[0].format == 'latex'
+        assert '\\expandafter\\gdef\\csname embedz@key\\endcsname{42}' in result[0].text
+
+    def test_raw_html_output(self):
+        """Template outputting ```{=html} should produce RawBlock"""
+        code = '{{ "```" }}{=html}\n<div class="test">hello</div>\n{{ "```" }}'
+        elem = pf.CodeBlock(code, classes=['embedz'])
+        doc = pf.Doc()
+        result = process_embedz(elem, doc)
+
+        assert isinstance(result, list)
+        assert len(result) == 1
+        assert isinstance(result[0], pf.RawBlock)
+        assert result[0].format == 'html'
+        assert '<div class="test">hello</div>' in result[0].text
