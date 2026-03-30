@@ -595,7 +595,7 @@ global:
 
 ### Comments in CSV/TSV/SSV
 
-Lines starting with `#` are treated as comments and skipped by default. The `comment` parameter controls behavior: `line` (default), `head`, `inline`, or `none`.
+Lines starting with `#` are treated as comments and skipped by default. Blank lines are also ignored. The `comment` parameter controls behavior: `line` (default), `head`, `inline`, or `none`.
 
 ````markdown
 ```{.embedz data=data.csv comment=head}

@@ -595,7 +595,7 @@ global:
 
 ### CSV/TSV/SSV のコメント
 
-`#` で始まる行はデフォルトでコメントとしてスキップされます。`comment` パラメータで動作を制御: `line`（デフォルト）、`head`、`inline`、`none`。
+`#` で始まる行はデフォルトでコメントとしてスキップされます。空白行も無視されます。`comment` パラメータで動作を制御: `line`（デフォルト）、`head`、`inline`、`none`。
 
 ````markdown
 ```{.embedz data=data.csv comment=head}

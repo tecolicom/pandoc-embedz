@@ -286,6 +286,7 @@ These tabular formats share the following parameters:
     **head**: skip leading `#` lines only (preserves `#` in data rows).
     **inline**: skip from unquoted `#` to end of line.
     **none** or **false**: disable comment handling.
+    Blank lines are always ignored regardless of this setting.
 
 **query**
 :   SQL query to filter or transform the data. Data is loaded into an
