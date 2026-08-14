@@ -543,7 +543,7 @@ class TestMacroSharing:
 Hello, {{ name }}!
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'name': 'greetings'})
+        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'define': 'greetings'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
@@ -569,7 +569,7 @@ global:
 SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'sql-macros'})
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'define': 'sql-macros'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
@@ -602,7 +602,7 @@ global:
 {{ a * b }}
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(macros_def, classes=['embedz'], attributes={'name': 'math'})
+        elem1 = pf.CodeBlock(macros_def, classes=['embedz'], attributes={'define': 'math'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
@@ -630,7 +630,7 @@ global:
 {{ start }} to {{ end }}
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'name': 'formatters'})
+        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'define': 'formatters'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
@@ -657,7 +657,7 @@ global:
 {{ field }} > {{ value }}
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'sql-helpers'})
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'define': 'sql-helpers'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
@@ -723,7 +723,7 @@ global:
 [{{ text }}]
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'name': 'wrappers'})
+        elem1 = pf.CodeBlock(macro_def, classes=['embedz'], attributes={'define': 'wrappers'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
@@ -751,7 +751,7 @@ global:
 SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'date-macros'})
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'define': 'date-macros'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 
@@ -851,7 +851,7 @@ preamble:
 SELECT * FROM data WHERE date BETWEEN '{{ start }}' AND '{{ end }}'
 {%- endmacro -%}"""
 
-        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'name': 'MACROS'})
+        elem1 = pf.CodeBlock(sql_macro, classes=['embedz'], attributes={'define': 'MACROS'})
         doc = pf.Doc()
         process_embedz(elem1, doc)
 

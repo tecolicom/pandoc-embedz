@@ -28,7 +28,7 @@ class TestAttributeParsing:
         # First define a template
         template_block = pf.CodeBlock(
             text="""---
-name: test-template
+define: test-template
 ---
 {% for row in data %}
 - {{ row.name }}: {{ row.value }}
@@ -45,7 +45,7 @@ name: test-template
         # Define template
         template_block = pf.CodeBlock(
             text="""---
-name: item-list
+define: item-list
 ---
 {% for row in data %}
 - {{ row.name }}: {{ row.value }}
@@ -76,7 +76,7 @@ Bob,200""",
         # Define template
         template_block = pf.CodeBlock(
             text="""---
-name: json-template
+define: json-template
 ---
 {% for item in data %}
 - {{ item.name }}: {{ item.count }}
@@ -293,7 +293,7 @@ a,b,c""",
         template_block = pf.CodeBlock(
             text="""{% for row in data %}{{ row[0] }},{{ row[1] }}{% endfor %}""",
             classes=['embedz'],
-            attributes=[('name', 'no-header-template')]
+            attributes=[('define', 'no-header-template')]
         )
         process_embedz(template_block, pf.Doc())
 
@@ -359,7 +359,7 @@ format: json
         code_block = pf.CodeBlock(
             text="""{% for item in data %}{{ item }}{% endfor %}""",
             classes=['embedz'],
-            attributes=[('format', 'csv'), ('name', 'test-template')]
+            attributes=[('format', 'csv'), ('define', 'test-template')]
         )
 
         # Should save template even without data
@@ -595,16 +595,16 @@ class TestWithDotNotation:
         assert config['custom']['field'] == 'value'
 
 
-class TestDeprecatedNameParameter:
-    """Tests for backward compatibility with deprecated 'name' parameter"""
+class TestRemovedNameParameter:
+    """Tests that the 'name' parameter, removed in 1.0.0, is rejected"""
 
     def setup_method(self):
         """Clear global state before each test"""
         SAVED_TEMPLATES.clear()
         GLOBAL_VARS.clear()
 
-    def test_name_parameter_yaml_still_works(self, capsys):
-        """Deprecated 'name' parameter in YAML should still work with warning"""
+    def test_name_parameter_yaml_is_rejected(self):
+        """'name' in a YAML header raises, pointing at 'define'"""
         code = """---
 name: test-template
 ---
@@ -613,55 +613,37 @@ name: test-template
 {% endfor %}"""
 
         elem = pf.CodeBlock(code, classes=['embedz'])
-        doc = pf.Doc()
-        result = process_embedz(elem, doc)
+        with pytest.raises(ValueError, match="'name' was removed"):
+            process_embedz(elem, pf.Doc())
 
-        # Template should be saved
-        assert 'test-template' in SAVED_TEMPLATES
-        # Should return empty (no data)
-        assert result == []
+        # Nothing should have been saved
+        assert 'test-template' not in SAVED_TEMPLATES
 
-        # Check for deprecation warning
-        captured = capsys.readouterr()
-        assert "deprecated" in captured.err.lower()
-        assert "define" in captured.err.lower()
-
-    def test_name_attribute_still_works(self, capsys):
-        """Deprecated 'name' attribute should still work with warning"""
+    def test_name_attribute_is_rejected(self):
+        """'name' as a code block attribute raises, pointing at 'define'"""
         elem = pf.CodeBlock(
             text="Template content",
             classes=['embedz'],
             attributes=[('name', 'attr-template')]
         )
 
-        process_embedz(elem, pf.Doc())
+        with pytest.raises(ValueError, match="Use 'define' instead"):
+            process_embedz(elem, pf.Doc())
 
-        # Template should be saved
-        assert 'attr-template' in SAVED_TEMPLATES
+        assert 'attr-template' not in SAVED_TEMPLATES
 
-        # Check for deprecation warning
-        captured = capsys.readouterr()
-        assert "deprecated" in captured.err.lower()
-
-    def test_name_template_is_saved_correctly(self, capsys):
-        """Template defined with deprecated 'name' is saved and can be referenced"""
-        # Define template with deprecated 'name'
+    def test_define_replaces_name(self):
+        """'define' does what 'name' used to do"""
         define_code = """---
-name: legacy-template
+define: legacy-template
 ---
 Template content here"""
 
         elem1 = pf.CodeBlock(define_code, classes=['embedz'])
         process_embedz(elem1, pf.Doc())
 
-        # Verify template is saved with correct content
         assert 'legacy-template' in SAVED_TEMPLATES
         assert 'Template content here' in SAVED_TEMPLATES['legacy-template']
-
-        # Should have warning from definition
-        captured = capsys.readouterr()
-        assert "deprecated" in captured.err.lower()
-        assert "define" in captured.err.lower()
 
 
 class TestTemplateParameterAlias:

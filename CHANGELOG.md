@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.23.0] - 2026-08-14
+## [1.0.0] - 2026-08-14
+
+First stable release. The block syntax, configuration keys and template
+interface have been additive-only since 0.13.0 (December 2025), so the public
+interface is now covered by semantic versioning: breaking changes require 2.0.
+
+### Removed
+- `name` parameter for template definition (deprecated since 0.8.0) — use `define`
+  - `name` remains the internal canonical key, so writing it now raises `ValueError` with a pointer to `define` rather than being silently accepted
+- `skiprows` parameter for Excel (deprecated since 0.22.0) — use `startrow`
+  - Note that integer `startrow` is 1-indexed, while `skiprows` was 0-indexed
+  - `skiprows` is still the internal `load_data()` keyword; only the document-facing spelling was removed
+- `package-lock.json`, an empty npm lock file with no corresponding `package.json`
 
 ### Fixed
 - `pip install 'pandoc-embedz[excel]'` and `[sqlite]` now actually install their dependencies
@@ -28,16 +40,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Build requirement raised to `setuptools>=77`; the unnecessary `wheel` requirement was dropped
   - Ships `py.typed` so type hints are visible to type checkers
 - Modernized type hints throughout for 3.11+ (`dict[str, Any]`, `X | None`)
-- Updated GitHub Actions: `checkout@v7`, `setup-python@v7`, `setup-uv@v10`, `codecov-action@v7` (`file:` was renamed to `files:` in v5)
+- Updated GitHub Actions: `checkout@v7`, `setup-python@v7`, `setup-uv@v10.0.0`, `codecov-action@v7` (`file:` was renamed to `files:` in v5)
+- Development status classifier raised to `5 - Production/Stable`
 
 ### Added
 - `ruff` linting with configuration in `pyproject.toml`, a `make lint` target, and a CI job
 - CI jobs that resolve dependencies from PyPI instead of `uv.lock`, covering both the declared floors (`lowest-direct`) and the newest releases (`highest`)
   - The matrix always installed from the lock file, so pandas 3.0 was never exercised despite being what new users get
 - `.github/dependabot.yml` for GitHub Actions and uv dependency updates
-
-### Removed
-- `package-lock.json`, an empty npm lock file with no corresponding `package.json`
 
 ## [0.22.3] - 2026-03-28
 

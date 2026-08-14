@@ -346,9 +346,9 @@ preamble: |
 
 **User-facing parameters:**
 
-| Purpose | Recommended | Alternative | Deprecated |
-|---------|-------------|-------------|------------|
-| Template definition | `define` | - | `name` (shows warning) |
+| Purpose | Recommended | Alternative | Removed in 1.0.0 |
+|---------|-------------|-------------|------------------|
+| Template definition | `define` | - | `name` (raises `ValueError`) |
 | Template usage (YAML) | `template` | `as` | - |
 | Template usage (attributes) | `as` | `template` | - |
 
@@ -367,18 +367,20 @@ preamble: |
 
 **Implementation:** `pandoc_embedz/config.py`
 - `PARAMETER_PREFERRED_ALIASES`: Maps external aliases to internal names
-- `DEPRECATED_DIRECT_USE`: Parameters that show warnings
-- `normalize_config()`: Converts aliases and warns about deprecated usage
+- `REMOVED_PARAMETERS`: Parameters that are rejected with a pointer to the replacement
+- `normalize_config()`: Converts aliases, rejects removed parameters
 
 **Design rationale:**
 - `define` vs `template`/`as` clarifies definition vs usage
 - `template` is declarative (YAML), `as` is concise (attributes)
 - Both `template` and `as` work without warnings (context-dependent choice)
-- `name` is deprecated but still works (backward compatibility)
+- `name` remains the *internal* canonical key for `define`, so writing it directly
+  has to be refused explicitly — `validate_config()` does not reject unknown keys
+  (dot notation allows arbitrary keys), so removal alone would silently accept it
 
 **Adding new aliases:**
 1. Update `PARAMETER_PREFERRED_ALIASES` in `config.py`
-2. Add to `DEPRECATED_DIRECT_USE` if old name should warn
+2. Add to `REMOVED_PARAMETERS` if the old name should now be an error
 3. Add tests in `tests/test_attributes.py`
 4. Update documentation
 
@@ -723,7 +725,7 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 |-----------|------|-------------|
 | `table` | string | Sheet name (default: first sheet) |
 | `transpose` | bool | Swap rows and columns |
-| `startrow` | int, string, or list | Row to start from: `3` (1-indexed row number), `"氏名"` (find cell), `"1:氏名"` (find in column 1), `[年, 月]` (all must match). `skiprows` is deprecated. |
+| `startrow` | int, string, or list | Row to start from: `3` (1-indexed row number), `"氏名"` (find cell), `"1:氏名"` (find in column 1), `[年, 月]` (all must match). The 0-indexed `skiprows` was removed in 1.0.0. |
 
 **Key behaviors:**
 - Blank rows and all-blank columns are automatically removed
@@ -731,7 +733,8 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 - Duplicate header names get a suffix: `score`, `score_1`, `score_2`, ...
 - Empty cells in data rows become empty strings
 - Empty sheets return `[]` with a warning to stderr
-- `startrow`/`skiprows` string pattern uses exact match (not substring); list requires all patterns to match in the same row
+- `startrow` string pattern uses exact match (not substring); list requires all patterns to match in the same row
+- `skiprows` remains the internal `load_data()`/pandas kwarg; only the user-facing spelling was removed
 - `query` parameter works via `_apply_sql_query` (same as CSV)
 - Inline data not supported (raises `ValueError`)
 - Multi-table SQL supported via `file:` dict syntax (see below)
@@ -739,8 +742,8 @@ Load `.xlsx`/`.xls` files directly as data sources. Requires `openpyxl` package 
 **Implementation:** `_load_excel()`, `_clean_column_names()`, and `_skip_to_matching_row()` in `data_loader.py`
 
 **Processing order:**
-1. `pd.read_excel` (with integer `startrow`/`skiprows` if given)
-2. Pattern-based row skip (if `startrow`/`skiprows` is string or list)
+1. `pd.read_excel` (with integer `startrow`, converted to the internal 0-indexed `skiprows`)
+2. Pattern-based row skip (if `startrow` is string or list)
 3. `dropna(how='all')` on rows and columns
 4. Transpose (if `transpose=True`)
 5. NaN → empty string

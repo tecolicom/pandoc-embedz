@@ -83,7 +83,7 @@ with:
   label: "High"
 global:
   author: "Arthur"
-name: my-template
+define: my-template
 as: base-template
 ---
 Template content"""
@@ -95,7 +95,7 @@ Template content"""
         assert config['header'] is True
         assert config['with']['threshold'] == 100
         assert config['global']['author'] == 'Arthur'
-        assert config['name'] == 'my-template'
+        assert config['define'] == 'my-template'
         assert config['as'] == 'base-template'
         assert template == 'Template content'
 
@@ -140,7 +140,7 @@ Template
     def test_parse_preserves_leading_whitespace(self):
         """Leading whitespace should be preserved (unlike .strip())"""
         text = """---
-name: test
+define: test
 ---
     indented content
     more indented"""
@@ -153,7 +153,7 @@ name: test
     def test_parse_preserves_trailing_newlines(self):
         """Trailing newlines are preserved for later reattachment"""
         text = """---
-name: test
+define: test
 ---
 content
 
@@ -168,7 +168,7 @@ content
     def test_parse_preserves_internal_newlines(self):
         """Internal newlines should be preserved"""
         text = """---
-name: test
+define: test
 ---
 line1
 

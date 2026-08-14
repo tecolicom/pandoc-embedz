@@ -278,7 +278,7 @@ format: json
     def test_include_with_conditionals(self):
         # Define a template with conditionals
         define_code = """---
-name: severity-badge
+define: severity-badge
 ---
 {% if item.severity == "high" %}🔴{% elif item.severity == "medium" %}🟡{% else %}🟢{% endif %}"""
 
@@ -309,7 +309,7 @@ class TestTemplateMacros:
     def test_basic_macro(self):
         # Define a macro
         define_code = """---
-name: formatters
+define: formatters
 ---
 {% macro bold(text) -%}
 **{{ text }}**
@@ -339,7 +339,7 @@ format: json
     def test_macro_with_multiple_parameters(self):
         # Define macro with multiple parameters
         define_code = """---
-name: multi-param
+define: multi-param
 ---
 {% macro format_item(name, value, prefix="Item: ") -%}
 {{ prefix }}{{ name }} = {{ value }}
@@ -369,7 +369,7 @@ format: json
     def test_macro_with_conditionals(self):
         # Define conditional macro
         define_code = """---
-name: conditional-macro
+define: conditional-macro
 ---
 {% macro severity_badge(level) -%}
 {% if level == "high" %}🔴{% elif level == "medium" %}🟡{% else %}🟢{% endif %}
@@ -399,7 +399,7 @@ format: json
     def test_nested_macros(self):
         # Define macros that call each other
         define_code = """---
-name: nested-macros
+define: nested-macros
 ---
 {% macro inner(text) -%}
 **{{ text }}**

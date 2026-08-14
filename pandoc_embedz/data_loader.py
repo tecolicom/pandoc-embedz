@@ -535,10 +535,13 @@ def _normalize_data_source(
             filepath = value['file']
             fmt = value.get('format') or data_format or guess_format_from_filename(filepath)
             extra = {k: v for k, v in value.items() if k not in ('file', 'format')}
-            # Convert startrow to skiprows (startrow is the user-facing name)
-            if 'startrow' in extra and 'skiprows' in extra:
+            # Convert startrow to skiprows (startrow is the user-facing name;
+            # skiprows remains the internal load_data()/pandas kwarg)
+            if 'skiprows' in extra:
                 raise ValueError(
-                    f"Cannot specify both 'startrow' and 'skiprows' for table '{table_name}'"
+                    f"'skiprows' was removed in pandoc-embedz 1.0.0 (table '{table_name}'). "
+                    f"Use 'startrow' instead (integer 'startrow' is 1-indexed, "
+                    f"while 'skiprows' was 0-indexed)."
                 )
             if 'startrow' in extra:
                 sr = extra.pop('startrow')
@@ -553,12 +556,6 @@ def _normalize_data_source(
                     if 'startrow' in str(e):
                         raise
                 extra['skiprows'] = sr
-            elif 'skiprows' in extra:
-                import sys
-                sys.stderr.write(
-                    f"Warning: 'skiprows' is deprecated in file: dict for table "
-                    f"'{table_name}', use 'startrow' instead.\n"
-                )
             return filepath, fmt, extra
         else:
             raise ValueError(

@@ -1276,15 +1276,29 @@ class TestNormalizeDataSource:
         assert kwargs == {}
 
     def test_file_dict_returns_3_tuple(self):
-        """file: dict returns (path, format, extra_kwargs)"""
+        """file: dict returns (path, format, extra_kwargs)
+
+        startrow is the user-facing name; skiprows remains the internal kwarg.
+        """
         from pandoc_embedz.data_loader import _normalize_data_source
         source, fmt, kwargs = _normalize_data_source(
-            {'file': 'data/test.xlsx', 'table': 'Sheet1', 'skiprows': 'Year'},
+            {'file': 'data/test.xlsx', 'table': 'Sheet1', 'startrow': 'Year'},
             'test'
         )
         assert source == 'data/test.xlsx'
         assert fmt == 'excel'
         assert kwargs == {'table': 'Sheet1', 'skiprows': 'Year'}
+
+    def test_file_dict_skiprows_is_rejected(self):
+        """skiprows in a file: dict was removed in 1.0.0"""
+        import pytest
+
+        from pandoc_embedz.data_loader import _normalize_data_source
+        with pytest.raises(ValueError, match="'skiprows' was removed"):
+            _normalize_data_source(
+                {'file': 'data/test.xlsx', 'table': 'Sheet1', 'skiprows': 'Year'},
+                'test'
+            )
 
     def test_file_dict_with_explicit_format(self):
         """file: dict with explicit format overrides auto-detection"""
@@ -1411,8 +1425,8 @@ query: |
         assert '5 units' in markdown
         assert '3 units' in markdown
 
-    def test_multi_table_excel_with_skiprows(self, tmp_path):
-        """Multi-table SQL with skiprows parameter in file: dict"""
+    def test_multi_table_excel_with_startrow(self, tmp_path):
+        """Multi-table SQL with startrow parameter in file: dict"""
         import openpyxl
         import panflute as pf
 
@@ -1440,7 +1454,7 @@ data:
   items:
     file: {path}
     table: data
-    skiprows: name
+    startrow: name
 query: |
   SELECT * FROM items ORDER BY value DESC
 ---
@@ -1688,8 +1702,8 @@ startrow: [年, 月]
         assert '2024-4: 100' in markdown
         assert '2024-5: 200' in markdown
 
-    def test_skiprows_deprecation_warning(self, tmp_path, capsys):
-        """skiprows still works but emits a deprecation warning"""
+    def test_skiprows_is_rejected(self, tmp_path):
+        """skiprows was removed in 1.0.0 and now raises, pointing at startrow"""
         import panflute as pf
 
         from pandoc_embedz.config import SAVED_TEMPLATES
@@ -1709,21 +1723,12 @@ skiprows: 2
 {{% endfor %}}'''
 
         elem = pf.CodeBlock(code, classes=['embedz'])
-        doc = pf.Doc()
-        result = process_embedz(elem, doc)
 
-        captured = capsys.readouterr()
-        assert 'deprecated' in captured.err.lower()
+        with pytest.raises(ValueError, match="'skiprows' was removed"):
+            process_embedz(elem, pf.Doc())
 
-        if isinstance(result, list):
-            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
-        else:
-            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
-
-        assert 'Arthur: 42' in markdown
-
-    def test_startrow_and_skiprows_both_error(self, tmp_path):
-        """Specifying both startrow and skiprows raises ValueError"""
+    def test_startrow_replaces_skiprows(self, tmp_path):
+        """startrow is the 1-indexed replacement for the removed skiprows"""
         import panflute as pf
 
         from pandoc_embedz.config import SAVED_TEMPLATES
@@ -1734,20 +1739,24 @@ skiprows: 2
         SAVED_TEMPLATES.clear()
         GLOBAL_VARS.clear()
 
+        # skiprows: 2 (0-indexed) is the same row as startrow: 3 (1-indexed)
         code = f'''---
 data: {path}
 startrow: 3
-skiprows: 2
 ---
 {{% for row in data %}}
-- {{{{ row.name }}}}
+- {{{{ row.name }}}}: {{{{ row.value }}}}
 {{% endfor %}}'''
 
         elem = pf.CodeBlock(code, classes=['embedz'])
-        doc = pf.Doc()
+        result = process_embedz(elem, pf.Doc())
 
-        with pytest.raises(ValueError, match="Cannot specify both"):
-            process_embedz(elem, doc)
+        if isinstance(result, list):
+            markdown = pf.convert_text(result, input_format='panflute', output_format='markdown')
+        else:
+            markdown = pf.convert_text([result], input_format='panflute', output_format='markdown')
+
+        assert 'Arthur: 42' in markdown
 
     def test_startrow_zero_raises_error(self, tmp_path):
         """startrow: 0 is invalid (must be >= 1)"""

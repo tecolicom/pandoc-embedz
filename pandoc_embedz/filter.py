@@ -830,19 +830,11 @@ def _prepare_data_loading(
         load_kwargs['transpose'] = True
         _debug("Transpose: True")
 
-    if 'startrow' in config and 'skiprows' in config:
-        raise ValueError("Cannot specify both 'startrow' and 'skiprows' (skiprows is deprecated, use startrow)")
-
     if 'skiprows' in config:
-        sys.stderr.write("Warning: 'skiprows' is deprecated, use 'startrow' instead.\n")
-        value = config['skiprows']
-        # Try integer first (YAML gives int, attributes give str)
-        try:
-            value = int(value)
-        except (ValueError, TypeError):
-            pass
-        load_kwargs['skiprows'] = value
-        _debug("Skip rows (deprecated): %s", value)
+        raise ValueError(
+            "'skiprows' was removed in pandoc-embedz 1.0.0. Use 'startrow' instead "
+            "(note that integer 'startrow' is 1-indexed, while 'skiprows' was 0-indexed)."
+        )
 
     if 'startrow' in config:
         value = config['startrow']

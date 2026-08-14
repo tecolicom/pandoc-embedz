@@ -3,7 +3,6 @@
 This module handles configuration parsing, validation, and file path validation.
 """
 
-import sys
 from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
@@ -25,9 +24,13 @@ PARAMETER_PREFERRED_ALIASES = {
 # Reverse lookup: Preferred alias -> Internal canonical name (for O(1) lookups)
 _ALIAS_TO_INTERNAL = {preferred: internal for internal, preferred in PARAMETER_PREFERRED_ALIASES.items()}
 
-# Parameters that are deprecated when used directly
-DEPRECATED_DIRECT_USE = {
-    'name': 'define',  # Direct use of 'name' is deprecated; use 'define' instead
+# Parameters removed in 1.0.0 -> their replacement.
+# These were deprecated with a warning in earlier releases and are now rejected.
+# 'name' is still the internal canonical key for 'define', so it cannot simply be
+# dropped from the alias table: writing it directly has to be refused explicitly.
+REMOVED_PARAMETERS = {
+    'name': 'define',
+    'skiprows': 'startrow',
 }
 
 def validate_file_path(file_path: str) -> str:
@@ -234,51 +237,50 @@ def parse_code_block(
     template_part = ''.join(template_lines)
     return config, template_part, data_part
 
-def normalize_config(config: dict[str, Any], warn_deprecated: bool = True) -> dict[str, Any]:
+def normalize_config(config: dict[str, Any]) -> dict[str, Any]:
     """Normalize config by converting preferred aliases to internal names
 
     Args:
         config: Original configuration dictionary
-        warn_deprecated: Whether to show deprecation warnings
 
     Returns:
         Normalized configuration with internal canonical names
 
+    Raises:
+        ValueError: If a parameter removed in 1.0.0 is used
+
     Examples:
         >>> normalize_config({'define': 'foo'})
-        {'name': 'foo'}  # No warning
+        {'name': 'foo'}
 
         >>> normalize_config({'name': 'foo'})
-        {'name': 'foo'}  # Warning: 'name' is deprecated, use 'define'
+        ValueError: 'name' was removed in 1.0.0. Use 'define' instead.
     """
-    normalized = {}
+    for removed, replacement in REMOVED_PARAMETERS.items():
+        if removed in config:
+            raise ValueError(
+                f"'{removed}' was removed in pandoc-embedz 1.0.0. "
+                f"Use '{replacement}' instead."
+            )
 
-    # First pass: check for conflicts between preferred and deprecated parameters
+    # Both spellings of a still-supported pair (e.g. 'as' and 'template') is ambiguous
     for internal, preferred in PARAMETER_PREFERRED_ALIASES.items():
         if preferred in config and internal in config:
             raise ValueError(
-                f"Conflicting parameters: both '{preferred}' (preferred) and '{internal}' (deprecated) specified. "
+                f"Conflicting parameters: both '{preferred}' and '{internal}' specified. "
                 f"Use '{preferred}' only."
             )
 
+    normalized = {}
     for key, value in config.items():
         # Check if this key is a preferred alias for some internal name (O(1) lookup)
         internal_name = _ALIAS_TO_INTERNAL.get(key)
 
         if internal_name:
-            # Convert preferred alias to internal name (no warning)
+            # Convert preferred alias to internal name
             normalized[internal_name] = value
         else:
-            # Keep as-is
             normalized[key] = value
-
-            # Check if direct use is deprecated
-            if warn_deprecated and key in DEPRECATED_DIRECT_USE:
-                preferred = DEPRECATED_DIRECT_USE[key]
-                sys.stderr.write(
-                    f"Warning: '{key}' parameter is deprecated. "
-                    f"Use '{preferred}' instead.\n"
-                )
 
     return normalized
 
