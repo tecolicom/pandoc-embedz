@@ -1,11 +1,16 @@
 .ONESHELL:
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
-.PHONY: test release release-n clean clean-n
+.PHONY: test lint release release-n clean clean-n
 .SILENT: release release-n
 
+# --all-extras is required: without it openpyxl/sqlite-utils are missing
+# and the Excel/SQLite tests skip silently.
 test:
-	uv run pytest tests/
+	uv run --all-extras --all-groups pytest tests/
+
+lint:
+	uv run --all-extras --all-groups ruff check .
 
 clean:
 	@for f in $$(git clean -fdX --dry-run | grep -v '\.claude/' | sed 's/^Would remove //'); do rm -rf "$$f"; done || true
@@ -86,8 +91,11 @@ release:
 	comment "Updating uv.lock"
 	uv lock
 
+	comment "Running lint"
+	uv run --all-extras --all-groups ruff check .
+
 	comment "Running tests"
-	uv run pytest tests/
+	uv run --all-extras --all-groups pytest tests/
 
 	comment "Committing release $$VERSION"
 	git add -u

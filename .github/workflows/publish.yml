@@ -8,23 +8,27 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
-        python-version: '3.12'
+        python-version: '3.13'
 
     - name: Set up uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v10
       with:
         enable-cache: true
 
     - name: Install Pandoc
       run: sudo apt-get update && sudo apt-get install -y pandoc
 
+    # --all-extras is required: sqlite/excel are extras, not dependency groups.
     - name: Install dependencies
-      run: uv sync --all-groups
+      run: uv sync --all-extras --all-groups
+
+    - name: Verify optional dependencies are installed
+      run: uv run python -c "import openpyxl, sqlite_utils"
 
     - name: Run tests
       run: uv run pytest tests/ -v
@@ -35,15 +39,15 @@ jobs:
     permissions:
       id-token: write  # Required for trusted publishing
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v7
       with:
-        python-version: '3.12'
+        python-version: '3.13'
 
     - name: Set up uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v10
       with:
         enable-cache: true
 

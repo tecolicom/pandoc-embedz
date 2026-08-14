@@ -305,7 +305,7 @@ used within fields. There is no default file extension; specify
 
 ## Excel
 
-Requires the `openpyxl` package (`pip install pandoc-embedz[excel]`).
+Requires the `openpyxl` package (`pip install 'pandoc-embedz[excel]'`).
 
 **table**
 :   Sheet name to read. Defaults to the first sheet.

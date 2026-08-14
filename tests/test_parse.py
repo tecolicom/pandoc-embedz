@@ -1,5 +1,4 @@
 """Tests for code block parsing"""
-import pytest
 from pandoc_embedz.config import parse_code_block
 
 

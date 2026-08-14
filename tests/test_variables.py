@@ -1,9 +1,10 @@
 """Tests for variable scoping (local and global)"""
-import pytest
 import panflute as pf
+import pytest
+
 from pandoc_embedz import filter as filter_module
-from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
 from pandoc_embedz.config import SAVED_TEMPLATES
+from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
 
 @pytest.fixture(autouse=True)

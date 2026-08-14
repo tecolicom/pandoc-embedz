@@ -300,7 +300,7 @@ SSV（空白区切り値）は連続する ASCII スペースを単一の区切�
 
 ## Excel
 
-`openpyxl` パッケージが必要です（`pip install pandoc-embedz[excel]`）。
+`openpyxl` パッケージが必要です（`pip install 'pandoc-embedz[excel]'`）。
 
 **table**
 :   読み込むシート名。デフォルトは最初のシート。

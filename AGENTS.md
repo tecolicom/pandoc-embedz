@@ -6,12 +6,13 @@ Quick reference for developers working on pandoc-embedz.
 
 ### Common Commands
 ```bash
-# Development setup
-uv sync --all-extras              # Install dependencies
+# Development setup (requires Python 3.11+)
+uv sync --all-extras --all-groups # Install dependencies (--all-extras is REQUIRED)
 
 # Testing
 uv run pytest tests/              # Run all tests (REQUIRED before commit)
 uv run pytest tests/test_*.py     # Run specific test file
+uv run ruff check .               # Lint (REQUIRED before commit)
 PANDOC_EMBEDZ_DEBUG=1 pandoc ...  # Enable debug output
 
 # Build and release
@@ -51,15 +52,20 @@ CODE_ANALYSIS.md        # Code quality analysis
 
 **With uv (Recommended):**
 ```bash
-uv sync --all-extras        # Install dependencies + dev tools
-uv add <package>            # Add dependency
-uv remove <package>         # Remove dependency
+uv sync --all-extras --all-groups   # Install dependencies + dev tools
+uv add <package>                    # Add dependency
+uv remove <package>                 # Remove dependency
 ```
+
+**`--all-extras` is not optional.** `sqlite` and `excel` are extras
+(`[project.optional-dependencies]`), not dependency groups. Without the flag,
+`openpyxl` and `sqlite-utils` are missing and ~39 Excel/SQLite tests skip
+silently via `pytest.importorskip` — the suite still reports green.
 
 **With pip (Alternative):**
 ```bash
-pip install -e .[dev]       # Editable install with dev dependencies
-python -m build             # Build package
+pip install -e '.[all]' --group dev # Editable install (--group needs pip 25.1+)
+python -m build                     # Build package
 ```
 
 ### Testing

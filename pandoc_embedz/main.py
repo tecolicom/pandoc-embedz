@@ -5,10 +5,8 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from pathlib import Path
-from typing import Dict, List, Optional
-
 from importlib.metadata import version
+from pathlib import Path
 
 from .config import validate_file_path
 
@@ -29,15 +27,15 @@ def _read_template_source(path_spec: str) -> str:
 
 def render_standalone_text(
     text: str,
-    attr_overrides: Optional[Dict[str, object]] = None
+    attr_overrides: dict[str, object] | None = None
 ) -> str:
     """Render template text outside of Pandoc."""
     filter_module = _filter_module()
     template_part = ''
-    config: Dict[str, object] = {}
-    data_file: Optional[str] = None
+    config: dict[str, object] = {}
+    data_file: str | None = None
     has_header = True
-    data_part: Optional[str] = None
+    data_part: str | None = None
 
     try:
         filter_module._debug("=" * 60)
@@ -80,12 +78,12 @@ def render_standalone_text(
 
 
 def run_standalone(
-    files: List[str],
-    config_paths: Optional[List[str]] = None,
-    output_path: Optional[str] = None,
+    files: list[str],
+    config_paths: list[str] | None = None,
+    output_path: str | None = None,
     enable_debug: bool = False,
-    template_text: Optional[str] = None,
-    data_format: Optional[str] = None
+    template_text: str | None = None,
+    data_format: str | None = None
 ) -> None:
     """Handle standalone rendering for one or more files."""
     filter_module = _filter_module()
@@ -94,7 +92,7 @@ def run_standalone(
     if enable_debug:
         filter_module.DEBUG = True
 
-    attr_overrides: Dict[str, object] = {}
+    attr_overrides: dict[str, object] = {}
     if config_paths:
         if len(config_paths) == 1:
             attr_overrides['config'] = config_paths[0]
@@ -113,7 +111,7 @@ def run_standalone(
     if template_text and not data_format:
         attr_overrides['_no_stdin_auto'] = True
 
-    outputs: List[str] = []
+    outputs: list[str] = []
     try:
         if template_text:
             # Use template text from command line

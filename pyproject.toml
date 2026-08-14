@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=45", "wheel"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,8 +7,9 @@ name = "pandoc-embedz"
 version = "0.22.3"
 description = "Pandoc filter for embedding data-driven content using Jinja2 templates"
 readme = "README.md"
-requires-python = ">=3.8"
-license = {text = "MIT"}
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Kazumasa Utashiro"}
 ]
@@ -18,22 +19,33 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Text Processing :: Filters",
     "Topic :: Software Development :: Documentation",
+    "Typing :: Typed",
 ]
 dependencies = [
     "panflute>=2.0.0",
     "jinja2>=3.0.0",
-    "pandas>=1.0.0",
-    "pyyaml>=5.0.0",
-    "tomli>=1.0.0; python_version<'3.11'",
+    # 2.2.2 is the first release compatible with NumPy 2.x
+    "pandas>=2.2.2",
+    "pyyaml>=6.0",
     "regex>=2024.11.6",
+]
+
+[project.optional-dependencies]
+sqlite = [
+    "sqlite-utils>=3.30",
+]
+excel = [
+    # required by pandas >= 3.0 for reading .xlsx
+    "openpyxl>=3.1.5",
+]
+all = [
+    "pandoc-embedz[sqlite,excel]",
 ]
 
 [project.urls]
@@ -48,6 +60,9 @@ pandoc-embedz = "pandoc_embedz.main:main"
 [tool.setuptools]
 packages = ["pandoc_embedz"]
 
+[tool.setuptools.package-data]
+pandoc_embedz = ["py.typed"]
+
 [tool.setuptools.data-files]
 "share/man/man1" = ["man/pandoc-embedz.1"]
 "share/man/ja/man1" = ["man/ja/pandoc-embedz.1"]
@@ -56,12 +71,7 @@ packages = ["pandoc_embedz"]
 dev = [
     "pytest>=7.0.0",
     "pytest-cov>=4.0.0",
-]
-sqlite = [
-    "sqlite-utils>=3.0.0",
-]
-excel = [
-    "openpyxl>=3.0.0",
+    "ruff>=0.14.0",
 ]
 
 [tool.pytest.ini_options]
@@ -73,4 +83,21 @@ addopts = [
     "-v",
     "--strict-markers",
     "--tb=short",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes
+    "W",    # pycodestyle warnings
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+]
+ignore = [
+    "E501",  # line length is handled by the formatter
 ]

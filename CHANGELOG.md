@@ -5,6 +5,40 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.23.0] - 2026-08-14
+
+### Fixed
+- `pip install 'pandoc-embedz[excel]'` and `[sqlite]` now actually install their dependencies
+  - `sqlite` and `excel` were declared as PEP 735 dependency groups, which are not published in package metadata, so the extras did not exist for installers
+  - Moved to `[project.optional-dependencies]`; added an `all` extra
+- Dependency lower bounds now reflect versions that actually work
+  - `openpyxl>=3.1.5` (pandas 3.0 requires it), `pandas>=2.2.2` (first release compatible with NumPy 2.x), `sqlite-utils>=3.30`, `pyyaml>=6.0`
+  - The previous floors (`pandas>=1.0.0`, `openpyxl>=3.0.0`) were untested and did not install
+- Development and release commands now install extras
+  - `uv sync --all-extras` was documented but installs no extras at all; `openpyxl`/`sqlite-utils` were missing and 39 Excel/SQLite tests skipped silently through `pytest.importorskip`
+  - `make test`, `make release` and both workflows now pass `--all-extras --all-groups`
+
+### Changed
+- **Requires Python 3.11 or later** (was 3.8)
+  - Python 3.8 reached end of life in October 2024, 3.9 in October 2025
+  - Removes the `tomli` dependency; TOML support now uses the standard library `tomllib` unconditionally
+- Declared support for Python 3.14 and verified the suite against pandas 3.0
+- Modernized packaging
+  - `license` is now the SPDX expression `MIT` with `license-files` (PEP 639); the old TOML-table form was deprecated with a 2027-02-18 removal deadline
+  - Build requirement raised to `setuptools>=77`; the unnecessary `wheel` requirement was dropped
+  - Ships `py.typed` so type hints are visible to type checkers
+- Modernized type hints throughout for 3.11+ (`dict[str, Any]`, `X | None`)
+- Updated GitHub Actions: `checkout@v7`, `setup-python@v7`, `setup-uv@v10`, `codecov-action@v7` (`file:` was renamed to `files:` in v5)
+
+### Added
+- `ruff` linting with configuration in `pyproject.toml`, a `make lint` target, and a CI job
+- CI jobs that resolve dependencies from PyPI instead of `uv.lock`, covering both the declared floors (`lowest-direct`) and the newest releases (`highest`)
+  - The matrix always installed from the lock file, so pandas 3.0 was never exercised despite being what new users get
+- `.github/dependabot.yml` for GitHub Actions and uv dependency updates
+
+### Removed
+- `package-lock.json`, an empty npm lock file with no corresponding `package.json`
+
 ## [0.22.3] - 2026-03-28
 
 ### Fixed

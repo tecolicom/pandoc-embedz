@@ -1,5 +1,10 @@
 include README.md
-include LICENSE
+include README.JA.md
+include REFERENCE.md
+include REFERENCE.JA.md
+include CHANGELOG.md
 include COMPARISON.md
-recursive-include examples *.md *.csv *.json *.yaml
-recursive-include man *.1 *.md
+include MULTI_TABLE.md
+recursive-include examples *.md *.csv
+recursive-include examples Makefile
+recursive-include man *.1

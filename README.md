@@ -76,7 +76,16 @@ Or grab the latest main branch directly from GitHub:
 pip install git+https://github.com/tecolicom/pandoc-embedz.git
 ```
 
-Dependencies: `panflute`, `jinja2`, `pandas`, `pyyaml`
+Some data formats need optional dependencies, available as extras:
+
+```bash
+pip install 'pandoc-embedz[excel]'   # .xlsx / .xls support (openpyxl)
+pip install 'pandoc-embedz[sqlite]'  # richer SQLite support (sqlite-utils)
+pip install 'pandoc-embedz[all]'     # everything
+```
+
+Requires Python 3.11 or later.
+Dependencies: `panflute`, `jinja2`, `pandas`, `pyyaml`, `regex`
 
 **Note**: Requires [Pandoc](https://pandoc.org/installing.html) to be installed separately. A comprehensive reference manual is available via `man pandoc-embedz` after installation.
 
@@ -454,7 +463,7 @@ Use the `table` parameter to read all rows from a specific table without a custo
 
 ### Excel Files
 
-Read `.xlsx` / `.xls` files directly. Requires `openpyxl` (`pip install pandoc-embedz[excel]`). Leading blank rows and all-blank columns are automatically skipped.
+Read `.xlsx` / `.xls` files directly. Requires `openpyxl` (`pip install 'pandoc-embedz[excel]'`). Leading blank rows and all-blank columns are automatically skipped.
 
 ````markdown
 ```embedz
@@ -763,10 +772,15 @@ git clone https://github.com/tecolicom/pandoc-embedz.git
 cd pandoc-embedz
 
 # Install dependencies and setup development environment
-uv sync --all-extras
+# --all-extras is required: without it openpyxl/sqlite-utils are missing
+# and the Excel/SQLite tests silently skip.
+uv sync --all-extras --all-groups
 
 # Run tests
 uv run pytest tests/
+
+# Lint
+uv run ruff check .
 ```
 
 #### Using pip
@@ -780,8 +794,9 @@ cd pandoc-embedz
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Install in editable mode with dev dependencies
-pip install -e .[dev]
+# Install in editable mode with optional and dev dependencies
+# (--group requires pip 25.1 or later; dev is a PEP 735 dependency group)
+pip install -e '.[all]' --group dev
 
 # Run tests
 pytest tests/

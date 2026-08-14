@@ -3,24 +3,18 @@
 Handles loading data from various formats using a dispatch table pattern.
 """
 
-from typing import Dict, Any, List, Optional, Union, Tuple
-from functools import partial
-import pandas as pd
-import yaml
 import json
+import re
 import sqlite3
 import sys
-import re
+import tomllib
+from functools import partial
 from io import StringIO
 from pathlib import Path
+from typing import Any
 
-try:
-    import tomllib
-except ImportError:
-    try:
-        import tomli as tomllib
-    except ImportError:
-        tomllib = None
+import pandas as pd
+import yaml
 
 try:
     from sqlite_utils import Database as SqliteUtilsDatabase
@@ -54,11 +48,11 @@ DEFAULT_FORMAT = 'csv'
 # ─────────────────────────────────────────────────────────────────────────────
 # SQL Query Support
 
-def _apply_sql_query(df: pd.DataFrame, query: str, table_name: str = 'data') -> List[Dict[str, Any]]:
+def _apply_sql_query(df: pd.DataFrame, query: str, table_name: str = 'data') -> list[dict[str, Any]]:
     """Apply SQL query to DataFrame using in-memory SQLite"""
     return _apply_sql_query_multi({table_name: df}, query)
 
-def _apply_sql_query_multi(tables: Dict[str, pd.DataFrame], query: str) -> List[Dict[str, Any]]:
+def _apply_sql_query_multi(tables: dict[str, pd.DataFrame], query: str) -> list[dict[str, Any]]:
     """Apply SQL query to multiple DataFrames using in-memory SQLite"""
     conn = sqlite3.connect(':memory:')
     conn.row_factory = sqlite3.Row
@@ -78,7 +72,7 @@ def _apply_sql_query_multi(tables: Dict[str, pd.DataFrame], query: str) -> List[
 # ─────────────────────────────────────────────────────────────────────────────
 # Format Loaders
 
-def _build_csv_read_kwargs(sep: str) -> Dict[str, Any]:
+def _build_csv_read_kwargs(sep: str) -> dict[str, Any]:
     r"""Build pandas read_csv kwargs for the given separator.
 
     Args:
@@ -87,14 +81,14 @@ def _build_csv_read_kwargs(sep: str) -> Dict[str, Any]:
     Returns:
         Dict of kwargs for pd.read_csv()
     """
-    kwargs: Dict[str, Any] = {'sep': sep}
+    kwargs: dict[str, Any] = {'sep': sep}
 
     if sep == r'\s+':
         kwargs['engine'] = 'python'
 
     return kwargs
 
-def _read_source(source: Union[str, StringIO], comment: str = 'none') -> str:
+def _read_source(source: str | StringIO, comment: str = 'none') -> str:
     """Read content from file path or StringIO.
 
     Args:
@@ -120,7 +114,7 @@ def _read_source(source: Union[str, StringIO], comment: str = 'none') -> str:
         )
     return content
 
-def _load_json(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
+def _load_json(source: str | StringIO, **kwargs) -> list[Any] | dict[str, Any]:
     """Load JSON format
 
     Returns empty list for empty input instead of raising an error.
@@ -133,18 +127,13 @@ def _load_json(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[
 
     return json.loads(content)
 
-def _load_yaml(source: Union[str, StringIO], **kwargs) -> Union[List[Any], Dict[str, Any]]:
+def _load_yaml(source: str | StringIO, **kwargs) -> list[Any] | dict[str, Any]:
     """Load YAML format"""
     content = _read_source(source, comment=kwargs.pop('comment', 'none'))
     return yaml.safe_load(content)
 
-def _load_toml(source: Union[str, StringIO], **kwargs) -> Dict[str, Any]:
+def _load_toml(source: str | StringIO, **kwargs) -> dict[str, Any]:
     """Load TOML format"""
-    if tomllib is None:
-        raise ImportError(
-            "TOML support requires 'tomli' package for Python < 3.11. "
-            "Install with: pip install tomli"
-        )
     content = _read_source(source, comment=kwargs.pop('comment', 'none'))
     return tomllib.loads(content)
 
@@ -171,7 +160,7 @@ def _quote_identifier(name: str) -> str:
     return '"' + name.replace('"', '""') + '"'
 
 
-def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]:
+def _load_sqlite(source: str | StringIO, **kwargs) -> list[dict[str, Any]]:
     """Load SQLite database
 
     Uses sqlite-utils if available for improved API, falls back to sqlite3.
@@ -195,7 +184,7 @@ def _load_sqlite(source: Union[str, StringIO], **kwargs) -> List[Dict[str, Any]]
             # Execute query and convert to dicts using column names
             cursor = db.execute(query)
             columns = [desc[0] for desc in cursor.description]
-            return [dict(zip(columns, row)) for row in cursor.fetchall()]
+            return [dict(zip(columns, row, strict=False)) for row in cursor.fetchall()]
         else:
             return list(db[table].rows)
 
@@ -225,7 +214,7 @@ def _clean_column_names(columns: list) -> list:
     - Duplicate names get a numeric suffix: 'name_1', 'name_2', etc.
     """
     cleaned = []
-    seen: Dict[str, int] = {}
+    seen: dict[str, int] = {}
     for i, col in enumerate(columns):
         if pd.isna(col):
             col = f'column_{i}'
@@ -246,7 +235,7 @@ def _clean_column_names(columns: list) -> list:
     return cleaned
 
 
-def _parse_skip_pattern(pattern: str) -> Tuple[Optional[int], str]:
+def _parse_skip_pattern(pattern: str) -> tuple[int | None, str]:
     """Parse a skiprows pattern string into (column_index, search_text).
 
     Args:
@@ -266,7 +255,7 @@ def _parse_skip_pattern(pattern: str) -> Tuple[Optional[int], str]:
 
 
 def _row_matches_pattern(
-    df: pd.DataFrame, row_idx: int, col_index: Optional[int], search_text: str
+    df: pd.DataFrame, row_idx: int, col_index: int | None, search_text: str
 ) -> bool:
     """Check if a row contains a cell exactly matching the given text.
 
@@ -289,7 +278,7 @@ def _row_matches_pattern(
 
 
 def _skip_to_matching_row(
-    df: pd.DataFrame, pattern: Union[str, List[str]], source: str, table: Optional[str]
+    df: pd.DataFrame, pattern: str | list[str], source: str, table: str | None
 ) -> pd.DataFrame:
     """Skip rows until finding one matching the pattern(s).
 
@@ -320,10 +309,10 @@ def _skip_to_matching_row(
 
 
 def _load_excel(
-    source: Union[str, StringIO],
+    source: str | StringIO,
     has_header: bool = True,
     **kwargs
-) -> Union[List[Dict[str, Any]], List[List[Any]]]:
+) -> list[dict[str, Any]] | list[list[Any]]:
     """Load Excel file (.xlsx, .xls)
 
     Requires openpyxl package for .xlsx files.
@@ -355,7 +344,7 @@ def _load_excel(
 
     # Read sheet; skip leading rows if requested
     skiprows = kwargs.get('skiprows')
-    read_kwargs: Dict[str, Any] = {'sheet_name': sheet_name, 'header': None}
+    read_kwargs: dict[str, Any] = {'sheet_name': sheet_name, 'header': None}
     if isinstance(skiprows, int):
         read_kwargs['skiprows'] = skiprows
     df = pd.read_excel(source, **read_kwargs)
@@ -392,7 +381,7 @@ def _load_excel(
         return df.values.tolist()
 
 
-def _load_lines(source: Union[str, StringIO], **kwargs) -> List[str]:
+def _load_lines(source: str | StringIO, **kwargs) -> list[str]:
     """Load plain text lines
 
     Returns each line as a string. Empty lines are preserved as empty strings.
@@ -401,11 +390,11 @@ def _load_lines(source: Union[str, StringIO], **kwargs) -> List[str]:
     return content.splitlines()
 
 def _load_ssv_with_columns(
-    source: Union[str, StringIO],
+    source: str | StringIO,
     columns: int,
     has_header: bool = True,
     **kwargs
-) -> Union[List[Dict[str, Any]], List[List[Any]]]:
+) -> list[dict[str, Any]] | list[list[Any]]:
     """Load SSV format with fixed column count.
 
     Uses str.split(maxsplit=columns-1) to preserve spaces in the last column.
@@ -429,8 +418,8 @@ def _load_ssv_with_columns(
         return []
 
     maxsplit = columns - 1
-    result: List[List[str]] = []
-    header: Optional[List[str]] = None
+    result: list[list[str]] = []
+    header: list[str] | None = None
 
     for line in lines:
         if not line.strip():
@@ -448,7 +437,7 @@ def _load_ssv_with_columns(
             result.append(parts)
 
     if has_header and header is not None:
-        records = [dict(zip(header, row)) for row in result]
+        records = [dict(zip(header, row, strict=False)) for row in result]
         if 'query' in kwargs:
             df = pd.DataFrame(records)
             return _apply_sql_query(df, kwargs['query'])
@@ -458,11 +447,11 @@ def _load_ssv_with_columns(
 
 
 def _load_csv(
-    source: Union[str, StringIO],
+    source: str | StringIO,
     sep: str = ',',
     has_header: bool = True,
     **kwargs
-) -> Union[List[Dict[str, Any]], List[List[Any]]]:
+) -> list[dict[str, Any]] | list[list[Any]]:
     """Load CSV/TSV/SSV format with optional SQL query support
 
     Returns empty list for empty input instead of raising an error.
@@ -528,10 +517,10 @@ def guess_format_from_filename(filename: str) -> str:
     return FORMAT_EXTENSIONS.get(Path(filename).suffix.lower(), DEFAULT_FORMAT)
 
 def _normalize_data_source(
-    value: Union[str, Dict[str, Any]],
+    value: str | dict[str, Any],
     table_name: str,
-    data_format: Optional[str] = None,
-) -> Tuple[Union[str, StringIO], str, Dict[str, Any]]:
+    data_format: str | None = None,
+) -> tuple[str | StringIO, str, dict[str, Any]]:
     """Normalize data source specification to (source, format, load_kwargs) tuple.
 
     Path validation is not performed here; load_data() handles it via
@@ -582,11 +571,11 @@ def _normalize_data_source(
         return value, file_format, {}
 
 def load_data(
-    source: Union[str, StringIO],
-    format: Optional[str] = None,
+    source: str | StringIO,
+    format: str | None = None,
     has_header: bool = True,
     **kwargs: Any
-) -> Union[List[Any], Dict[str, Any]]:
+) -> list[Any] | dict[str, Any]:
     """Load data from file or StringIO
 
     Uses a dispatch table to delegate to format-specific loaders.
@@ -642,22 +631,22 @@ def _to_dataframe(value: Any) -> pd.DataFrame:
 
 
 def _query_tables(
-    data_file: Dict[str, Any],
-    data_format: Optional[str],
+    data_file: dict[str, Any],
+    data_format: str | None,
     has_header: bool,
     query: str
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Load multiple tables and execute SQL query"""
     datasets = _load_tables(data_file, data_format, has_header, {})
     tables = {name: _to_dataframe(data) for name, data in datasets.items()}
     return _apply_sql_query_multi(tables, query)
 
 def _load_tables(
-    data_file: Dict[str, Any],
-    data_format: Optional[str],
+    data_file: dict[str, Any],
+    data_format: str | None,
     has_header: bool,
-    load_kwargs: Dict[str, Any]
-) -> Dict[str, Any]:
+    load_kwargs: dict[str, Any]
+) -> dict[str, Any]:
     """Load multiple tables for direct access"""
     datasets = {}
     for table_name, value in data_file.items():
@@ -677,13 +666,13 @@ def _load_tables(
     return datasets
 
 def _load_embedz_data(
-    data_file: Optional[Union[str, Dict[str, Any]]],
-    data_part: Optional[str],
-    config: Dict[str, Any],
-    data_format: Optional[str],
+    data_file: str | dict[str, Any] | None,
+    data_part: str | None,
+    config: dict[str, Any],
+    data_format: str | None,
     has_header: bool,
-    load_kwargs: Dict[str, Any]
-) -> Union[List[Any], Dict[str, Any]]:
+    load_kwargs: dict[str, Any]
+) -> list[Any] | dict[str, Any]:
     """Load data from file(s), inline data, or multi-table sources"""
     if data_file and data_part:
         raise ValueError(

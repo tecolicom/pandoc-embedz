@@ -1,8 +1,9 @@
 """Tests for attribute-based configuration"""
-import pytest
 import panflute as pf
-from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
+import pytest
+
 from pandoc_embedz.config import SAVED_TEMPLATES
+from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
 
 def stringify_result(result):
@@ -395,20 +396,8 @@ format: json
             process_embedz(code_block, pf.Doc())
 
 
-"""Test YAML content without --- delimiters when data + with attributes"""
-import pytest
-import panflute as pf
-from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-from pandoc_embedz.config import SAVED_TEMPLATES
-from io import StringIO
-
-
-def stringify_result(result):
-    if isinstance(result, list):
-        return '\n'.join(pf.stringify(elem) for elem in result if elem is not None)
-    elif result is not None:
-        return pf.stringify(result)
-    return ''
+# Tests for YAML content without --- delimiters when data + with attributes
+# (stringify_result is defined at the top of this module)
 
 
 class TestYAMLWithoutDelimiters:
@@ -608,12 +597,12 @@ class TestWithDotNotation:
 
 class TestDeprecatedNameParameter:
     """Tests for backward compatibility with deprecated 'name' parameter"""
-    
+
     def setup_method(self):
         """Clear global state before each test"""
         SAVED_TEMPLATES.clear()
         GLOBAL_VARS.clear()
-    
+
     def test_name_parameter_yaml_still_works(self, capsys):
         """Deprecated 'name' parameter in YAML should still work with warning"""
         code = """---
@@ -622,21 +611,21 @@ name: test-template
 {% for row in data %}
 - {{ row }}
 {% endfor %}"""
-        
+
         elem = pf.CodeBlock(code, classes=['embedz'])
         doc = pf.Doc()
         result = process_embedz(elem, doc)
-        
+
         # Template should be saved
         assert 'test-template' in SAVED_TEMPLATES
         # Should return empty (no data)
         assert result == []
-        
+
         # Check for deprecation warning
         captured = capsys.readouterr()
         assert "deprecated" in captured.err.lower()
         assert "define" in captured.err.lower()
-    
+
     def test_name_attribute_still_works(self, capsys):
         """Deprecated 'name' attribute should still work with warning"""
         elem = pf.CodeBlock(
@@ -644,16 +633,16 @@ name: test-template
             classes=['embedz'],
             attributes=[('name', 'attr-template')]
         )
-        
+
         process_embedz(elem, pf.Doc())
-        
+
         # Template should be saved
         assert 'attr-template' in SAVED_TEMPLATES
-        
+
         # Check for deprecation warning
         captured = capsys.readouterr()
         assert "deprecated" in captured.err.lower()
-    
+
     def test_name_template_is_saved_correctly(self, capsys):
         """Template defined with deprecated 'name' is saved and can be referenced"""
         # Define template with deprecated 'name'

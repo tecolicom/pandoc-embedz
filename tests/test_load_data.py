@@ -1,8 +1,10 @@
 """Tests for data loading functionality"""
-import pytest
-from pathlib import Path
 from io import StringIO
-from pandoc_embedz.data_loader import load_data, guess_format_from_filename
+from pathlib import Path
+
+import pytest
+
+from pandoc_embedz.data_loader import guess_format_from_filename, load_data
 
 FIXTURES_DIR = Path(__file__).parent / 'fixtures'
 
@@ -505,9 +507,10 @@ class TestMultiTableSQL:
 
     def test_multi_table_join(self):
         """Test joining two CSV files with SQL"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -551,9 +554,10 @@ query: |
 
     def test_multi_table_aggregation(self):
         """Test aggregating data from multiple tables"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -598,9 +602,10 @@ query: |
 
     def test_multi_table_without_query(self):
         """Multi-table data without query allows direct access via data.table_name"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -643,9 +648,10 @@ data:
 
     def test_multi_table_mixed_formats(self):
         """Multi-table can combine different formats (YAML + CSV)"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -686,9 +692,10 @@ By {{ data.config.author }} (v{{ data.config.version }})
 
     def test_multi_table_inline_csv(self):
         """Multi-table with inline CSV data"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -736,9 +743,10 @@ data:
 
     def test_multi_table_inline_yaml(self):
         """Multi-table with inline YAML config and CSV data"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -781,9 +789,10 @@ data:
 
     def test_multi_table_mixed_inline_and_file(self):
         """Multi-table with both inline data and file paths"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -831,9 +840,10 @@ data:
 
     def test_data_file_and_data_part_mutually_exclusive(self):
         """Error should be raised if both data attribute and inline data are specified"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Clear state
         SAVED_TEMPLATES.clear()
@@ -990,7 +1000,6 @@ class TestLoadExcel:
         """Empty sheet returns empty list with warning"""
         import openpyxl
         wb = openpyxl.Workbook()
-        ws = wb.active
         # Don't add any data
         path = str(tmp_path / 'empty.xlsx')
         wb.save(path)
@@ -1346,9 +1355,10 @@ class TestMultiTableExcel:
     def test_multi_table_excel_with_query(self, tmp_path):
         """Multi-table SQL query with Excel data sources"""
         import openpyxl
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         # Create Excel file with two sheets
         wb = openpyxl.Workbook()
@@ -1404,9 +1414,10 @@ query: |
     def test_multi_table_excel_with_skiprows(self, tmp_path):
         """Multi-table SQL with skiprows parameter in file: dict"""
         import openpyxl
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1452,9 +1463,10 @@ query: |
     def test_multi_table_file_dict_without_query(self, tmp_path):
         """Multi-table with file: dict but no query (direct access)"""
         import openpyxl
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         wb = openpyxl.Workbook()
         ws1 = wb.active
@@ -1500,9 +1512,10 @@ Author: {{{{ data.meta[0].desc }}}}'''
     def test_multi_table_mixed_file_dict_and_string(self, tmp_path):
         """Mix file: dict (Excel) with plain string (CSV)"""
         import openpyxl
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1573,9 +1586,10 @@ class TestStartrow:
 
     def test_startrow_integer(self, tmp_path):
         """startrow integer is 1-indexed: startrow=3 skips 2 rows"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         path = self._make_excel_with_title(tmp_path)
 
@@ -1604,9 +1618,10 @@ startrow: 3
 
     def test_startrow_string(self, tmp_path):
         """startrow string passes through as-is (same as skiprows)"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         path = self._make_excel_with_title(tmp_path)
 
@@ -1635,10 +1650,11 @@ startrow: name
 
     def test_startrow_list(self, tmp_path):
         """startrow list passes through as-is (same as skiprows)"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
-        import panflute as pf
         import openpyxl
+        import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1674,9 +1690,10 @@ startrow: [年, 月]
 
     def test_skiprows_deprecation_warning(self, tmp_path, capsys):
         """skiprows still works but emits a deprecation warning"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         path = self._make_excel_with_title(tmp_path)
 
@@ -1707,9 +1724,10 @@ skiprows: 2
 
     def test_startrow_and_skiprows_both_error(self, tmp_path):
         """Specifying both startrow and skiprows raises ValueError"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         path = self._make_excel_with_title(tmp_path)
 
@@ -1733,9 +1751,10 @@ skiprows: 2
 
     def test_startrow_zero_raises_error(self, tmp_path):
         """startrow: 0 is invalid (must be >= 1)"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
         import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         path = self._make_excel_with_title(tmp_path)
 
@@ -1758,10 +1777,11 @@ startrow: 0
 
     def test_startrow_in_file_dict(self, tmp_path):
         """startrow works in file: dict syntax (multi-table)"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
-        import panflute as pf
         import openpyxl
+        import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1805,10 +1825,11 @@ query: |
 
     def test_startrow_integer_in_file_dict(self, tmp_path):
         """startrow integer conversion works in file: dict syntax"""
-        from pandoc_embedz.filter import process_embedz, GLOBAL_VARS
-        from pandoc_embedz.config import SAVED_TEMPLATES
-        import panflute as pf
         import openpyxl
+        import panflute as pf
+
+        from pandoc_embedz.config import SAVED_TEMPLATES
+        from pandoc_embedz.filter import GLOBAL_VARS, process_embedz
 
         wb = openpyxl.Workbook()
         ws = wb.active

@@ -1,12 +1,13 @@
 """Tests for external config files and standalone rendering."""
 
 from pathlib import Path
+
 import panflute as pf
 
 
 def _reset_state():
-    from pandoc_embedz.config import SAVED_TEMPLATES
     import pandoc_embedz.filter as filter_module
+    from pandoc_embedz.config import SAVED_TEMPLATES
 
     SAVED_TEMPLATES.clear()
     filter_module.GLOBAL_VARS.clear()
@@ -209,9 +210,10 @@ define: helper-macros
 
 def test_stdin_data_source():
     """Data can be read from stdin using data: '-'."""
-    from pandoc_embedz.main import render_standalone_text
     import sys
     from io import StringIO
+
+    from pandoc_embedz.main import render_standalone_text
 
     _reset_state()
 
@@ -236,9 +238,10 @@ format: csv
 
 def test_template_text_option(capsys):
     """Template can be specified via -t option."""
-    from pandoc_embedz.main import run_standalone
     import sys
     from io import StringIO
+
+    from pandoc_embedz.main import run_standalone
 
     _reset_state()
 
@@ -262,9 +265,10 @@ def test_template_text_option(capsys):
 
 def test_format_option(capsys):
     """Data format can be specified via -f option."""
-    from pandoc_embedz.main import run_standalone
     import sys
     from io import StringIO
+
+    from pandoc_embedz.main import run_standalone
 
     _reset_state()
 
@@ -286,8 +290,9 @@ def test_format_option(capsys):
 
 def test_template_and_file_conflict(tmp_path):
     """Cannot specify both -t and template files."""
-    from pandoc_embedz.main import main
     import sys
+
+    from pandoc_embedz.main import main
 
     file = tmp_path / "template.md"
     file.write_text("test", encoding='utf-8')
@@ -307,9 +312,10 @@ def test_template_and_file_conflict(tmp_path):
 
 def test_multiple_files_no_stdin_auto_detection(tmp_path):
     """Multiple files should not auto-detect stdin to avoid consuming it on first file."""
-    from pandoc_embedz.main import run_standalone
     import sys
     from io import StringIO
+
+    from pandoc_embedz.main import run_standalone
 
     _reset_state()
 
@@ -325,8 +331,8 @@ def test_multiple_files_no_stdin_auto_detection(tmp_path):
     sys.stdin = StringIO("test")
 
     try:
-        from io import StringIO
         import sys as sys_module
+        from io import StringIO
         output = StringIO()
         original_stdout = sys_module.stdout
         sys_module.stdout = output
@@ -345,9 +351,10 @@ def test_multiple_files_no_stdin_auto_detection(tmp_path):
 
 def test_template_text_without_format_no_stdin(capsys):
     """Template text without -f option should not read from stdin."""
-    from pandoc_embedz.main import run_standalone
     import sys
     from io import StringIO
+
+    from pandoc_embedz.main import run_standalone
 
     _reset_state()
 
@@ -369,9 +376,10 @@ def test_template_text_without_format_no_stdin(capsys):
 
 def test_template_text_with_format_reads_stdin(capsys):
     """Template text with -f option should read from stdin."""
-    from pandoc_embedz.main import run_standalone
     import sys
     from io import StringIO
+
+    from pandoc_embedz.main import run_standalone
 
     _reset_state()
 

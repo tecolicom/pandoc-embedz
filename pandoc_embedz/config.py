@@ -3,16 +3,18 @@
 This module handles configuration parsing, validation, and file path validation.
 """
 
-from typing import Dict, Any, Tuple, Optional, Callable, List
-import panflute as pf
-from jinja2 import TemplateNotFound
-import yaml
 import sys
+from collections.abc import Callable
 from io import StringIO
 from pathlib import Path
+from typing import Any
+
+import panflute as pf
+import yaml
+from jinja2 import TemplateNotFound
 
 # Store templates - shared across modules
-SAVED_TEMPLATES: Dict[str, str] = {}
+SAVED_TEMPLATES: dict[str, str] = {}
 
 # Internal canonical name -> Preferred external alias (no warning)
 PARAMETER_PREFERRED_ALIASES = {
@@ -62,7 +64,7 @@ def validate_file_path(file_path: str) -> str:
         # Catch potential path resolution errors
         raise ValueError(f"Invalid file path: {file_path}") from e
 
-def load_template_from_saved(name: str) -> Tuple[str, None, Callable[[], bool]]:
+def load_template_from_saved(name: str) -> tuple[str, None, Callable[[], bool]]:
     """Loader function for saved templates
 
     Args:
@@ -80,7 +82,7 @@ def load_template_from_saved(name: str) -> Tuple[str, None, Callable[[], bool]]:
     return SAVED_TEMPLATES[name], None, lambda: True
 
 
-def _ensure_dict(value: Any, source: str) -> Dict[str, Any]:
+def _ensure_dict(value: Any, source: str) -> dict[str, Any]:
     """Ensure loaded YAML content is a mapping."""
     if value is None:
         return {}
@@ -89,7 +91,7 @@ def _ensure_dict(value: Any, source: str) -> Dict[str, Any]:
     return value
 
 
-def load_config_file(file_path: str) -> Dict[str, Any]:
+def load_config_file(file_path: str) -> dict[str, Any]:
     """Load YAML configuration from an external file.
 
     Supports multiple YAML documents in a single file (separated by ---).
@@ -111,11 +113,11 @@ def load_config_file(file_path: str) -> Dict[str, Any]:
         Merged configuration dictionary from all documents
     """
     validated_path = validate_file_path(file_path)
-    with open(validated_path, 'r', encoding='utf-8') as handle:
+    with open(validated_path, encoding='utf-8') as handle:
         content = handle.read()
 
     # Use safe_load_all to parse multiple YAML documents
-    merged: Dict[str, Any] = {}
+    merged: dict[str, Any] = {}
     for doc in yaml.safe_load_all(content):
         if doc is not None:
             validated = _ensure_dict(doc, f"Config file '{file_path}'")
@@ -124,9 +126,9 @@ def load_config_file(file_path: str) -> Dict[str, Any]:
     return merged
 
 
-def deep_merge_dicts(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str, Any]:
+def deep_merge_dicts(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
     """Recursively merge dictionaries without mutating inputs."""
-    merged: Dict[str, Any] = dict(base)
+    merged: dict[str, Any] = dict(base)
     for key, value in updates.items():
         if (
             key in merged
@@ -138,7 +140,7 @@ def deep_merge_dicts(base: Dict[str, Any], updates: Dict[str, Any]) -> Dict[str,
             merged[key] = value
     return merged
 
-def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
+def parse_attributes(elem: pf.CodeBlock) -> dict[str, Any]:
     """Parse code block attributes into config dictionary
 
     Supports dot notation for nested dictionaries (e.g., with.title="Title", global.author="John")
@@ -150,8 +152,8 @@ def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
     Returns:
         dict: Parsed configuration with proper type conversion
     """
-    config: Dict[str, Any] = {}
-    nested_vars: Dict[str, Dict[str, Any]] = {}
+    config: dict[str, Any] = {}
+    nested_vars: dict[str, dict[str, Any]] = {}
 
     # elem.attributes is a dictionary
     if hasattr(elem, 'attributes') and elem.attributes:
@@ -183,7 +185,7 @@ def parse_attributes(elem: pf.CodeBlock) -> Dict[str, Any]:
 def parse_code_block(
     text: str,
     allow_inline_data: bool = True
-) -> Tuple[Dict[str, Any], str, Optional[str]]:
+) -> tuple[dict[str, Any], str, str | None]:
     """Parse code block into YAML config, template, and data sections
 
     Args:
@@ -232,7 +234,7 @@ def parse_code_block(
     template_part = ''.join(template_lines)
     return config, template_part, data_part
 
-def normalize_config(config: Dict[str, Any], warn_deprecated: bool = True) -> Dict[str, Any]:
+def normalize_config(config: dict[str, Any], warn_deprecated: bool = True) -> dict[str, Any]:
     """Normalize config by converting preferred aliases to internal names
 
     Args:
@@ -280,7 +282,7 @@ def normalize_config(config: Dict[str, Any], warn_deprecated: bool = True) -> Di
 
     return normalized
 
-def validate_config(config: Dict[str, Any]) -> None:
+def validate_config(config: dict[str, Any]) -> None:
     """Validate configuration to prevent invalid settings
 
     Args:

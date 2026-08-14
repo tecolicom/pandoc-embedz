@@ -76,7 +76,16 @@ pip install pandoc-embedz
 pip install git+https://github.com/tecolicom/pandoc-embedz.git
 ```
 
-依存関係: `panflute`, `jinja2`, `pandas`, `pyyaml`
+一部のデータ形式には追加の依存関係が必要です。extras として用意されています:
+
+```bash
+pip install 'pandoc-embedz[excel]'   # .xlsx / .xls 対応 (openpyxl)
+pip install 'pandoc-embedz[sqlite]'  # SQLite の拡張サポート (sqlite-utils)
+pip install 'pandoc-embedz[all]'     # すべて
+```
+
+Python 3.11 以降が必要です。
+依存関係: `panflute`, `jinja2`, `pandas`, `pyyaml`, `regex`
 
 **注意**: [Pandoc](https://pandoc.org/installing.html) を別途インストールする必要があります。インストール後、`man pandoc-embedz` で包括的なリファレンスマニュアルを参照できます。
 
@@ -454,7 +463,7 @@ query: SELECT category, COUNT(*) as count FROM events WHERE date >= '2024-01-01'
 
 ### Excelファイル
 
-`.xlsx` / `.xls` ファイルを直接読み込みます。`openpyxl` が必要です（`pip install pandoc-embedz[excel]`）。先頭の空白行および全空列は自動的にスキップされます。
+`.xlsx` / `.xls` ファイルを直接読み込みます。`openpyxl` が必要です（`pip install 'pandoc-embedz[excel]'`）。先頭の空白行および全空列は自動的にスキップされます。
 
 ````markdown
 ```embedz
@@ -763,10 +772,15 @@ git clone https://github.com/tecolicom/pandoc-embedz.git
 cd pandoc-embedz
 
 # 依存関係をインストールし、開発環境をセットアップ
-uv sync --all-extras
+# --all-extras は必須: これがないと openpyxl / sqlite-utils が入らず、
+# Excel・SQLite のテストが黙ってスキップされる
+uv sync --all-extras --all-groups
 
 # テストを実行
 uv run pytest tests/
+
+# lint を実行
+uv run ruff check .
 ```
 
 #### pip を使用
@@ -780,8 +794,9 @@ cd pandoc-embedz
 python -m venv .venv
 source .venv/bin/activate  # Windows の場合: .venv\Scripts\activate
 
-# 開発依存関係と共に編集可能モードでインストール
-pip install -e .[dev]
+# オプション依存関係・開発依存関係と共に編集可能モードでインストール
+# (--group には pip 25.1 以降が必要。dev は PEP 735 の依存グループ)
+pip install -e '.[all]' --group dev
 
 # テストを実行
 pytest tests/

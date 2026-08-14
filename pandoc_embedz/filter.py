@@ -5,13 +5,15 @@ This filter allows you to embed data from various formats (CSV, TSV, JSON, YAML,
 into your Markdown documents using Jinja2 template syntax within code blocks.
 """
 
-from typing import Dict, Any, Tuple, Optional, Union, List, Callable
-import panflute as pf
-from jinja2 import Environment, FunctionLoader, TemplateNotFound
-import pandas as pd
-import yaml
-import sys
 import os
+import sys
+from collections.abc import Callable
+from typing import Any
+
+import pandas as pd
+import panflute as pf
+import yaml
+from jinja2 import Environment, FunctionLoader, TemplateNotFound
 
 # Use regex module if available (supports Unicode properties like \p{P})
 # Falls back to standard re module
@@ -24,14 +26,14 @@ except ImportError:
 
 # Import from local modules
 from .config import (
+    SAVED_TEMPLATES,
+    deep_merge_dicts,
+    load_config_file,
     load_template_from_saved,
+    normalize_config,
     parse_attributes,
     parse_code_block,
     validate_config,
-    normalize_config,
-    load_config_file,
-    deep_merge_dicts,
-    SAVED_TEMPLATES
 )
 from .data_loader import _load_embedz_data
 
@@ -61,9 +63,9 @@ def _has_template_syntax(text: str) -> bool:
     return '{{' in text or '{%' in text
 
 # Store global variables and control structures
-GLOBAL_VARS: Dict[str, Any] = {}
-GLOBAL_ENV: Optional[Environment] = None
-CONTROL_STRUCTURES_PARTS: List[str] = []
+GLOBAL_VARS: dict[str, Any] = {}
+GLOBAL_ENV: Environment | None = None
+CONTROL_STRUCTURES_PARTS: list[str] = []
 KNOWN_EXCEPTIONS = (
     FileNotFoundError,
     ValueError,
@@ -87,7 +89,7 @@ KNOWN_EXCEPTIONS = (
 # 7. Result validation (_validate_convert_result)
 
 
-def _validate_convert_result(result: str, ast_elements: List[Any]) -> List[Any]:
+def _validate_convert_result(result: str, ast_elements: list[Any]) -> list[Any]:
     """Validate that pf.convert_text() produced expected result.
 
     When the template output starts with a fenced code block (```),
@@ -133,14 +135,14 @@ def _validate_convert_result(result: str, ast_elements: List[Any]) -> List[Any]:
     )
 
 
-def _normalize_config_refs(value: Any) -> List[str]:
+def _normalize_config_refs(value: Any) -> list[str]:
     """Normalize config references into a list of file paths."""
     if value is None:
         return []
     if isinstance(value, str):
         return [value]
     if isinstance(value, list):
-        refs: List[str] = []
+        refs: list[str] = []
         for item in value:
             if not isinstance(item, str):
                 raise TypeError("'config' entries must be file paths (strings)")
@@ -150,20 +152,20 @@ def _normalize_config_refs(value: Any) -> List[str]:
 
 
 def _merge_config_sources(
-    attr_config: Dict[str, Any],
-    yaml_config: Dict[str, Any]
-) -> Dict[str, Any]:
+    attr_config: dict[str, Any],
+    yaml_config: dict[str, Any]
+) -> dict[str, Any]:
     """Merge configuration from attributes, YAML, and external files."""
     attr_copy = dict(attr_config)
     yaml_copy = dict(yaml_config)
 
-    config_refs: List[str] = []
+    config_refs: list[str] = []
     if 'config' in attr_copy:
         config_refs.extend(_normalize_config_refs(attr_copy.pop('config')))
     if 'config' in yaml_copy:
         config_refs.extend(_normalize_config_refs(yaml_copy.pop('config')))
 
-    merged: Dict[str, Any] = {}
+    merged: dict[str, Any] = {}
     for ref in config_refs:
         file_config = load_config_file(ref)
         merged = deep_merge_dicts(merged, file_config)
@@ -172,9 +174,9 @@ def _merge_config_sources(
     merged = deep_merge_dicts(merged, yaml_copy)
     return merged
 
-def _filter_to_dict(data: List[Dict[str, Any]], key: str,
+def _filter_to_dict(data: list[dict[str, Any]], key: str,
                     strict: bool = True,
-                    transpose: bool = False) -> Dict[Any, Dict[str, Any]]:
+                    transpose: bool = False) -> dict[Any, dict[str, Any]]:
     """Convert a list of dicts to a dict keyed by a specified field.
 
     Args:
@@ -316,7 +318,7 @@ def _get_jinja_env() -> Environment:
         GLOBAL_ENV.filters['regex_search'] = _filter_regex_search
     return GLOBAL_ENV
 
-def _render_template(template_str: str, context: Dict[str, Any]) -> str:
+def _render_template(template_str: str, context: dict[str, Any]) -> str:
     """Unified template rendering with control structures prepended
 
     Args:
@@ -338,7 +340,7 @@ def _render_template(template_str: str, context: Dict[str, Any]) -> str:
         result = result[1:]
     return result
 
-def _build_render_context(with_vars: Dict[str, Any], data: Optional[Any] = None) -> Dict[str, Any]:
+def _build_render_context(with_vars: dict[str, Any], data: Any | None = None) -> dict[str, Any]:
     """Build render context for Jinja2 template rendering
 
     Args:
@@ -361,7 +363,7 @@ def _build_render_context(with_vars: Dict[str, Any], data: Optional[Any] = None)
 def _parse_and_merge_config(
     elem: pf.CodeBlock,
     text: str
-) -> Tuple[Dict[str, Any], str, Optional[str]]:
+) -> tuple[dict[str, Any], str, str | None]:
     """Parse and merge configuration from attributes and YAML header
 
     Args:
@@ -404,12 +406,12 @@ def _parse_and_merge_config(
 
 def _build_config_from_text(
     text: str,
-    attr_config: Optional[Dict[str, Any]] = None,
-    yaml_config: Optional[Dict[str, Any]] = None,
-    template_part: Optional[str] = None,
-    data_part: Optional[str] = None,
+    attr_config: dict[str, Any] | None = None,
+    yaml_config: dict[str, Any] | None = None,
+    template_part: str | None = None,
+    data_part: str | None = None,
     allow_inline_data: bool = True
-) -> Tuple[Dict[str, Any], str, Optional[str]]:
+) -> tuple[dict[str, Any], str, str | None]:
     """Shared helper to merge configs for both filter and standalone modes."""
     if yaml_config is None or template_part is None:
         yaml_config, template_part, data_part = parse_code_block(
@@ -454,7 +456,7 @@ def _build_config_from_text(
     return config, template_part, data_part
 
 def _process_template_references(
-    config: Dict[str, Any],
+    config: dict[str, Any],
     template_part: str
 ) -> str:
     """Process template save/load operations
@@ -502,7 +504,7 @@ def _process_template_references(
 
     return template_part
 
-def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
+def _prepare_preamble_and_with(config: dict[str, Any]) -> dict[str, Any]:
     """Prepare preamble and with variables (before data loading)
 
     Args:
@@ -529,7 +531,7 @@ def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
             )
 
     # Process with variables (no data access - these are input parameters)
-    with_vars: Dict[str, Any] = {}
+    with_vars: dict[str, Any] = {}
     if 'with' in config:
         with_vars.update(config['with'])
         _debug("Local variables (with): %s", with_vars)
@@ -539,8 +541,8 @@ def _prepare_preamble_and_with(config: Dict[str, Any]) -> Dict[str, Any]:
 
 def _process_nested_structure(
     value: Any,
-    context: Dict[str, Any],
-    processor: Callable[[str, Dict[str, Any], str], Any],
+    context: dict[str, Any],
+    processor: Callable[[str, dict[str, Any], str], Any],
     path: str = ""
 ) -> Any:
     """Recursively process nested structures (dict/list) with a string processor.
@@ -567,7 +569,7 @@ def _process_nested_structure(
         return value
 
 
-def _set_nested_value(target: Dict[str, Any], key: str, value: Any) -> None:
+def _set_nested_value(target: dict[str, Any], key: str, value: Any) -> None:
     """Set a value in a nested dictionary using dot-separated key.
 
     If key contains dots, it is interpreted as a path to a nested location.
@@ -606,7 +608,7 @@ def _set_nested_value(target: Dict[str, Any], key: str, value: Any) -> None:
     current[parts[-1]] = value
 
 
-def _apply_aliases(alias_config: Dict[str, str]) -> None:
+def _apply_aliases(alias_config: dict[str, str]) -> None:
     """Apply aliases to all dicts in GLOBAL_VARS.
 
     For each alias mapping (e.g., {'のアレ': 'ラベル'}), recursively walk
@@ -639,9 +641,9 @@ def _apply_aliases(alias_config: Dict[str, str]) -> None:
 
 
 def _process_bind_section(
-    bind_config: Dict[str, Any],
-    with_vars: Dict[str, Any],
-    data: Optional[Any],
+    bind_config: dict[str, Any],
+    with_vars: dict[str, Any],
+    data: Any | None,
     env: Environment
 ) -> None:
     """Process bind section: evaluate expressions with type preservation.
@@ -660,7 +662,7 @@ def _process_bind_section(
     Side effects:
         Updates GLOBAL_VARS dictionary
     """
-    def eval_expression(expr_str: str, ctx: Dict[str, Any], path: str) -> Any:
+    def eval_expression(expr_str: str, ctx: dict[str, Any], path: str) -> Any:
         """Evaluate expression and preserve type."""
         expr_str = expr_str.strip()
         compiled = env.compile_expression(expr_str)
@@ -679,9 +681,9 @@ def _process_bind_section(
 
 
 def _expand_global_variables(
-    config: Dict[str, Any],
-    with_vars: Dict[str, Any],
-    data: Optional[Any] = None
+    config: dict[str, Any],
+    with_vars: dict[str, Any],
+    data: Any | None = None
 ) -> None:
     """Expand global variables with access to loaded data
 
@@ -699,7 +701,7 @@ def _expand_global_variables(
     Side effects:
         Updates GLOBAL_VARS dictionary
     """
-    def expand_template(text: str, ctx: Dict[str, Any], path: str) -> str:
+    def expand_template(text: str, ctx: dict[str, Any], path: str) -> str:
         """Expand template if it contains Jinja2 syntax."""
         if _has_template_syntax(text):
             rendered = _render_template(text, ctx)
@@ -729,8 +731,8 @@ def _expand_global_variables(
 
 
 def _resolve_data_variable(
-    data_value: Optional[str]
-) -> Optional[Union[List[Any], Dict[str, Any]]]:
+    data_value: str | None
+) -> list[Any] | dict[str, Any] | None:
     """Resolve data= value as a variable reference from GLOBAL_VARS.
 
     Args:
@@ -767,8 +769,8 @@ def _resolve_data_variable(
 
 def _resolve_nested_variable(
     path: str,
-    context: Dict[str, Any]
-) -> Optional[Any]:
+    context: dict[str, Any]
+) -> Any | None:
     """Resolve a dot-notated variable path from context.
 
     Args:
@@ -793,9 +795,9 @@ def _resolve_nested_variable(
 
 
 def _prepare_data_loading(
-    config: Dict[str, Any],
-    with_vars: Dict[str, Any]
-) -> Tuple[Optional[Union[str, Dict[str, Any]]], Optional[str], bool, Dict[str, Any]]:
+    config: dict[str, Any],
+    with_vars: dict[str, Any]
+) -> tuple[str | dict[str, Any] | None, str | None, bool, dict[str, Any]]:
     """Prepare data loading parameters with query template expansion
 
     Args:
@@ -820,8 +822,8 @@ def _prepare_data_loading(
     if 'columns' in config:
         try:
             load_kwargs['columns'] = int(config['columns'])
-        except (ValueError, TypeError):
-            raise ValueError(f"'columns' must be an integer, got: {config['columns']!r}")
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"'columns' must be an integer, got: {config['columns']!r}") from e
         _debug("SSV columns: %s", config['columns'])
 
     if config.get('transpose'):
@@ -874,7 +876,7 @@ def _prepare_data_loading(
 
     return data_file, data_format, has_header, load_kwargs
 
-def _split_template_and_newlines(template_part: str) -> Tuple[str, str]:
+def _split_template_and_newlines(template_part: str) -> tuple[str, str]:
     """Return template body and trailing newline suffix (at least one newline)."""
     if not template_part:
         return '', '\n'
@@ -885,8 +887,8 @@ def _split_template_and_newlines(template_part: str) -> Tuple[str, str]:
 
 def _render_embedz_template(
     template_part: str,
-    data: Union[List[Any], Dict[str, Any]],
-    with_vars: Dict[str, Any]
+    data: list[Any] | dict[str, Any],
+    with_vars: dict[str, Any]
 ) -> str:
     """Render template with data and variables
 
@@ -913,10 +915,10 @@ def _render_embedz_template(
 
 
 def _execute_embedz_pipeline(
-    config: Dict[str, Any],
+    config: dict[str, Any],
     template_part: str,
-    data_part: Optional[str]
-) -> Tuple[Optional[str], Optional[str], bool]:
+    data_part: str | None
+) -> tuple[str | None, str | None, bool]:
     """Run the core embedz pipeline shared by block and standalone modes.
 
     Processing order (Steps 3-7, continuing from process_embedz Steps 1-2):
@@ -981,7 +983,7 @@ def _execute_embedz_pipeline(
         _debug("Definition-only block, returning empty output")
         return None, data_file, has_header
 
-    render_data: Union[List[Any], Dict[str, Any]] = data or []
+    render_data: list[Any] | dict[str, Any] = data or []
 
     _debug("Step 7: Rendering template")
     result = _render_embedz_template(template_part, render_data, with_vars)
@@ -991,50 +993,50 @@ def _execute_embedz_pipeline(
 def print_error_info(
     e: Exception,
     template_part: str,
-    config: Dict[str, Any],
-    data_file: Optional[str],
+    config: dict[str, Any],
+    data_file: str | None,
     has_header: bool,
-    data_part: Optional[str] = None
+    data_part: str | None = None
 ) -> None:
     """Print error information to stderr"""
     sys.stderr.write(f"\n{'='*60}\n")
-    sys.stderr.write(f"pandoc-embedz Error\n")
+    sys.stderr.write("pandoc-embedz Error\n")
     sys.stderr.write(f"{'='*60}\n")
     sys.stderr.write(f"Error: {e}\n")
 
     # Add helpful hints for common errors
     error_msg = str(e)
     if 'ParserError' in type(e).__name__ or 'Expected' in error_msg:
-        sys.stderr.write(f"\nHint: Data parsing failed. Common causes:\n")
-        sys.stderr.write(f"  - SSV format with spaces in field values\n")
-        sys.stderr.write(f"  - Inconsistent number of fields\n")
-        sys.stderr.write(f"  - Try using 'tsv' or 'csv' format instead\n")
+        sys.stderr.write("\nHint: Data parsing failed. Common causes:\n")
+        sys.stderr.write("  - SSV format with spaces in field values\n")
+        sys.stderr.write("  - Inconsistent number of fields\n")
+        sys.stderr.write("  - Try using 'tsv' or 'csv' format instead\n")
     elif 'FileNotFoundError' in type(e).__name__:
-        sys.stderr.write(f"\nHint: Data file not found.\n")
+        sys.stderr.write("\nHint: Data file not found.\n")
         sys.stderr.write(f"  - Check the file path: {data_file}\n")
-        sys.stderr.write(f"  - Use relative paths from the markdown file location\n")
+        sys.stderr.write("  - Use relative paths from the markdown file location\n")
     elif 'Template' in error_msg or 'not found' in error_msg.lower():
-        sys.stderr.write(f"\nHint: Template issue.\n")
-        sys.stderr.write(f"  - Check template syntax\n")
-        sys.stderr.write(f"  - Ensure referenced templates are defined first\n")
+        sys.stderr.write("\nHint: Template issue.\n")
+        sys.stderr.write("  - Check template syntax\n")
+        sys.stderr.write("  - Ensure referenced templates are defined first\n")
 
-    sys.stderr.write(f"\nConfig:\n")
+    sys.stderr.write("\nConfig:\n")
     sys.stderr.write(f"  Data file: {data_file or 'inline'}\n")
     sys.stderr.write(f"  Format: {config.get('format', 'auto-detect')}\n")
     sys.stderr.write(f"  Header: {has_header}\n")
     sys.stderr.write(f"  Template: {config.get('as', config.get('name', 'inline'))}\n")
 
     if data_part and len(data_part) < 500:
-        sys.stderr.write(f"\nInline data:\n")
+        sys.stderr.write("\nInline data:\n")
         sys.stderr.write(f"{'-'*60}\n")
         sys.stderr.write(f"{data_part}\n")
         sys.stderr.write(f"{'-'*60}\n")
 
-    sys.stderr.write(f"\nFor more information, see the documentation.\n")
+    sys.stderr.write("\nFor more information, see the documentation.\n")
     sys.stderr.write(f"{'='*60}\n\n")
 
 
-def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.Element], None]:
+def process_embedz(elem: pf.Element, doc: pf.Doc) -> pf.Element | list[pf.Element] | None:
     """Process code blocks with .embedz class
 
     Args:
@@ -1055,10 +1057,10 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
     _debug("Processing embedz code block")
 
     # Initialize variables for error handling
-    config: Dict[str, Any] = {}
+    config: dict[str, Any] = {}
     template_part = 'N/A'
-    data_part: Optional[str] = None
-    data_file: Optional[str] = None
+    data_part: str | None = None
+    data_file: str | None = None
     has_header = True
 
     try:
@@ -1097,11 +1099,11 @@ def process_embedz(elem: pf.Element, doc: pf.Doc) -> Union[pf.Element, List[pf.E
     except Exception as e:
         # Unexpected exception - always show and raise
         sys.stderr.write(f"\n{'='*60}\n")
-        sys.stderr.write(f"pandoc-embedz: Unexpected Error\n")
+        sys.stderr.write("pandoc-embedz: Unexpected Error\n")
         sys.stderr.write(f"{'='*60}\n")
         sys.stderr.write(f"Error: {type(e).__name__}: {e}\n")
-        sys.stderr.write(f"This may be a bug. Please report at:\n")
-        sys.stderr.write(f"https://github.com/tecolicom/pandoc-embedz/issues\n")
+        sys.stderr.write("This may be a bug. Please report at:\n")
+        sys.stderr.write("https://github.com/tecolicom/pandoc-embedz/issues\n")
         sys.stderr.write(f"{'='*60}\n\n")
         raise
 
