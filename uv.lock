@@ -512,7 +512,7 @@ wheels = [
 
 [[package]]
 name = "pandoc-embedz"
-version = "0.22.3"
+version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "jinja2" },

@@ -2,8 +2,8 @@
 title: pandoc-embedz
 section: 1
 header: User Manual
-footer: pandoc-embedz 0.22.3
-date: 2026-03-28
+footer: pandoc-embedz 1.0.0
+date: 2026-08-14
 ---
 
 # NAME
